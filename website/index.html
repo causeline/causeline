@@ -7,7 +7,7 @@
 <title>Causeline · Trace a React click through Spring Boot and back</title>
 <meta name="description" content="Open-source, local-first tracing for React and Spring Boot. Follow one click through controllers, SQL and API calls on one timeline, then replay and compare.">
 <meta name="keywords" content="React Spring Boot tracing, distributed tracing, OpenTelemetry, traceparent, Micrometer, Spring Boot debugging, React debugging, request replay, SQL query tracing, N+1 queries, performance bottleneck, developer tools">
-<meta name="author" content="Causeline contributors">
+<meta name="author" content="Sudharma BG">
 <meta name="robots" content="index, follow, max-image-preview:large">
 <link rel="canonical" href="https://causeline.dev/">
 <meta name="theme-color" content="#0f0e0c">
@@ -55,6 +55,8 @@
       "downloadUrl": "https://central.sonatype.com/artifact/dev.causeline/causeline-spring-boot",
       "codeRepository": "https://github.com/causeline/causeline",
       "programmingLanguage": ["Java", "TypeScript"],
+      "author": { "@id": "https://causeline.dev/#sudharma" },
+      "creator": { "@id": "https://causeline.dev/#sudharma" },
       "keywords": "React, Spring Boot, OpenTelemetry, tracing, debugging, replay",
       "sameAs": [
         "https://github.com/causeline/causeline",
@@ -63,11 +65,22 @@
       ]
     },
     {
+      "@type": "Person",
+      "@id": "https://causeline.dev/#sudharma",
+      "name": "Sudharma BG",
+      "jobTitle": "Senior Full Stack & AI Engineer",
+      "url": "https://sudharmabg.vercel.app/",
+      "address": { "@type": "PostalAddress", "addressLocality": "Bengaluru", "addressCountry": "IN" },
+      "knowsAbout": ["Spring Boot", "React", "Java", "LLM", "RAG", "Redis", "MySQL"],
+      "sameAs": ["https://www.linkedin.com/in/sudharmabg/", "https://sudharmabg.vercel.app/", "https://github.com/Sudharmabg"]
+    },
+    {
       "@type": "WebSite",
       "@id": "https://causeline.dev/#website",
       "url": "https://causeline.dev/",
       "name": "Causeline",
-      "inLanguage": "en"
+      "inLanguage": "en",
+      "publisher": { "@id": "https://causeline.dev/#sudharma" }
     },
     {
       "@type": "FAQPage",
@@ -373,6 +386,51 @@
     </div>
   </section>
 
+  <!-- ======================= Maker ======================= -->
+  <section id="maker" aria-labelledby="maker-title">
+    <div class="wrap">
+      <div class="section-head reveal">
+        <span class="mono">07 · The maker</span>
+        <div>
+          <h2 id="maker-title">Built by someone who <em>works</em> in this stack.</h2>
+        </div>
+      </div>
+      <article class="maker reveal" itemscope itemtype="https://schema.org/Person">
+        <div class="maker-id">
+          <div class="monogram" aria-hidden="true">
+            <svg class="orbit" viewBox="0 0 120 120"><circle cx="60" cy="60" r="56"/></svg>
+            <span>SB</span>
+          </div>
+          <div>
+            <h3 itemprop="name">Sudharma BG</h3>
+            <p class="role"><span itemprop="jobTitle">Senior Full Stack &amp; AI Engineer</span> · <span>Bengaluru, India</span></p>
+          </div>
+        </div>
+        <div class="maker-body">
+          <p itemprop="description">Sudharma has spent more than five years building backend systems with <b>Spring Boot</b> and front ends with <b>React</b>, along with RAG pipelines and LLM-based platforms. Causeline is built for exactly that kind of work: following a request across React and Spring Boot without switching between five tools.</p>
+          <ul class="chips" aria-label="Stack">
+            <li style="--i:0">Spring Boot</li><li style="--i:1">React</li><li style="--i:2">Java</li><li style="--i:3">LLMs &amp; RAG</li><li style="--i:4">Redis</li><li style="--i:5">MySQL</li>
+          </ul>
+          <div class="maker-links">
+            <a class="pill" href="https://www.linkedin.com/in/sudharmabg/" rel="me noopener" itemprop="sameAs">
+              <svg width="15" height="15" viewBox="0 0 24 24" aria-hidden="true"><path fill="currentColor" d="M20.45 20.45h-3.55v-5.57c0-1.33-.03-3.04-1.85-3.04-1.86 0-2.14 1.45-2.14 2.94v5.67H9.36V9h3.41v1.56h.05c.48-.9 1.64-1.85 3.37-1.85 3.6 0 4.27 2.37 4.27 5.46v6.28zM5.34 7.43a2.06 2.06 0 1 1 0-4.12 2.06 2.06 0 0 1 0 4.12zM7.12 20.45H3.56V9h3.56v11.45zM22.22 0H1.77C.79 0 0 .77 0 1.73v20.54C0 23.23.79 24 1.77 24h20.45c.98 0 1.78-.77 1.78-1.73V1.73C24 .77 23.2 0 22.22 0z"/></svg>
+              LinkedIn
+            </a>
+            <a class="pill" href="https://sudharmabg.vercel.app/" rel="me noopener" itemprop="url">
+              <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true"><circle cx="12" cy="12" r="9"/><path d="M3 12h18M12 3c2.6 2.6 2.6 15.4 0 18M12 3c-2.6 2.6-2.6 15.4 0 18"/></svg>
+              Portfolio
+            </a>
+            <a class="pill" href="https://github.com/Sudharmabg" rel="me noopener" itemprop="sameAs">
+              <svg width="15" height="15" viewBox="0 0 16 16" aria-hidden="true"><path fill="currentColor" d="M8 0C3.58 0 0 3.58 0 8c0 3.54 2.29 6.53 5.47 7.59.4.07.55-.17.55-.38 0-.19-.01-.82-.01-1.49-2.01.37-2.53-.49-2.69-.94-.09-.23-.48-.94-.82-1.13-.28-.15-.68-.52-.01-.53.63-.01 1.08.58 1.23.82.72 1.21 1.87.87 2.33.66.07-.52.28-.87.51-1.07-1.78-.2-3.64-.89-3.64-3.95 0-.87.31-1.59.82-2.15-.08-.2-.36-1.02.08-2.12 0 0 .67-.21 2.2.82.64-.18 1.32-.27 2-.27.68 0 1.36.09 2 .27 1.53-1.04 2.2-.82 2.2-.82.44 1.1.16 1.92.08 2.12.51.56.82 1.27.82 2.15 0 3.07-1.87 3.75-3.65 3.95.29.25.54.73.54 1.48 0 1.07-.01 1.93-.01 2.2 0 .21.15.46.55.38A8.013 8.013 0 0016 8c0-4.42-3.58-8-8-8z"/></svg>
+              GitHub
+            </a>
+          </div>
+          <p class="maker-note">Using Causeline, or want to help shape it? Say hello on <a href="https://www.linkedin.com/in/sudharmabg/" rel="noopener">LinkedIn</a> or <a href="https://github.com/causeline/causeline/issues">open an issue</a>.</p>
+        </div>
+      </article>
+    </div>
+  </section>
+
   <!-- ======================= Closing ======================= -->
   <section class="closing" aria-labelledby="closing-title">
     <div class="wrap">
@@ -388,12 +446,13 @@
 <footer>
   <div class="wrap">
     <div class="foot">
-      <span>© 2026 Causeline contributors · Apache License 2.0 · For development and QA, never production.</span>
+      <span>© 2026 Causeline · Built by <a href="https://sudharmabg.vercel.app/" rel="noopener">Sudharma BG</a> · Apache License 2.0 · For development and QA, never production.</span>
       <nav aria-label="Footer">
         <a href="https://github.com/causeline/causeline">GitHub</a>
         <a href="https://www.npmjs.com/package/@causeline/react">npm</a>
         <a href="https://central.sonatype.com/artifact/dev.causeline/causeline-spring-boot">Maven Central</a>
         <a href="https://github.com/causeline/causeline/blob/main/docs/QUICKSTART.md">Quick start</a>
+        <a href="https://www.linkedin.com/in/sudharmabg/" rel="noopener">LinkedIn</a>
       </nav>
     </div>
     <p class="wordmark" aria-hidden="true">causeline</p>
