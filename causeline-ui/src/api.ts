@@ -1,4 +1,6 @@
 // SPDX-License-Identifier: Apache-2.0
+import { buildReport } from './report';
+import type { ExportedTrace } from './report';
 
 export type SpanStatus = 'OK' | 'ERROR' | 'UNSET';
 
@@ -26,6 +28,9 @@ export interface TraceSummary {
   replayOf: string | null;
   /** Loaded from an exported file rather than recorded here. */
   imported: boolean;
+  /** The usual duration of this action (median of other successful runs), or null without enough history. */
+  baselineNanos?: number | null;
+  baselineRuns?: number;
 }
 
 export interface Status {
@@ -37,6 +42,20 @@ export interface Status {
   browserSpansDropped: number;
   browserSpansRejected: number;
   otlp: { enabled: boolean; endpointHost: string | null; exported: number; dropped: number; failedRequests: number };
+  onboarding: Onboarding;
+  /** The Causeline this service sends spans to, and spans received from downstream services. */
+  upstream?: { enabled: boolean; host: string | null; sent: number; dropped: number; failedRequests: number; received: number };
+}
+
+/** What has arrived since the application started, for the first-run checklist. */
+export interface Onboarding {
+  appName: string;
+  serverSpans: number;
+  browserSpans: number;
+  namedActions: number;
+  /** Epoch milliseconds, or null when nothing has arrived yet. */
+  lastServerSpanAt: number | null;
+  lastBrowserSpanAt: number | null;
 }
 
 export interface SpanRow {
@@ -200,6 +219,29 @@ export async function downloadTrace(traceId: string, token: string | undefined):
   const link = document.createElement('a');
   link.href = url;
   link.download = name;
+  link.click();
+  URL.revokeObjectURL(url);
+}
+
+/**
+ * Downloads a self-contained HTML bug report. Values come from the redacted export, never from the
+ * unredacted view, so the file carries no more than an exported trace would.
+ */
+export async function downloadReport(traceId: string, token: string | undefined): Promise<void> {
+  const headers: Record<string, string> = token ? { 'X-Causeline-Token': token } : {};
+  const [view, exported] = await Promise.all([
+    fetchTrace(traceId, token),
+    fetch(`${BASE}/traces/${encodeURIComponent(traceId)}/export`, { headers }).then(async (r) => {
+      if (!r.ok) {
+        throw new ApiError(r.status, `Export failed: HTTP ${r.status}`);
+      }
+      return (await r.json()) as ExportedTrace;
+    }),
+  ]);
+  const url = URL.createObjectURL(new Blob([buildReport(view, exported)], { type: 'text/html' }));
+  const link = document.createElement('a');
+  link.href = url;
+  link.download = `causeline-report-${traceId.slice(0, 8)}.html`;
   link.click();
   URL.revokeObjectURL(url);
 }

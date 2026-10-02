@@ -16,9 +16,16 @@ import org.aspectj.lang.annotation.Aspect;
 public final class ControllerObservationAspect {
 
     private final ObservationRegistry registry;
+    private final MethodValues values;
 
     public ControllerObservationAspect(ObservationRegistry registry) {
+        this(registry, MethodValues.OFF);
+    }
+
+    /** @param values records the method's arguments and return value on the span */
+    public ControllerObservationAspect(ObservationRegistry registry, MethodValues values) {
         this.registry = registry;
+        this.values = values;
     }
 
     @Around("(@within(org.springframework.web.bind.annotation.RestController)"
@@ -31,9 +38,14 @@ public final class ControllerObservationAspect {
             return pjp.proceed();
         }
         String name = pjp.getSignature().getDeclaringType().getSimpleName() + "." + pjp.getSignature().getName();
-        return Observation.createNotStarted("causeline.controller", registry)
+        Observation observation = Observation.createNotStarted("causeline.controller", registry)
                 .contextualName(name)
-                .lowCardinalityKeyValue(SpanMapper.KIND_ATTRIBUTE, SpanKind.CONTROLLER.name())
-                .observeChecked((Observation.CheckedCallable<Object, Throwable>) pjp::proceed);
+                .lowCardinalityKeyValue(SpanMapper.KIND_ATTRIBUTE, SpanKind.CONTROLLER.name());
+        values.arguments(observation, pjp);
+        return observation.observeChecked((Observation.CheckedCallable<Object, Throwable>) () -> {
+            Object result = pjp.proceed();
+            values.returned(observation, pjp, result);
+            return result;
+        });
     }
 }

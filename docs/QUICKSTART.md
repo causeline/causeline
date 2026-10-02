@@ -117,6 +117,22 @@ Click the button, then open the newest trace in `/causeline`. You'll see the cli
 - **Block data** you don't want captured: see the configuration reference in the [README](../README.md#configuration-reference).
 - **Share a trace:** **Export** writes a file with secrets redacted.
 
+## More than one service?
+
+If your app calls another Spring Boot service that also uses Causeline, point the downstream service at the caller's Causeline:
+
+```yaml
+# application-dev.yml of the downstream service
+causeline:
+  enabled: true
+  export:
+    upstream:
+      url: http://localhost:8080          # the calling service
+      token: ${CALLER_CAUSELINE_TOKEN}    # the caller's causeline.access-token
+```
+
+Calls between them then show as one trace in the caller's UI.
+
 ## Troubleshooting
 
 | Symptom | Fix |

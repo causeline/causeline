@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: Apache-2.0
 package dev.causeline.spring.internal.web;
 
+import dev.causeline.core.Baselines;
 import dev.causeline.core.Span;
 import dev.causeline.core.TraceAssembler;
 import dev.causeline.core.TraceFile;
@@ -9,6 +10,7 @@ import dev.causeline.core.TraceSummary;
 import dev.causeline.core.TraceView;
 import dev.causeline.spring.internal.capture.SpanRedactor;
 import dev.causeline.spring.internal.export.SpanForwarder;
+import dev.causeline.spring.internal.export.UpstreamForwarder;
 import dev.causeline.spring.internal.tracing.CauselineStats;
 import java.time.Instant;
 import java.util.ArrayList;
@@ -40,6 +42,8 @@ public class CauselineApiController {
     /** The SDK's own buffer holds 500 spans; a larger drop count can't be genuine. */
     static final int MAX_REPORTED_DROPS = 100_000;
     static final String DROPPED_HEADER = "X-Causeline-Dropped";
+    /** A downstream Causeline sends up to 500 spans per request. */
+    static final int MAX_PEER_SPANS_PER_REQUEST = 2_000;
 
     private final TraceStore store;
     private final Function<String, Optional<String>> replayOf;
@@ -47,6 +51,7 @@ public class CauselineApiController {
     private final SpanForwarder forwarder;
     private final String appName;
     private final Status.Otlp otlp;
+    private Status.Upstream upstream = Status.Upstream.disabled();
     private final SpanRedactor redactor;
     private final Set<String> imported = ConcurrentHashMap.newKeySet();
 
@@ -68,10 +73,12 @@ public class CauselineApiController {
 
     @GetMapping("/traces")
     public List<TraceSummary> traces() {
-        return store.snapshot().stream()
+        List<TraceSummary> summaries = store.snapshot().stream()
                 .map(spans -> TraceAssembler.assemble(spans.getFirst().traceId(), spans).summary())
                 .map(summary -> summary.withReplayOf(replayOf.apply(summary.traceId()).orElse(null))
                         .withImported(imported.contains(summary.traceId())))
+                .toList();
+        return Baselines.apply(summaries).stream()
                 .sorted(Comparator.comparingLong(TraceSummary::startTimeUnixNano).reversed())
                 .toList();
     }
@@ -131,10 +138,37 @@ public class CauselineApiController {
             }
         }
         store.addAll(accepted);
+        stats.browserSpansAccepted(accepted);
         forwarder.forward(accepted);
         int rejected = spans.size() - accepted.size();
         stats.browserSpansRejected.addAndGet(rejected);
         return ResponseEntity.accepted().body(Map.of("accepted", accepted.size(), "rejected", rejected));
+    }
+
+    /**
+     * Spans from a downstream service's Causeline ({@code causeline.export.upstream} there), so a
+     * call that crosses services shows as one trace here. Needs this app's access token. Received
+     * spans are marked, so they are never forwarded on again.
+     */
+    @PostMapping("/peer-spans")
+    public ResponseEntity<Map<String, Integer>> peerSpans(@RequestBody List<Span> spans) {
+        if (spans.size() > MAX_PEER_SPANS_PER_REQUEST) {
+            return ResponseEntity.status(HttpStatus.CONTENT_TOO_LARGE).build();
+        }
+        List<Span> accepted = new ArrayList<>(spans.size());
+        for (Span span : spans) {
+            if (span == null) {
+                continue;
+            }
+            Map<String, String> attributes = new java.util.LinkedHashMap<>(span.attributes());
+            attributes.put(UpstreamForwarder.FORWARDED_ATTRIBUTE, "true");
+            accepted.add(new Span(span.traceId(), span.spanId(), span.parentSpanId(), span.kind(), span.name(),
+                    span.source(), span.startTimeUnixNano(), span.durationNanos(), span.status(), attributes));
+        }
+        store.addAll(accepted);
+        stats.peerSpansReceived.addAndGet(accepted.size());
+        forwarder.forward(accepted); // OTLP may export them; the upstream forwarder skips them
+        return ResponseEntity.accepted().body(Map.of("accepted", accepted.size()));
     }
 
     /** Where data was lost, so gaps in traces are explained. */
@@ -142,7 +176,12 @@ public class CauselineApiController {
     public Status status() {
         return new Status(store.size(), store.estimatedBytes(), store.maxBytes(), store.evictedTraces(),
                 stats.serverSpansDropped.get(), stats.browserSpansDropped.get(), stats.browserSpansRejected.get(),
-                otlp.withCounts(stats));
+                otlp.withCounts(stats), Status.Onboarding.from(appName, stats), upstream.withCounts(stats));
+    }
+
+    /** Reports the upstream Causeline in the status; host only, never the token. */
+    public void setUpstream(String host) {
+        this.upstream = new Status.Upstream(true, host, 0, 0, 0, 0);
     }
 
     private void recordSdkDrops(String header) {
@@ -160,7 +199,41 @@ public class CauselineApiController {
     }
 
     public record Status(int traces, long estimatedBytes, long maxBytes, long evictedTraces, long serverSpansDropped,
-            long browserSpansDropped, long browserSpansRejected, Otlp otlp) {
+            long browserSpansDropped, long browserSpansRejected, Otlp otlp, Onboarding onboarding, Upstream upstream) {
+
+        /**
+         * The Causeline this service sends its spans to, and spans received from downstream services.
+         *
+         * @param host where spans go; the token is never shown
+         */
+        public record Upstream(boolean enabled, String host, long sent, long dropped, long failedRequests,
+                long received) {
+
+            static Upstream disabled() {
+                return new Upstream(false, null, 0, 0, 0, 0);
+            }
+
+            Upstream withCounts(CauselineStats stats) {
+                return new Upstream(enabled, host, stats.upstreamSent.get(), stats.upstreamDropped.get(),
+                        stats.upstreamFailedRequests.get(), stats.peerSpansReceived.get());
+            }
+        }
+
+        /**
+         * What has arrived since the application started, for the UI's first-run checklist.
+         *
+         * @param lastServerSpanAt  epoch milliseconds, or null if no server span has been stored
+         * @param lastBrowserSpanAt epoch milliseconds, or null if the React SDK has not sent anything
+         */
+        public record Onboarding(String appName, long serverSpans, long browserSpans, long namedActions,
+                Long lastServerSpanAt, Long lastBrowserSpanAt) {
+
+            static Onboarding from(String appName, CauselineStats stats) {
+                return new Onboarding(appName, stats.serverSpansStored.get(), stats.browserSpansAccepted.get(),
+                        stats.browserActionsSeen.get(), stats.lastServerSpanAt == 0 ? null : stats.lastServerSpanAt,
+                        stats.lastBrowserSpanAt == 0 ? null : stats.lastBrowserSpanAt);
+            }
+        }
 
         /** @param endpointHost where spans go; the full URL and headers are never shown */
         public record Otlp(boolean enabled, String endpointHost, long exported, long dropped, long failedRequests) {

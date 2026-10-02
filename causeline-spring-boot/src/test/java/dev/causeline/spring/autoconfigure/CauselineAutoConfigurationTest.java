@@ -35,7 +35,30 @@ class CauselineAutoConfigurationTest {
             assertThat(properties.export().redactSecrets()).isTrue();
             assertThat(properties.replay().sendOriginalCredentials()).isTrue();
             assertThat(context).hasSingleBean(TraceStore.class).hasSingleBean(SpanProcessor.class);
+            // Off unless asked for: nothing is written to disk and nothing is sent upstream.
+            assertThat(context).doesNotHaveBean(dev.causeline.spring.internal.export.TracePersistence.class)
+                    .doesNotHaveBean(dev.causeline.spring.internal.export.UpstreamForwarder.class);
+            // @Async work keeps the request's trace.
+            assertThat(context).hasSingleBean(org.springframework.core.task.TaskDecorator.class);
         });
+    }
+
+    @Test
+    void savesTracesAcrossRestartsOnlyWhenAskedTo(@org.junit.jupiter.api.io.TempDir java.nio.file.Path dir) {
+        runner.withPropertyValues("causeline.enabled=true", "causeline.store.persist=true",
+                "causeline.store.directory=" + dir.toString().replace('\\', '/')).run(context -> {
+            assertThat(context).hasSingleBean(dev.causeline.spring.internal.export.TracePersistence.class);
+            assertThat(context.getBean(dev.causeline.spring.internal.export.TracePersistence.class).file())
+                    .isEqualTo(dir.resolve("traces.json"));
+        });
+    }
+
+    @Test
+    void keepsTheApplicationsOwnTaskDecorator() {
+        org.springframework.core.task.TaskDecorator own = runnable -> runnable;
+        runner.withPropertyValues("causeline.enabled=true")
+                .withBean(org.springframework.core.task.TaskDecorator.class, () -> own)
+                .run(context -> assertThat(context.getBean(org.springframework.core.task.TaskDecorator.class)).isSameAs(own));
     }
 
     @Test

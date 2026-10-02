@@ -125,22 +125,36 @@ causeline:
     response-body: full                # none: not recorded
     sql: full                          # with bound values filled in; statement: values as ?; operation: "INSERT orders" only
     exception-details: true            # exception messages and stack traces
+    arguments: true                    # arguments and return values of controller, service and repository methods
     redact-keys: []                    # e.g. [password]: hidden everywhere, even locally
   store:
     max-traces: 1000
     max-size: 64MB
+    persist: false                     # true: keep traces across restarts (redacted file in ~/.causeline/<app>)
   export:
-    redact-secrets: true               # OTLP and trace files: credentials and sensitive values redacted
+    redact-secrets: true               # OTLP, upstream, saved and exported traces: credentials and sensitive values redacted
     otlp:
       endpoint: http://localhost:4318/v1/traces   # off unless set; Jaeger, Tempo, an OTel collector, Datadog agent
       headers: { X-API-Key: "${OTLP_API_KEY}" }
+    upstream:
+      url: http://localhost:8080       # off unless set: send this service's spans to the calling service's Causeline
+      token: ${UPSTREAM_CAUSELINE_TOKEN}
   replay:
     send-original-credentials: true    # resend the user's Authorization and cookies
 ```
 
 In React, `<CauselineProvider capture={{ query: false, stateValues: false, bodies: false }}>` stops recording query strings, state values, and request and response bodies in the browser.
 
-OTLP export sends Causeline's stored spans, never Spring's raw spans, with secrets redacted unless `export.redact-secrets` is false. Use **Export** on a trace to save it as a file for a bug report; **Import trace…** opens such a file in another developer's Causeline. If spans are ever dropped (full buffers, an unreachable exporter), the UI says so.
+OTLP export sends Causeline's stored spans, never Spring's raw spans, with secrets redacted unless `export.redact-secrets` is false. Use **Export** on a trace to save it as a file, or **Bug report** for a single HTML file that opens in any browser; **Import trace…** opens an exported file in another developer's Causeline. If spans are ever dropped (full buffers, an unreachable exporter), the UI says so.
+
+**Beyond a single request thread:**
+
+- Controller, service and repository rows show the method's **arguments and return value** as JSON. Unloaded JPA relations show as `[not loaded]` (rendering never runs a query), servlet requests, streams and files show by type, and values are capped at 4 KB.
+- `@Async` methods and Spring's task executor stay in the request's trace (Causeline registers a context-propagating `TaskDecorator` unless your app defines its own).
+- Kafka and RabbitMQ sends and receives appear as message spans (Spring Kafka and Spring AMQP observations are switched on).
+- **Several services:** in the downstream service, set `causeline.export.upstream.url` and `.token` to the calling service's address and access token. Its spans then appear inside the caller's trace, labelled with the service name.
+
+The UI flags runs that are **slower than usual** (compared with the median of other runs of the same action), and the trace list has search and filters for errors, slow runs and replays.
 
 ### Replay
 

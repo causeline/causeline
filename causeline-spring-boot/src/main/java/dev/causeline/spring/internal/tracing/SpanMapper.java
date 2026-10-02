@@ -170,9 +170,21 @@ public final class SpanMapper {
                 }
                 yield dbName;
             }
+            case MESSAGE -> {
+                // Kafka and RabbitMQ observations use OpenTelemetry's messaging conventions.
+                copy(raw, "messaging.system", attributes, "messaging.system");
+                copy(raw, "messaging.destination.name", attributes, "messaging.destination.name");
+                copy(raw, "messaging.kafka.consumer.group", attributes, "messaging.consumer.group.name");
+                copy(raw, "messaging.rabbitmq.destination.routing_key", attributes, "messaging.rabbitmq.destination.routing_key");
+                String destination = raw.getOrDefault("messaging.destination.name", raw.get("spring.rabbit.listener.id"));
+                String verb = data.getKind() == io.opentelemetry.api.trace.SpanKind.PRODUCER ? "send" : "receive";
+                yield destination == null ? data.getName() : verb + " " + destination;
+            }
             default -> {
                 copy(raw, "class", attributes, "code.namespace");
                 copy(raw, "method", attributes, "code.function");
+                copy(raw, MethodValues.ARGUMENTS, attributes, MethodValues.ARGUMENTS);
+                copy(raw, MethodValues.RETURNED, attributes, MethodValues.RETURNED);
                 yield raw.containsKey("class") && raw.containsKey("method")
                         ? simpleName(raw.get("class")) + "." + raw.get("method")
                         : data.getName();
@@ -207,6 +219,7 @@ public final class SpanMapper {
         return switch (data.getKind()) {
             case SERVER -> SpanKind.REQUEST;
             case CLIENT -> SpanKind.HTTP_CLIENT;
+            case PRODUCER, CONSUMER -> SpanKind.MESSAGE;
             default -> SpanKind.SERVICE;
         };
     }

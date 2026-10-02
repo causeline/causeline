@@ -35,11 +35,28 @@ public record CauselineProperties(
 
     /**
      * @param otlp           forward spans to an OpenTelemetry (OTLP/HTTP) endpoint
+     * @param upstream       send this service's spans to another application's Causeline, so a call
+     *                       from service A to service B shows as one trace in A's UI
      * @param redactSecrets  redact credentials and sensitive values in everything that leaves this
-     *                       application: OTLP export and exported trace files. The local UI still
-     *                       shows everything that was captured.
+     *                       application: OTLP export, the upstream Causeline and exported trace files.
+     *                       The local UI still shows everything that was captured.
      */
-    public record Export(@DefaultValue Otlp otlp, @DefaultValue("true") boolean redactSecrets) {
+    public record Export(@DefaultValue Otlp otlp, @DefaultValue Upstream upstream,
+            @DefaultValue("true") boolean redactSecrets) {
+    }
+
+    /**
+     * Another Causeline to send spans to: typically the service that calls this one.
+     *
+     * @param url     base URL of that application, e.g. {@code http://localhost:8080}; off when empty
+     * @param token   that application's Causeline access token ({@code causeline.access-token} there)
+     * @param timeout per-request timeout
+     */
+    public record Upstream(String url, String token, @DefaultValue("5s") Duration timeout) {
+
+        public boolean enabled() {
+            return url != null && !url.isBlank();
+        }
     }
 
     /**
@@ -110,6 +127,8 @@ public record CauselineProperties(
      * @param query             which query values to record
      * @param pathValues        record the raw request path next to the route template
      * @param sql               how much of each SQL statement to record
+     * @param arguments         record the arguments and return values of controller, service and
+     *                          repository methods (shown on their spans; lazy JPA data is never loaded)
      * @param redactKeys        body, query and state keys whose values are replaced with [REDACTED] everywhere,
      *                          including the local UI (e.g. {@code password})
      */
@@ -121,7 +140,8 @@ public record CauselineProperties(
             @DefaultValue Query query,
             @DefaultValue("true") boolean pathValues,
             @DefaultValue("full") SqlCapture sql,
-            @DefaultValue List<String> redactKeys) {
+            @DefaultValue List<String> redactKeys,
+            @DefaultValue("true") boolean arguments) {
     }
 
     /**
@@ -168,8 +188,12 @@ public record CauselineProperties(
      *
      * @param maxTraces traces kept in memory
      * @param maxSize   estimated memory for stored spans
+     * @param persist   keep traces across restarts in a file; secrets are redacted on disk unless
+     *                  {@code causeline.export.redact-secrets=false}
+     * @param directory where the file goes; defaults to {@code ~/.causeline/<spring.application.name>}
      */
-    public record Store(@DefaultValue("1000") int maxTraces, @DefaultValue("64MB") DataSize maxSize) {
+    public record Store(@DefaultValue("1000") int maxTraces, @DefaultValue("64MB") DataSize maxSize,
+            @DefaultValue("false") boolean persist, String directory) {
     }
 
     /**

@@ -63,6 +63,28 @@ class CheckoutApplicationTest {
     }
 
     @Test
+    void asyncWorkStaysInTheRequestsTrace() throws Exception {
+        String traceId = "a1f92f3577b34da6a3ce929d0e0e4736";
+        assertThat(post("/api/orders", "{\"item\":\"book\",\"quantity\":1}",
+                "00-" + traceId + "-" + BROWSER_SPAN_ID + "-01").statusCode()).isEqualTo(201);
+
+        long deadline = System.nanoTime() + Duration.ofSeconds(10).toNanos();
+        List<Span> spans = List.of();
+        while (System.nanoTime() < deadline) {
+            spans = store.get(traceId).orElse(List.of());
+            if (spans.stream().anyMatch(s -> s.name().equals("ConfirmationMailer.sendConfirmation"))) {
+                break;
+            }
+            Thread.sleep(100);
+        }
+        Span mail = spans.stream().filter(s -> s.name().equals("ConfirmationMailer.sendConfirmation")).findFirst()
+                .orElseThrow(() -> new AssertionError("@Async span not in the checkout trace"));
+        Span service = spans.stream().filter(s -> s.name().equals("OrderService.createOrder")).findFirst().orElseThrow();
+        // Started on another thread, but parented to the service that handed it off.
+        assertThat(mail.parentSpanId()).isEqualTo(service.spanId());
+    }
+
+    @Test
     void causelineOwnRequestsAreNotTraced() throws Exception {
         String traceId = "5bf92f3577b34da6a3ce929d0e0e4736";
         HttpResponse<String> response = get("/causeline/api/traces", "00-" + traceId + "-" + BROWSER_SPAN_ID + "-01");
@@ -271,6 +293,33 @@ class CheckoutApplicationTest {
         String status = get("/causeline/api/status", null).body();
         assertThat(status).contains("\"serverSpansDropped\":0", "\"maxBytes\":67108864", "\"otlp\":{\"enabled\":false");
         assertThat(status).containsPattern("\"browserSpansDropped\":([7-9]|\\d{2,})");
+    }
+
+    @Test
+    void statusTellsTheFirstRunChecklistWhatHasArrived() throws Exception {
+        HttpRequest action = HttpRequest.newBuilder(uri("/causeline/api/spans"))
+                .header("Content-Type", "application/json")
+                .POST(HttpRequest.BodyPublishers.ofString("""
+                        [{"traceId":"fef92f3577b34da6a3ce929d0e0e4736","spanId":"a000000000000001","parentSpanId":null,
+                          "kind":"UI_ACTION","name":"Checkout","startTimeUnixNano":"1790612345123456000",
+                          "durationNanos":1,"status":"OK","attributes":{}}]"""))
+                .build();
+        assertThat(HttpClient.newHttpClient().send(action, HttpResponse.BodyHandlers.ofString()).statusCode()).isEqualTo(202);
+        post("/api/orders", "{\"item\":\"book\",\"quantity\":1}", null); // any traced server request
+
+        long deadline = System.nanoTime() + Duration.ofSeconds(10).toNanos();
+        String status = get("/causeline/api/status", null).body();
+        while (!status.matches("(?s).*\"serverSpans\":[1-9].*") && System.nanoTime() < deadline) {
+            Thread.sleep(100);
+            status = get("/causeline/api/status", null).body();
+        }
+        assertThat(status)
+                .contains("\"onboarding\":{\"appName\":\"checkout-demo\"")
+                .containsPattern("\"serverSpans\":[1-9]")
+                .containsPattern("\"browserSpans\":[1-9]")
+                .containsPattern("\"namedActions\":[1-9]")
+                .containsPattern("\"lastServerSpanAt\":\\d{13}")
+                .containsPattern("\"lastBrowserSpanAt\":\\d{13}");
     }
 
     private HttpRequest.Builder withToken(String path) {

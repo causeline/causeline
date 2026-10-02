@@ -24,7 +24,13 @@ final class CauselineEnvironmentPostProcessor implements EnvironmentPostProcesso
             // Registers Micrometer's ObservedAspect so @Observed services become spans.
             "management.observations.annotations.enabled", "true",
             // One span per SQL statement; connection and result-set spans are noise here.
-            "jdbc.includes", "QUERY");
+            "jdbc.includes", "QUERY",
+            // Messages sent and received become spans in the same trace (Spring Kafka, Spring AMQP).
+            "spring.kafka.template.observation-enabled", "true",
+            "spring.kafka.listener.observation-enabled", "true",
+            "spring.rabbitmq.template.observation-enabled", "true",
+            "spring.rabbitmq.listener.simple.observation-enabled", "true",
+            "spring.rabbitmq.listener.direct.observation-enabled", "true");
 
     @Override
     public void postProcessEnvironment(ConfigurableEnvironment environment, SpringApplication application) {

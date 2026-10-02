@@ -162,6 +162,21 @@ class SpanMapperTest {
         assertThat(span.name()).isEqualTo("POST localhost/fake-payment/charge");
     }
 
+    @Test
+    void kafkaAndRabbitSpansBecomeMessagesNamedByDestination() {
+        Span sent = mapper.map(data(io.opentelemetry.api.trace.SpanKind.PRODUCER, "orders send",
+                attrs("messaging.system", "kafka", "messaging.destination.name", "orders")));
+        Span received = mapper.map(data(io.opentelemetry.api.trace.SpanKind.CONSUMER, "orders receive",
+                attrs("messaging.system", "kafka", "messaging.destination.name", "orders",
+                        "messaging.kafka.consumer.group", "billing")));
+
+        assertThat(sent.kind()).isEqualTo(SpanKind.MESSAGE);
+        assertThat(sent.name()).isEqualTo("send orders");
+        assertThat(received.name()).isEqualTo("receive orders");
+        assertThat(received.attributes()).containsEntry("messaging.system", "kafka")
+                .containsEntry("messaging.consumer.group.name", "billing");
+    }
+
     private static Attributes attrs(String... keyValues) {
         AttributesBuilder builder = Attributes.builder();
         for (int i = 0; i < keyValues.length; i += 2) {

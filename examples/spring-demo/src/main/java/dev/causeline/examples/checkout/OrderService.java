@@ -10,11 +10,13 @@ class OrderService {
     private final OrderRepository orders;
     private final PaymentClient payments;
     private final StockService stock;
+    private final ConfirmationMailer mailer;
 
-    OrderService(OrderRepository orders, PaymentClient payments, StockService stock) {
+    OrderService(OrderRepository orders, PaymentClient payments, StockService stock, ConfirmationMailer mailer) {
         this.orders = orders;
         this.payments = payments;
         this.stock = stock;
+        this.mailer = mailer;
     }
 
     /** {@code @Observed} is all it takes for this method to appear as a SERVICE span in Causeline. */
@@ -26,6 +28,8 @@ class OrderService {
         Order order = orders.save(new Order(item, quantity));
         payments.charge(order.getId(), quantity);
         order.markPaid();
-        return orders.save(order);
+        Order paid = orders.save(order);
+        mailer.sendConfirmation(paid.getId()); // async: returns at once
+        return paid;
     }
 }

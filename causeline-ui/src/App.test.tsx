@@ -196,3 +196,41 @@ describe('SpanDetail', () => {
     expect(html).toContain('select 1');
   });
 });
+
+describe('span details panel', () => {
+  const span = {
+    spanId: 'b'.repeat(16),
+    parentSpanId: null,
+    kind: 'SERVICE' as const,
+    name: 'OrderService.createOrder',
+    source: 'checkout-demo',
+    status: 'OK' as const,
+    depth: 2,
+    offsetNanos: 12_000_000,
+    durationNanos: 410_000_000,
+    selfNanos: 12_000_000,
+    clockSkew: false,
+    attributes: { 'causeline.arguments': '{"item":"lamp","quantity":3}', 'causeline.return': '{"status":"PAID"}' },
+  };
+
+  it('offers stepping, a side-or-below choice and closing, and shows arguments and the result', () => {
+    const html = renderToString(
+      <SpanDetail
+        span={span}
+        placement="side"
+        onPlacement={() => {}}
+        onClose={() => {}}
+        onStep={() => {}}
+        position={{ index: 3, total: 12 }}
+      />,
+    ).replaceAll('<!-- -->', '');
+
+    expect(html).toContain('4 / 12');
+    expect(html).toContain('aria-label="On the side"');
+    expect(html).toMatch(/aria-pressed="true"[^>]*aria-label="On the side"/);
+    expect(html).toContain('aria-label="Close details (Esc)"');
+    expect(html).toContain('Arguments');
+    expect(html).toContain('&quot;quantity&quot;: 3');
+    expect(html).toContain('Returned');
+  });
+});

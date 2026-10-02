@@ -26,17 +26,23 @@ public final class CauselineSpanExporter implements SpanExporter {
     private final ExceptionSpans exceptions;
     private final TraceStore store;
     private final SpanForwarder forwarder;
+    private final CauselineStats stats;
 
     public CauselineSpanExporter(SpanMapper mapper, ExceptionSpans exceptions, TraceStore store) {
-        this(mapper, exceptions, store, SpanForwarder.NONE);
+        this(mapper, exceptions, store, SpanForwarder.NONE, new CauselineStats());
     }
 
-    /** @param forwarder receives exactly the spans that were stored, e.g. for OTLP export */
-    public CauselineSpanExporter(SpanMapper mapper, ExceptionSpans exceptions, TraceStore store, SpanForwarder forwarder) {
+    /**
+     * @param forwarder receives exactly the spans that were stored, e.g. for OTLP export
+     * @param stats     counts stored spans, for the UI's first-run checklist
+     */
+    public CauselineSpanExporter(SpanMapper mapper, ExceptionSpans exceptions, TraceStore store, SpanForwarder forwarder,
+            CauselineStats stats) {
         this.mapper = mapper;
         this.exceptions = exceptions;
         this.store = store;
         this.forwarder = forwarder;
+        this.stats = stats;
     }
 
     @Override
@@ -58,6 +64,7 @@ public final class CauselineSpanExporter implements SpanExporter {
             }
         }
         store.addAll(stored);
+        stats.serverSpansStored(stored.size());
         forwarder.forward(stored);
         return CompletableResultCode.ofSuccess();
     }

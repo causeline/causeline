@@ -4,12 +4,13 @@ package dev.causeline.spring.internal.web;
 import dev.causeline.core.TraceStore;
 import dev.causeline.spring.autoconfigure.CauselineProperties;
 import dev.causeline.spring.internal.capture.SpanRedactor;
-import dev.causeline.spring.internal.export.OtlpForwarder;
 import dev.causeline.spring.internal.export.SpanForwarder;
+import dev.causeline.spring.internal.export.UpstreamForwarder;
 import dev.causeline.spring.internal.replay.ReplayStore;
 import dev.causeline.spring.internal.tracing.CauselineStats;
 import java.net.URI;
 import java.util.Optional;
+import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.core.env.Environment;
 import org.springframework.beans.factory.ObjectProvider;
 import io.micrometer.observation.ObservationPredicate;
@@ -70,17 +71,21 @@ public class CauselineWebConfiguration {
 
     @Bean
     CauselineApiController causelineApiController(TraceStore store, ObjectProvider<ReplayStore> replays,
-            CauselineStats stats, ObjectProvider<OtlpForwarder> otlp, CauselineProperties properties,
-            Environment environment, SpanRedactor redactor) {
-        OtlpForwarder forwarder = otlp.getIfAvailable();
+            CauselineStats stats, @Qualifier("causelineForwarder") SpanForwarder causelineForwarder,
+            ObjectProvider<UpstreamForwarder> upstream,
+            CauselineProperties properties, Environment environment, SpanRedactor redactor) {
         CauselineApiController.Status.Otlp otlpStatus = properties.export().otlp().enabled()
                 ? new CauselineApiController.Status.Otlp(true, URI.create(properties.export().otlp().endpoint()).getHost(), 0, 0, 0)
                 : CauselineApiController.Status.Otlp.disabled();
-        return new CauselineApiController(store, traceId -> {
+        CauselineApiController controller = new CauselineApiController(store, traceId -> {
             ReplayStore replayStore = replays.getIfAvailable();
             return replayStore == null ? Optional.empty() : replayStore.replayOf(traceId);
-        }, stats, forwarder == null ? SpanForwarder.NONE : forwarder,
-                environment.getProperty("spring.application.name", "spring"), otlpStatus, redactor);
+        }, stats, causelineForwarder, environment.getProperty("spring.application.name", "spring"), otlpStatus, redactor);
+        UpstreamForwarder up = upstream.getIfAvailable();
+        if (up != null) {
+            controller.setUpstream(up.host());
+        }
+        return controller;
     }
 
     @Bean

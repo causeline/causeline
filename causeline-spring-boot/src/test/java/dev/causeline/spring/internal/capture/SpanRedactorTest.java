@@ -68,6 +68,16 @@ class SpanRedactorTest {
     }
 
     @Test
+    void redactsMethodArgumentsAndReturnValuesOnTheWayOut() {
+        Map<String, String> out = redactor.redact(span(Map.of(
+                "causeline.arguments", "{\"login\":{\"user\":\"ada\",\"password\":\"hunter2\"}}",
+                "causeline.return", "{\"user\":\"ada\",\"token\":\"eyJ-secret\"}"))).attributes();
+
+        assertThat(out.get("causeline.arguments")).contains("\"user\":\"ada\"").doesNotContain("hunter2");
+        assertThat(out.get("causeline.return")).contains("\"user\":\"ada\"").doesNotContain("eyJ-secret");
+    }
+
+    @Test
     void withholdsBodiesItCannotParse() {
         assertThat(redactor.redact(span(Map.of("http.request.body", "raw secret text"))).attributes())
                 .containsEntry("http.request.body", "[body withheld on export]");

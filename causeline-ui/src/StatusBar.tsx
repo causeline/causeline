@@ -20,6 +20,9 @@ export function DropWarning({ status }: { status: Status | undefined }) {
   if (status.browserSpansRejected > 0) {
     problems.push(`${status.browserSpansRejected} browser spans rejected as malformed`);
   }
+  if (status.upstream?.enabled && status.upstream.dropped > 0) {
+    problems.push(`${status.upstream.dropped} spans not sent to the upstream Causeline at ${status.upstream.host}`);
+  }
   if (status.otlp.enabled && status.otlp.dropped > 0) {
     problems.push(`${status.otlp.dropped} spans not exported to ${status.otlp.endpointHost}`);
   }
@@ -27,7 +30,7 @@ export function DropWarning({ status }: { status: Status | undefined }) {
     return null;
   }
   return (
-    <div role="status" className="border-b border-amber-500/40 bg-amber-500/10 px-6 py-2 text-xs">
+    <div role="status" className="border-b border-warn/40 bg-warn/10 px-6 py-2 text-xs text-warn">
       Some traces may be incomplete: {problems.join('; ')}.
     </div>
   );
@@ -39,12 +42,14 @@ export function StatusLine({ status }: { status: Status | undefined }) {
     return null;
   }
   return (
-    <p className="border-t border-neutral-200 px-4 py-2 text-[11px] text-neutral-500 dark:border-neutral-800 dark:text-neutral-400">
+    <p className="border-t border-line px-4 py-2.5 font-mono text-[10.5px] text-muted">
       {status.traces} traces · {megabytes(status.estimatedBytes)} of {megabytes(status.maxBytes)}
       {status.evictedTraces > 0 && ` · ${status.evictedTraces} older traces evicted`}
       {status.otlp.enabled &&
         ` · exporting to ${status.otlp.endpointHost}: ${status.otlp.exported} sent` +
           (status.otlp.failedRequests > 0 ? `, ${status.otlp.failedRequests} failed requests` : '')}
+      {status.upstream?.enabled && ` · sending to ${status.upstream.host}: ${status.upstream.sent} spans`}
+      {(status.upstream?.received ?? 0) > 0 && ` · ${status.upstream?.received} spans from other services`}
     </p>
   );
 }

@@ -13,6 +13,14 @@ const healthy: Status = {
   browserSpansDropped: 0,
   browserSpansRejected: 0,
   otlp: { enabled: false, endpointHost: null, exported: 0, dropped: 0, failedRequests: 0 },
+  onboarding: {
+    appName: 'checkout-demo',
+    serverSpans: 40,
+    browserSpans: 12,
+    namedActions: 3,
+    lastServerSpanAt: 1_790_000_000_000,
+    lastBrowserSpanAt: 1_790_000_000_000,
+  },
 };
 
 const text = (html: string) => html.replaceAll('<!-- -->', '');

@@ -20,9 +20,16 @@ import org.springframework.util.ClassUtils;
 public final class RepositoryObservationAspect {
 
     private final ObservationRegistry registry;
+    private final MethodValues values;
 
     public RepositoryObservationAspect(ObservationRegistry registry) {
+        this(registry, MethodValues.OFF);
+    }
+
+    /** @param values records the method's arguments and return value on the span */
+    public RepositoryObservationAspect(ObservationRegistry registry, MethodValues values) {
         this.registry = registry;
+        this.values = values;
     }
 
     @Around("execution(* org.springframework.data.repository.Repository+.*(..))"
@@ -30,10 +37,15 @@ public final class RepositoryObservationAspect {
     public Object observe(ProceedingJoinPoint pjp) throws Throwable {
         // The proxy (getThis) implements the application's interface; the target is Spring's SimpleJpaRepository.
         String name = repositoryName(pjp.getThis()) + "." + pjp.getSignature().getName();
-        return Observation.createNotStarted("causeline.repository", registry)
+        Observation observation = Observation.createNotStarted("causeline.repository", registry)
                 .contextualName(name)
-                .lowCardinalityKeyValue(SpanMapper.KIND_ATTRIBUTE, SpanKind.REPOSITORY.name())
-                .observeChecked((Observation.CheckedCallable<Object, Throwable>) pjp::proceed);
+                .lowCardinalityKeyValue(SpanMapper.KIND_ATTRIBUTE, SpanKind.REPOSITORY.name());
+        values.arguments(observation, pjp);
+        return observation.observeChecked((Observation.CheckedCallable<Object, Throwable>) () -> {
+            Object result = pjp.proceed();
+            values.returned(observation, pjp, result);
+            return result;
+        });
     }
 
     static String repositoryName(Object proxy) {
