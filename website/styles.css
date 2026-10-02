@@ -137,7 +137,8 @@ em { font-family: var(--serif); font-style: italic; font-weight: 400; }
   mask-image: radial-gradient(ellipse 70% 60% at 50% 30%, #000 30%, transparent 75%);
   -webkit-mask-image: radial-gradient(ellipse 70% 60% at 50% 30%, #000 30%, transparent 75%);
 }
-.eyebrow { display: inline-flex; align-items: center; gap: 10px; margin-bottom: 26px; }
+.eyebrow { display: inline-flex; align-items: flex-start; gap: 10px; margin-bottom: 26px; }
+.eyebrow .pulse { flex: none; margin-top: .45em; }
 .pulse { width: 8px; height: 8px; border-radius: 50%; background: var(--ok); position: relative; }
 .pulse::after {
   content: ""; position: absolute; inset: 0; border-radius: 50%; background: var(--ok);
@@ -367,19 +368,21 @@ h2 em { color: var(--signal); }
 
 /* Install */
 .install { display: grid; grid-template-columns: 1fr 1fr; gap: 20px; }
-.code-card { border: 1px solid var(--line); border-radius: var(--radius); background: var(--night); overflow: hidden; }
-.tabs { display: flex; gap: 2px; padding: 8px 8px 0; border-bottom: 1px solid var(--night-line); }
+.code-card { position: relative; border: 1px solid var(--line); border-radius: var(--radius); background: var(--night); overflow: hidden; }
+.tabs { display: flex; gap: 2px; padding: 8px 84px 0 8px; border-bottom: 1px solid var(--night-line); overflow-x: auto; scrollbar-width: none; }
+.tab { white-space: nowrap; }
 .tab {
   font: 500 12.5px var(--mono); color: var(--night-muted); background: transparent; border: 0; cursor: pointer;
   padding: 9px 12px 11px; position: relative;
 }
 .tab[aria-selected="true"] { color: var(--night-ink); }
 .tab[aria-selected="true"]::after { content: ""; position: absolute; left: 10px; right: 10px; bottom: -1px; height: 2px; background: var(--signal); }
-.code-body { position: relative; }
+.code-body { position: static; }
+/* Copy sits in the tab bar, so it never covers the code. */
 pre { margin: 0; padding: 20px; overflow-x: auto; color: #e6e1d6; font-size: 13.5px; line-height: 1.65; }
 pre .c { color: #7d776c; } pre .k { color: #c8b2ff; } pre .s { color: #8fb4ff; } pre .v { color: #ffb08a; }
 .copy {
-  position: absolute; top: 10px; right: 10px; font: 500 11px var(--mono); letter-spacing: .06em; text-transform: uppercase;
+  position: absolute; top: 9px; right: 10px; font: 500 11px var(--mono); letter-spacing: .06em; text-transform: uppercase;
   color: var(--night-muted); background: #1d1c19; border: 1px solid var(--night-line); border-radius: 7px; padding: 6px 9px; cursor: pointer;
   transition: color .3s, border-color .3s;
 }
@@ -462,7 +465,7 @@ pre .c { color: #7d776c; } pre .k { color: #c8b2ff; } pre .s { color: #8fb4ff; }
 .closing .cta { justify-content: center; }
 footer { border-top: 1px solid var(--line); padding: 34px 0 0; overflow: hidden; }
 .foot { display: flex; flex-wrap: wrap; justify-content: space-between; gap: 18px; font-size: 14.5px; color: var(--muted); }
-.foot nav { display: flex; flex-wrap: wrap; gap: 22px; }
+.foot nav { display: flex; flex-wrap: wrap; column-gap: 22px; row-gap: 4px; }
 .foot a { text-decoration: none; color: var(--ink-2); }
 .foot a:hover { color: var(--signal); }
 .wordmark {
@@ -533,7 +536,7 @@ footer:hover .wordmark { color: var(--paper-2); }
 @media (pointer: coarse) {
   .theme-toggle, .gh { min-width: 44px; min-height: 44px; }
   .replay, .copy, .tab { min-height: 44px; }
-  .copy { top: 6px; right: 6px; }
+  .copy { top: 4px; right: 6px; }
   .brand { min-height: 44px; }
   .foot nav a { display: inline-flex; align-items: center; min-height: 44px; }
   .copy-chip { min-height: 48px; }
