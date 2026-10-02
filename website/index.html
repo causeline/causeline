@@ -1,0 +1,403 @@
+<!doctype html>
+<!-- SPDX-License-Identifier: Apache-2.0 -->
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Causeline · Trace a React click through Spring Boot and back</title>
+<meta name="description" content="Open-source, local-first tracing for React and Spring Boot. Follow one click through controllers, SQL and API calls on one timeline, then replay and compare.">
+<meta name="keywords" content="React Spring Boot tracing, distributed tracing, OpenTelemetry, traceparent, Micrometer, Spring Boot debugging, React debugging, request replay, SQL query tracing, N+1 queries, performance bottleneck, developer tools">
+<meta name="author" content="Causeline contributors">
+<meta name="robots" content="index, follow, max-image-preview:large">
+<link rel="canonical" href="https://causeline.dev/">
+<meta name="theme-color" content="#0f0e0c">
+<meta name="color-scheme" content="dark light">
+
+<link rel="icon" href="/favicon.svg" type="image/svg+xml">
+<link rel="apple-touch-icon" href="/apple-touch-icon.png">
+
+<meta property="og:type" content="website">
+<meta property="og:site_name" content="Causeline">
+<meta property="og:url" content="https://causeline.dev/">
+<meta property="og:title" content="Causeline · Trace a React click through Spring Boot and back">
+<meta property="og:description" content="One click, one timeline: React, Spring Boot, SQL and API calls together. Find the bottleneck, replay the request, compare the runs. Open source and local-first.">
+<meta property="og:image" content="https://causeline.dev/og.png">
+<meta property="og:image:width" content="1200">
+<meta property="og:image:height" content="630">
+<meta property="og:image:alt" content="A Causeline trace: a React click, a Spring Boot request and SQL queries on one timeline, with the slow payment call flagged">
+<meta property="og:locale" content="en_US">
+<meta name="twitter:card" content="summary_large_image">
+<meta name="twitter:title" content="Causeline · Trace a React click through Spring Boot and back">
+<meta name="twitter:description" content="One click, one timeline: React, Spring Boot, SQL and API calls together. Open source and local-first.">
+<meta name="twitter:image" content="https://causeline.dev/og.png">
+
+<link rel="preload" href="/fonts/instrument-serif.woff2" as="font" type="font/woff2" crossorigin>
+<link rel="preload" href="/fonts/hanken-grotesk.woff2" as="font" type="font/woff2" crossorigin>
+<link rel="stylesheet" href="/styles.css">
+<script src="/main.js"></script>
+
+<script type="application/ld+json">
+{
+  "@context": "https://schema.org",
+  "@graph": [
+    {
+      "@type": "SoftwareApplication",
+      "@id": "https://causeline.dev/#software",
+      "name": "Causeline",
+      "description": "Open-source, local-first developer tool that traces one React click through Spring Boot and back as a single timeline, flags the bottleneck, and replays and compares requests.",
+      "url": "https://causeline.dev/",
+      "applicationCategory": "DeveloperApplication",
+      "operatingSystem": "Windows, macOS, Linux",
+      "softwareVersion": "0.1.0-alpha.0",
+      "license": "https://www.apache.org/licenses/LICENSE-2.0",
+      "isAccessibleForFree": true,
+      "offers": { "@type": "Offer", "price": "0", "priceCurrency": "USD" },
+      "downloadUrl": "https://central.sonatype.com/artifact/dev.causeline/causeline-spring-boot",
+      "codeRepository": "https://github.com/causeline/causeline",
+      "programmingLanguage": ["Java", "TypeScript"],
+      "keywords": "React, Spring Boot, OpenTelemetry, tracing, debugging, replay",
+      "sameAs": [
+        "https://github.com/causeline/causeline",
+        "https://www.npmjs.com/package/@causeline/react",
+        "https://central.sonatype.com/artifact/dev.causeline/causeline-spring-boot"
+      ]
+    },
+    {
+      "@type": "WebSite",
+      "@id": "https://causeline.dev/#website",
+      "url": "https://causeline.dev/",
+      "name": "Causeline",
+      "inLanguage": "en"
+    },
+    {
+      "@type": "FAQPage",
+      "mainEntity": [
+        { "@type": "Question", "name": "Is Causeline safe to run in production?",
+          "acceptedAnswer": { "@type": "Answer", "text": "No. Causeline is for development and QA. It is off unless causeline.enabled is true, and it refuses to start when a prod or production profile is active, because it shows headers, cookies and bodies in full." } },
+        { "@type": "Question", "name": "Do I need an account, an agent or a collector?",
+          "acceptedAnswer": { "@type": "Answer", "text": "No. Causeline runs inside your Spring Boot application and serves its UI at /causeline. There is no account, no cloud service and no separate process." } },
+        { "@type": "Question", "name": "Which versions of Spring Boot and React does Causeline support?",
+          "acceptedAnswer": { "@type": "Answer", "text": "Spring Boot 4.1 with Spring MVC on Java 21 or newer, and React 18 or newer. WebFlux is not supported yet." } },
+        { "@type": "Question", "name": "Does Causeline work with OpenTelemetry?",
+          "acceptedAnswer": { "@type": "Answer", "text": "Yes. It propagates the W3C traceparent header and is built on Micrometer Observation and OpenTelemetry. It can also export redacted spans over OTLP to Jaeger, Grafana Tempo or an OpenTelemetry Collector." } },
+        { "@type": "Question", "name": "What does Causeline record, and can I hide sensitive data?",
+          "acceptedAnswer": { "@type": "Answer", "text": "By default it records headers, query strings, request and response bodies, SQL with bound values and exception details, and shows them only in your local UI. Any of it can be blocked with causeline.capture settings, and anything exported is redacted." } },
+        { "@type": "Question", "name": "Is Causeline free?",
+          "acceptedAnswer": { "@type": "Answer", "text": "Yes. Causeline is open source under the Apache License 2.0." } }
+      ]
+    }
+  ]
+}
+</script>
+</head>
+<body>
+<a class="skip" href="#main">Skip to content</a>
+
+<header class="nav">
+  <div class="wrap">
+    <a class="brand" href="/" aria-label="Causeline home">
+      <svg width="26" height="26" viewBox="0 0 32 32" aria-hidden="true"><rect x="3" y="7" width="16" height="5" rx="2" fill="#2f62f5"/><rect x="9" y="14" width="20" height="5" rx="2" fill="#7a4cf2"/><rect x="3" y="21" width="12" height="5" rx="2" fill="#2f62f5"/></svg>
+      Causeline
+    </a>
+    <nav class="nav-links" aria-label="Main">
+      <a class="opt" href="#features">Features</a>
+      <a class="opt" href="#how">How it works</a>
+      <a class="opt" href="#install">Install</a>
+      <button class="theme-toggle" type="button" aria-label="Switch to light theme" title="Switch theme">
+        <svg class="sun" width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" aria-hidden="true"><circle cx="12" cy="12" r="4.2"/><path d="M12 2.5v2.2M12 19.3v2.2M4.6 4.6l1.6 1.6M17.8 17.8l1.6 1.6M2.5 12h2.2M19.3 12h2.2M4.6 19.4l1.6-1.6M17.8 6.2l1.6-1.6"/></svg>
+        <svg class="moon" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round" aria-hidden="true"><path d="M20 14.5A8.5 8.5 0 0 1 9.5 4a8.5 8.5 0 1 0 10.5 10.5z"/></svg>
+      </button>
+      <a class="gh" href="https://github.com/causeline/causeline" rel="noopener">
+        <svg width="16" height="16" viewBox="0 0 16 16" aria-hidden="true"><path fill="currentColor" d="M8 0C3.58 0 0 3.58 0 8c0 3.54 2.29 6.53 5.47 7.59.4.07.55-.17.55-.38 0-.19-.01-.82-.01-1.49-2.01.37-2.53-.49-2.69-.94-.09-.23-.48-.94-.82-1.13-.28-.15-.68-.52-.01-.53.63-.01 1.08.58 1.23.82.72 1.21 1.87.87 2.33.66.07-.52.28-.87.51-1.07-1.78-.2-3.64-.89-3.64-3.95 0-.87.31-1.59.82-2.15-.08-.2-.36-1.02.08-2.12 0 0 .67-.21 2.2.82.64-.18 1.32-.27 2-.27.68 0 1.36.09 2 .27 1.53-1.04 2.2-.82 2.2-.82.44 1.1.16 1.92.08 2.12.51.56.82 1.27.82 2.15 0 3.07-1.87 3.75-3.65 3.95.29.25.54.73.54 1.48 0 1.07-.01 1.93-.01 2.2 0 .21.15.46.55.38A8.013 8.013 0 0016 8c0-4.42-3.58-8-8-8z"/></svg>
+        <span class="gh-label">GitHub</span>
+      </a>
+    </nav>
+  </div>
+</header>
+
+<main id="main">
+  <!-- ======================= Hero ======================= -->
+  <div class="hero">
+    <div class="wrap">
+      <p class="eyebrow mono fade" style="--i:0"><span class="pulse" aria-hidden="true"></span>v0.1 alpha · open source · Spring Boot + React</p>
+      <h1>
+        <span class="line"><span style="--i:0">Follow one click</span></span>
+        <span class="line"><span style="--i:1"><em>all the way</em> to the</span></span>
+        <span class="line"><span style="--i:2">database, and back.</span></span>
+      </h1>
+      <p class="lede fade" style="--i:1">Causeline traces a user action from the <b>React click</b>, through your <b>Spring Boot</b> controllers, services and <b>SQL</b>, out to the APIs you call, and back to the state update. One timeline. Then replay the request and compare the two runs.</p>
+      <div class="cta fade" style="--i:2">
+        <a class="btn btn-primary" href="https://github.com/causeline/causeline/blob/main/docs/QUICKSTART.md">Start in 5 minutes <span class="arrow" aria-hidden="true">→</span></a>
+        <button class="copy-chip" type="button" data-copy="npm install @causeline/react" aria-label="Copy npm install command">
+          <span><span class="dollar">$</span> npm i @causeline/react</span><span class="state">Copy</span>
+        </button>
+      </div>
+
+      <!-- Illustrative trace, rendered like the Causeline UI. Plays when scrolled into view. -->
+      <figure class="player reveal" aria-label="Example: a slow checkout traced from the React click to the database and back">
+        <div class="player-bar">
+          <div class="player-title">
+            <strong>Checkout</strong>
+            <span class="mono">trace 4bf92f35…e4736</span>
+            <span class="clock" data-clock data-total="1084">1084 ms</span>
+          </div>
+          <div class="player-actions">
+            <span class="legend"><span><i style="background:var(--browser)"></i>Browser</span><span><i style="background:var(--server)"></i>Server</span></span>
+            <button class="replay" type="button" aria-label="Replay the trace animation">
+              <svg width="12" height="12" viewBox="0 0 16 16" aria-hidden="true"><path fill="currentColor" d="M8 3a5 5 0 1 0 4.9 6h-2.08A3 3 0 1 1 8 5v2.5L11.5 4 8 .5V3z"/></svg>
+              Replay
+            </button>
+          </div>
+        </div>
+        <div class="trace" role="table" aria-label="Spans in the checkout trace">
+          <div class="ruler" aria-hidden="true">
+            <span></span>
+            <div class="ticks"><span style="left:0">0</span><span style="left:23%">250</span><span style="left:46.1%">500</span><span style="left:69.2%">750</span><span style="left:92.3%">1000 ms</span></div>
+            <span></span>
+          </div>
+          <div class="row b" role="row" style="--d:0;--s:0;--w:1"><span class="name" role="cell"><span class="kind">UI</span><span class="label">Click “Checkout”</span></span><span class="track"><span class="bar"></span></span><span class="dur" role="cell">1084 ms</span></div>
+          <div class="row b" role="row" style="--d:1;--s:.02;--w:.93"><span class="name" role="cell"><span class="kind">HTTP</span><span class="label">POST /api/orders</span></span><span class="track"><span class="bar"></span></span><span class="dur" role="cell">1008 ms</span></div>
+          <div class="row s" role="row" style="--d:2;--s:.045;--w:.885"><span class="name" role="cell"><span class="kind">CTRL</span><span class="label">OrderController.createOrder</span></span><span class="track"><span class="bar"></span></span><span class="dur" role="cell">959 ms</span></div>
+          <div class="row s" role="row" style="--d:3;--s:.05;--w:.875"><span class="name" role="cell"><span class="kind">SVC</span><span class="label">OrderService.createOrder</span></span><span class="track"><span class="bar"></span></span><span class="dur" role="cell">948 ms</span></div>
+          <div class="row s" role="row" style="--d:4;--s:.06;--w:.025"><span class="name" role="cell"><span class="kind">SQL</span><span class="label">insert into orders (item, qty) values ('book', 1)</span></span><span class="track"><span class="bar"></span></span><span class="dur" role="cell">27 ms</span></div>
+          <div class="row s hot" role="row" style="--d:4;--s:.095;--w:.75"><span class="name" role="cell"><span class="kind">HTTP</span><span class="label">POST /charge</span><span class="flag">bottleneck</span></span><span class="track"><span class="bar"></span></span><span class="dur" role="cell">812 ms</span></div>
+          <div class="row s" role="row" style="--d:4;--s:.85;--w:.03"><span class="name" role="cell"><span class="kind">SQL</span><span class="label">update orders set status='PAID' where id=42</span></span><span class="track"><span class="bar"></span></span><span class="dur" role="cell">33 ms</span></div>
+          <div class="row b" role="row" style="--d:1;--s:.958;--w:.004"><span class="name" role="cell"><span class="kind">STATE</span><span class="label">setStatus('paid')</span></span><span class="track"><span class="bar"></span></span><span class="dur" role="cell">&lt;1 ms</span></div>
+          <div class="row b" role="row" style="--d:1;--s:.965;--w:.03"><span class="name" role="cell"><span class="kind">RENDER</span><span class="label">&lt;CheckoutPage&gt;</span></span><span class="track"><span class="bar"></span></span><span class="dur" role="cell">31 ms</span></div>
+          <span class="playhead" aria-hidden="true"></span>
+        </div>
+        <figcaption class="insight"><span class="mono">Insight</span><span><b>Primary bottleneck:</b> <code>POST /charge</code> to the payment provider spends 812 ms of its own time, 75% of the trace. Your code is fine; the provider is slow.</span></figcaption>
+      </figure>
+    </div>
+  </div>
+
+  <!-- ======================= Problem ======================= -->
+  <section aria-labelledby="problem-title">
+    <div class="wrap">
+      <div class="section-head reveal">
+        <span class="mono">01 · The problem</span>
+        <div>
+          <h2 id="problem-title">“Checkout is slow, and <em>sometimes</em> it fails.”</h2>
+          <p>Finding out why means stitching together five tools that have never heard of each other. Each shows one layer. None shows the cause.</p>
+        </div>
+      </div>
+      <div class="contrast">
+        <div class="panel reveal">
+          <h3>The usual way</h3>
+          <ul class="tools">
+            <li style="--i:0">Browser Network tab <small>request timing</small></li>
+            <li style="--i:1">React DevTools <small>state and renders</small></li>
+            <li style="--i:2">Spring Boot logs <small>grep by timestamp</small></li>
+            <li style="--i:3">A debugger <small>one breakpoint at a time</small></li>
+            <li style="--i:4">Postman <small>to replay, by hand</small></li>
+          </ul>
+        </div>
+        <div class="panel one reveal-bars reveal" style="--i:1">
+          <h3>With Causeline</h3>
+          <p>One trace that starts at the click and ends at the re-render, with every layer in between, in order, with its timing and its data.</p>
+          <div class="mini" aria-hidden="true">
+            <span style="--i:0;width:100%"></span><span style="--i:1;width:92%;margin-left:3%"></span><span style="--i:2;width:86%;margin-left:6%"></span><span style="--i:3;width:5%;margin-left:8%"></span><span class="h" style="--i:4;width:70%;margin-left:13%"></span><span style="--i:5;width:6%;margin-left:84%"></span>
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ======================= Features ======================= -->
+  <section id="features" aria-labelledby="features-title">
+    <div class="wrap">
+      <div class="section-head reveal">
+        <span class="mono">02 · What you get</span>
+        <div>
+          <h2 id="features-title">See it, find it, <em>replay</em> it.</h2>
+        </div>
+      </div>
+      <ol class="features">
+        <li class="feature reveal">
+          <span class="num">01</span>
+          <h3>One timeline</h3>
+          <p>The click, the request, the controller, your <code>@Observed</code> services, Spring Data repositories, every SQL statement with its real values, outbound HTTP calls, the state update and the re-render, as one tree.<span class="note">Browser and server clocks are lined up by the span tree, not by wall time.</span></p>
+        </li>
+        <li class="feature reveal">
+          <span class="num">02</span>
+          <h3>The bottleneck, named</h3>
+          <p>The slowest operation is flagged by self time, so a slow parent doesn't hide the real culprit. Repeated queries (N+1) and exceptions are called out too, including the ones your code catches and only logs.<span class="note">Exceptions point to the file and line in your code that threw.</span></p>
+        </li>
+        <li class="feature reveal">
+          <span class="num">03</span>
+          <h3>Replay and compare</h3>
+          <p>Send a captured request again, to local, dev or QA, with that environment's credentials. Then compare the two runs span by span to see exactly what changed after your fix.<span class="note">POST, PUT and DELETE ask for confirmation first.</span></p>
+        </li>
+        <li class="feature reveal">
+          <span class="num">04</span>
+          <h3>All the data, kept local</h3>
+          <p>Headers, request and response bodies and SQL values are shown in full while you debug, because hidden data slows you down. Anything that leaves the app, like an OTLP export or a shared trace file, is redacted.<span class="note">Block any header, field or query key with one setting.</span></p>
+        </li>
+      </ol>
+    </div>
+  </section>
+
+  <!-- ======================= How it works ======================= -->
+  <section id="how" aria-labelledby="how-title">
+    <div class="wrap">
+      <div class="section-head reveal">
+        <span class="mono">03 · How it works</span>
+        <div>
+          <h2 id="how-title">Standard headers. <em>No</em> magic.</h2>
+          <p>Causeline builds on W3C Trace Context, Micrometer and OpenTelemetry, so it fits the way Spring Boot already observes your app.</p>
+        </div>
+      </div>
+      <div class="flow">
+        <svg class="flow-line" viewBox="0 0 1000 40" preserveAspectRatio="none" aria-hidden="true">
+          <path d="M150 20 C 300 0, 360 40, 500 20 S 700 0, 850 20"/>
+          <path class="draw" id="flowpath" d="M150 20 C 300 0, 360 40, 500 20 S 700 0, 850 20"/>
+          <circle class="packet" r="5" fill="var(--signal)"><animateMotion dur="3s" repeatCount="indefinite" begin="2.6s"><mpath href="#flowpath"/></animateMotion></circle>
+        </svg>
+        <div class="node reveal" style="--i:0">
+          <div class="icon" aria-hidden="true"><svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="var(--browser)" stroke-width="1.6"><rect x="3" y="4" width="18" height="16" rx="2.5"/><path d="M3 9h18M7 6.5h.01M10 6.5h.01"/></svg></div>
+          <h3>In the browser</h3>
+          <p><code>@causeline/react</code> wraps <code>fetch</code> and XHR, names the click with <code>trace()</code>, and adds a <code>traceparent</code> header to your own API calls.</p>
+        </div>
+        <div class="node reveal" style="--i:1">
+          <div class="icon" aria-hidden="true"><svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="var(--server)" stroke-width="1.6"><rect x="4" y="3" width="16" height="7" rx="2"/><rect x="4" y="14" width="16" height="7" rx="2"/><path d="M8 6.5h.01M8 17.5h.01"/></svg></div>
+          <h3>In Spring Boot</h3>
+          <p>The starter picks up the header. HTTP handling, controllers, services, repositories, JDBC and outbound clients become spans in the same trace.</p>
+        </div>
+        <div class="node reveal" style="--i:2">
+          <div class="icon" aria-hidden="true"><svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="var(--signal)" stroke-width="1.6"><path d="M4 7h11M7 12h13M4 17h8"/></svg></div>
+          <h3>At <code>/causeline</code></h3>
+          <p>Spans from both sides land in an in-memory store inside your app. Open <code>/causeline</code> and the whole action is there, on one timeline.</p>
+        </div>
+      </div>
+      <p class="header-demo reveal" aria-label="Example traceparent header">
+        <b>traceparent:</b> 00-<span class="t">4bf92f3577b34da6a3ce929d0e0e4736</span>-<span class="p">00f067aa0ba902b7</span>-<span class="f">01</span>
+        <span class="mono">trace id · parent span · sampled</span>
+      </p>
+    </div>
+  </section>
+
+  <!-- ======================= Local-first ======================= -->
+  <section class="night" aria-labelledby="local-title">
+    <div class="wrap">
+      <div class="section-head reveal">
+        <span class="mono">04 · Local-first</span>
+        <div>
+          <h2 id="local-title">Your traces never leave <em>localhost</em>.</h2>
+          <p>No account, no agent, no cloud. Causeline runs inside your Spring Boot app, is off until you switch it on in a dev profile, and refuses to start under a production profile.</p>
+        </div>
+      </div>
+      <div class="facts">
+        <div class="fact reveal" style="--i:0"><strong>0</strong><span>external services. The UI and its API are served by your own app.</span></div>
+        <div class="fact reveal" style="--i:1"><strong>&lt;1 ms</strong><span>added p99 latency per request, measured on the demo app.</span></div>
+        <div class="fact reveal" style="--i:2"><strong>8 KB</strong><span>gzipped React SDK, with no dependencies besides React.</span></div>
+        <div class="fact reveal" style="--i:3"><strong>64 MB</strong><span>memory cap for stored traces. Oldest go first.</span></div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ======================= Install ======================= -->
+  <section id="install" aria-labelledby="install-title">
+    <div class="wrap">
+      <div class="section-head reveal">
+        <span class="mono">05 · Install</span>
+        <div>
+          <h2 id="install-title">Five minutes to your <em>first</em> trace.</h2>
+          <p>Spring Boot 4.1 with Java 21+, and React 18+. Published on Maven Central and npm.</p>
+        </div>
+      </div>
+      <div class="install">
+        <div class="code-card reveal">
+          <div class="tabs" role="tablist" aria-label="Package manager">
+            <button class="tab" role="tab" id="tab-maven" aria-controls="code-maven" aria-selected="true">Maven</button>
+            <button class="tab" role="tab" id="tab-gradle" aria-controls="code-gradle" aria-selected="false" tabindex="-1">Gradle</button>
+            <button class="tab" role="tab" id="tab-npm" aria-controls="code-npm" aria-selected="false" tabindex="-1">npm</button>
+            <button class="tab" role="tab" id="tab-yaml" aria-controls="code-yaml" aria-selected="false" tabindex="-1">application-dev.yml</button>
+          </div>
+          <div class="code-body">
+            <button class="copy" type="button">Copy</button>
+<pre id="code-maven" role="tabpanel" aria-labelledby="tab-maven"><span class="k">&lt;dependency&gt;</span>
+  <span class="k">&lt;groupId&gt;</span>dev.causeline<span class="k">&lt;/groupId&gt;</span>
+  <span class="k">&lt;artifactId&gt;</span>causeline-spring-boot<span class="k">&lt;/artifactId&gt;</span>
+  <span class="k">&lt;version&gt;</span><span class="v">0.1.0-alpha.0</span><span class="k">&lt;/version&gt;</span>
+<span class="k">&lt;/dependency&gt;</span></pre>
+<pre id="code-gradle" role="tabpanel" aria-labelledby="tab-gradle" hidden>implementation(<span class="s">"dev.causeline:causeline-spring-boot:<span class="v">0.1.0-alpha.0</span>"</span>)</pre>
+<pre id="code-npm" role="tabpanel" aria-labelledby="tab-npm" hidden>npm install @causeline/react</pre>
+<pre id="code-yaml" role="tabpanel" aria-labelledby="tab-yaml" hidden><span class="c"># Only in a dev or QA profile</span>
+<span class="k">causeline</span>:
+  <span class="k">enabled</span>: <span class="v">true</span></pre>
+          </div>
+        </div>
+        <ol class="steps reveal" style="--i:1">
+          <li><div><h3>Add the starter</h3><p>One dependency. No agent, no extra process.</p></div></li>
+          <li><div><h3>Switch it on in a dev profile</h3><p><code>causeline.enabled: true</code>. It stays off everywhere else.</p></div></li>
+          <li><div><h3>Wrap your app</h3><p><code>&lt;CauselineProvider endpoint="/causeline/api/spans"&gt;</code>, then name actions with <code>trace('Checkout', …)</code>.</p></div></li>
+          <li><div><h3>Click, then open the link</h3><p>The log prints a <code>Causeline UI:</code> link with an access token. Your click is waiting there.</p></div></li>
+        </ol>
+      </div>
+    </div>
+  </section>
+
+  <!-- ======================= FAQ ======================= -->
+  <section id="faq" aria-labelledby="faq-title">
+    <div class="wrap">
+      <div class="section-head reveal">
+        <span class="mono">06 · Questions</span>
+        <div><h2 id="faq-title">Before you <em>ask</em>.</h2></div>
+      </div>
+      <div class="faq reveal">
+        <details>
+          <summary>Is Causeline safe to run in production?<span class="pm" aria-hidden="true"></span></summary>
+          <div class="answer"><div><p>No, and it makes sure of that. Causeline is for development and QA. It is off unless <code>causeline.enabled</code> is true, and it refuses to start when a <code>prod</code> or <code>production</code> profile is active, because it shows headers, cookies and bodies in full.</p></div></div>
+        </details>
+        <details>
+          <summary>Do I need an account, an agent or a collector?<span class="pm" aria-hidden="true"></span></summary>
+          <div class="answer"><div><p>No. Causeline runs inside your Spring Boot application and serves its UI at <code>/causeline</code>. There is no account, no cloud service and no separate process to run.</p></div></div>
+        </details>
+        <details>
+          <summary>Which versions are supported?<span class="pm" aria-hidden="true"></span></summary>
+          <div class="answer"><div><p>Spring Boot 4.1 with Spring MVC on Java 21 or newer, and React 18 or newer. WebFlux is not supported yet.</p></div></div>
+        </details>
+        <details>
+          <summary>Does it work with my OpenTelemetry setup?<span class="pm" aria-hidden="true"></span></summary>
+          <div class="answer"><div><p>Yes. It propagates the W3C <code>traceparent</code> header and is built on Micrometer Observation and OpenTelemetry. It can also export redacted spans over OTLP to Jaeger, Grafana Tempo or an OpenTelemetry Collector.</p></div></div>
+        </details>
+        <details>
+          <summary>What does it record, and can I hide sensitive data?<span class="pm" aria-hidden="true"></span></summary>
+          <div class="answer"><div><p>By default it records headers, query strings, request and response bodies, SQL with bound values and exception details, and shows them only in your local UI. Any of it can be blocked with <code>causeline.capture.*</code> settings or the React <code>capture</code> prop, and anything exported is redacted.</p></div></div>
+        </details>
+        <details>
+          <summary>Is it free?<span class="pm" aria-hidden="true"></span></summary>
+          <div class="answer"><div><p>Yes. Causeline is open source under the Apache License 2.0. The code, issues and roadmap are on <a href="https://github.com/causeline/causeline">GitHub</a>.</p></div></div>
+        </details>
+      </div>
+    </div>
+  </section>
+
+  <!-- ======================= Closing ======================= -->
+  <section class="closing" aria-labelledby="closing-title">
+    <div class="wrap">
+      <h2 id="closing-title" class="reveal">Stop guessing which <em>layer</em> is slow.</h2>
+      <div class="cta reveal" style="--i:1">
+        <a class="btn btn-primary" href="https://github.com/causeline/causeline/blob/main/docs/QUICKSTART.md">Read the quick start <span class="arrow" aria-hidden="true">→</span></a>
+        <a class="btn" href="https://github.com/causeline/causeline">Star on GitHub</a>
+      </div>
+    </div>
+  </section>
+</main>
+
+<footer>
+  <div class="wrap">
+    <div class="foot">
+      <span>© 2026 Causeline contributors · Apache License 2.0 · For development and QA, never production.</span>
+      <nav aria-label="Footer">
+        <a href="https://github.com/causeline/causeline">GitHub</a>
+        <a href="https://www.npmjs.com/package/@causeline/react">npm</a>
+        <a href="https://central.sonatype.com/artifact/dev.causeline/causeline-spring-boot">Maven Central</a>
+        <a href="https://github.com/causeline/causeline/blob/main/docs/QUICKSTART.md">Quick start</a>
+      </nav>
+    </div>
+    <p class="wordmark" aria-hidden="true">causeline</p>
+  </div>
+</footer>
+</body>
+</html>

@@ -28,3 +28,6 @@ docs/PRD.md
 CHANGELOG.md
 CONTRIBUTING.md
 SECURITY.md
+
+# Local tool settings
+.claude/
