@@ -4,7 +4,7 @@ Add Causeline to an existing Spring Boot 4 + React app and see your first trace.
 
 You need JDK 21+, Spring Boot 4.1, React 18 or 19, and Node 22.
 
-> **Alpha.** `0.1.0-alpha.0` is the first public release: the starter is on Maven Central and the SDK on npm. Expect rough edges, and please report them on [GitHub](https://github.com/causeline/causeline/issues).
+> **Alpha.** The starter is on Maven Central (`0.1.0-alpha.1`) and the SDKs (`@causeline/react`, `@causeline/next`) on npm. Expect rough edges, and please report them on [GitHub](https://github.com/causeline/causeline/issues).
 
 ## 1. Spring Boot: add the dependency
 
@@ -14,14 +14,14 @@ Maven:
 <dependency>
   <groupId>dev.causeline</groupId>
   <artifactId>causeline-spring-boot</artifactId>
-  <version>0.1.0-alpha.0</version>
+  <version>0.1.0-alpha.1</version>
 </dependency>
 ```
 
 Gradle:
 
 ```kotlin
-implementation("dev.causeline:causeline-spring-boot:0.1.0-alpha.0")
+implementation("dev.causeline:causeline-spring-boot:0.1.0-alpha.1")
 ```
 
 ## 2. Spring Boot: switch it on in a dev profile

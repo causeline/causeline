@@ -4,7 +4,7 @@ React SDK for [Causeline](https://github.com/causeline/causeline): see what happ
 
 It links your click handlers, `fetch` and XHR calls, and React state updates to the Spring Boot work they cause, using W3C `traceparent`. The trace opens in Causeline's UI inside your Spring Boot app at `/causeline`.
 
-> **Alpha.** This package needs the `dev.causeline:causeline-spring-boot` starter (Maven Central, `0.1.0-alpha.0`) in your backend. See the [quick start](https://github.com/causeline/causeline/blob/main/docs/QUICKSTART.md).
+> **Alpha.** This package needs the `dev.causeline:causeline-spring-boot` starter (Maven Central, `0.1.0-alpha.1`) in your backend. See the [quick start](https://github.com/causeline/causeline/blob/main/docs/QUICKSTART.md).
 
 ## Install
 
