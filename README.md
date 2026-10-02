@@ -4,7 +4,7 @@
 
 Causeline is an open-source, local-first developer tool. It follows one user action from a React click, through your Spring Boot controllers, services, repositories and outbound calls, and back to the React state update, and shows it all as one timeline. You can then replay a captured request against Local, Dev or QA and compare the two runs.
 
-> **Status: early development.** Milestones 0.1 (timeline), 0.2 (diagnosis) and 0.3 (replay) work locally: a React click and the Spring Boot work it causes appear as one trace, with bottleneck and exception insights, and any captured request can be replayed and compared with the original. To try it in your own app, start with the [quick start](docs/QUICKSTART.md).
+> **Status: alpha (`0.1.0-alpha.0`).** Milestones 0.1 (timeline), 0.2 (diagnosis) and 0.3 (replay) work locally: a React click and the Spring Boot work it causes appear as one trace, with bottleneck and exception insights, and any captured request can be replayed and compared with the original. To try it in your own app, start with the [quick start](docs/QUICKSTART.md).
 
 ## Why
 
@@ -59,7 +59,21 @@ The token protects your traces and changes on every restart, unless you set `cau
 
 ## Using it in your app
 
-**Start with the [quick start](docs/QUICKSTART.md)** (about five minutes). In short:
+**Start with the [quick start](docs/QUICKSTART.md)** (about five minutes).
+
+```xml
+<dependency>
+  <groupId>dev.causeline</groupId>
+  <artifactId>causeline-spring-boot</artifactId>
+  <version>0.1.0-alpha.0</version>
+</dependency>
+```
+
+```bash
+npm install @causeline/react@alpha
+```
+
+In short:
 
 Spring Boot: add `causeline-spring-boot`, set `causeline.enabled=true` in a dev profile, and annotate the service methods you care about with Micrometer's `@Observed`. If your app uses Spring Security, permit `/causeline/**`; Causeline protects those paths itself.
 
