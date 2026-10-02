@@ -22,7 +22,16 @@
 
   ready(function () {
     // Hero entrance, once fonts are in so the headline doesn't reflow mid-animation.
-    var start = function () { requestAnimationFrame(function () { document.body.classList.add('loaded'); }); };
+    var started = false;
+    var start = function () {
+      if (started) return;
+      started = true;
+      requestAnimationFrame(function () { document.body.classList.add('loaded'); });
+      // A link like /#developer jumps before the web fonts load; once they change the page height,
+      // line the target up again.
+      var target = location.hash && document.getElementById(location.hash.slice(1));
+      if (target) target.scrollIntoView({ block: 'start', behavior: 'instant' });
+    };
     if (document.fonts && document.fonts.ready) document.fonts.ready.then(start); else start();
     setTimeout(start, 900); // never wait long for fonts
 
