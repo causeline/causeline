@@ -12,13 +12,38 @@
 
     <name>Causeline</name>
     <description>Trace, visualize and replay a user action from React through Spring Boot and back.</description>
+    <url>https://github.com/causeline/causeline</url>
+    <inceptionYear>2026</inceptionYear>
 
     <licenses>
         <license>
             <name>Apache License, Version 2.0</name>
             <url>https://www.apache.org/licenses/LICENSE-2.0</url>
+            <distribution>repo</distribution>
         </license>
     </licenses>
+
+    <!-- Required by Maven Central. -->
+    <developers>
+        <developer>
+            <id>Sudharmabg</id>
+            <name>BGSudharma</name>
+            <email>bgsudharma1998@gmail.com</email>
+            <url>https://github.com/Sudharmabg</url>
+        </developer>
+    </developers>
+
+    <scm>
+        <url>https://github.com/causeline/causeline</url>
+        <connection>scm:git:https://github.com/causeline/causeline.git</connection>
+        <developerConnection>scm:git:https://github.com/causeline/causeline.git</developerConnection>
+        <tag>HEAD</tag>
+    </scm>
+
+    <issueManagement>
+        <system>GitHub Issues</system>
+        <url>https://github.com/causeline/causeline/issues</url>
+    </issueManagement>
 
     <modules>
         <module>causeline-core</module>
@@ -65,9 +90,36 @@
     <build>
         <pluginManagement>
             <plugins>
+                <!-- Every plugin is pinned so builds don't change underneath us. -->
+                <plugin>
+                    <groupId>org.apache.maven.plugins</groupId>
+                    <artifactId>maven-clean-plugin</artifactId>
+                    <version>3.5.0</version>
+                </plugin>
+                <plugin>
+                    <groupId>org.apache.maven.plugins</groupId>
+                    <artifactId>maven-resources-plugin</artifactId>
+                    <version>3.5.0</version>
+                </plugin>
+                <plugin>
+                    <groupId>org.apache.maven.plugins</groupId>
+                    <artifactId>maven-jar-plugin</artifactId>
+                    <version>3.5.1</version>
+                </plugin>
+                <plugin>
+                    <groupId>org.apache.maven.plugins</groupId>
+                    <artifactId>maven-install-plugin</artifactId>
+                    <version>3.2.0</version>
+                </plugin>
+                <plugin>
+                    <groupId>org.apache.maven.plugins</groupId>
+                    <artifactId>maven-deploy-plugin</artifactId>
+                    <version>3.2.0</version>
+                </plugin>
                 <plugin>
                     <groupId>org.apache.maven.plugins</groupId>
                     <artifactId>maven-compiler-plugin</artifactId>
+                    <version>3.16.0</version>
                     <configuration>
                         <parameters>true</parameters>
                     </configuration>
@@ -75,6 +127,7 @@
                 <plugin>
                     <groupId>org.apache.maven.plugins</groupId>
                     <artifactId>maven-surefire-plugin</artifactId>
+                    <version>3.6.0</version>
                     <configuration>
                         <!-- Keeps forked test JVMs small enough for 4 GB developer machines. -->
                         <argLine>-Xmx384m -XX:+UseSerialGC -XX:TieredStopAtLevel=1</argLine>
@@ -92,6 +145,75 @@
     </build>
 
     <profiles>
+        <profile>
+            <!-- Maven Central release: ./mvnw -Prelease deploy. Adds source and javadoc jars, signs
+                 everything with GPG, and uploads to the Central Portal. The upload waits for a manual
+                 "Publish" in the portal (autoPublish=false), so a bad release can still be dropped.
+                 Needs a GPG key and a Central token in ~/.m2/settings.xml (server id "central"). -->
+            <id>release</id>
+            <build>
+                <plugins>
+                    <plugin>
+                        <groupId>org.apache.maven.plugins</groupId>
+                        <artifactId>maven-source-plugin</artifactId>
+                        <version>3.3.1</version>
+                        <executions>
+                            <execution>
+                                <id>attach-sources</id>
+                                <goals>
+                                    <goal>jar-no-fork</goal>
+                                </goals>
+                            </execution>
+                        </executions>
+                    </plugin>
+                    <plugin>
+                        <groupId>org.apache.maven.plugins</groupId>
+                        <artifactId>maven-javadoc-plugin</artifactId>
+                        <version>3.12.0</version>
+                        <configuration>
+                            <!-- Internal classes are documented for maintainers, not held to javadoc lint. -->
+                            <doclint>all,-missing</doclint>
+                            <quiet>true</quiet>
+                        </configuration>
+                        <executions>
+                            <execution>
+                                <id>attach-javadocs</id>
+                                <goals>
+                                    <goal>jar</goal>
+                                </goals>
+                            </execution>
+                        </executions>
+                    </plugin>
+                    <plugin>
+                        <groupId>org.apache.maven.plugins</groupId>
+                        <artifactId>maven-gpg-plugin</artifactId>
+                        <version>3.2.8</version>
+                        <executions>
+                            <execution>
+                                <id>sign-artifacts</id>
+                                <phase>verify</phase>
+                                <goals>
+                                    <goal>sign</goal>
+                                </goals>
+                            </execution>
+                        </executions>
+                    </plugin>
+                    <plugin>
+                        <groupId>org.sonatype.central</groupId>
+                        <artifactId>central-publishing-maven-plugin</artifactId>
+                        <version>0.11.0</version>
+                        <extensions>true</extensions>
+                        <configuration>
+                            <publishingServerId>central</publishingServerId>
+                            <autoPublish>false</autoPublish>
+                            <excludeArtifacts>
+                                <excludeArtifact>causeline-example-spring-demo</excludeArtifact>
+                            </excludeArtifacts>
+                        </configuration>
+                    </plugin>
+                </plugins>
+            </build>
+        </profile>
         <profile>
             <!-- Performance budgets (PRD section 11): ./mvnw -Pperf verify. Runs only the perf tests,
                  with the full JIT so timings resemble a normal dev run. -->
