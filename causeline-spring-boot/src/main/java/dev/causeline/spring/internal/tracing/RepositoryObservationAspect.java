@@ -40,12 +40,7 @@ public final class RepositoryObservationAspect {
         Observation observation = Observation.createNotStarted("causeline.repository", registry)
                 .contextualName(name)
                 .lowCardinalityKeyValue(SpanMapper.KIND_ATTRIBUTE, SpanKind.REPOSITORY.name());
-        values.arguments(observation, pjp);
-        return observation.observeChecked((Observation.CheckedCallable<Object, Throwable>) () -> {
-            Object result = pjp.proceed();
-            values.returned(observation, pjp, result);
-            return result;
-        });
+        return MethodSpans.observe(observation, pjp, values);
     }
 
     static String repositoryName(Object proxy) {

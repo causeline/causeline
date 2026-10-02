@@ -49,6 +49,7 @@
         <module>causeline-core</module>
         <module>causeline-spring-boot</module>
         <module>examples/spring-demo</module>
+        <module>examples/webflux-demo</module>
     </modules>
 
     <properties>
@@ -208,6 +209,7 @@
                             <autoPublish>false</autoPublish>
                             <excludeArtifacts>
                                 <excludeArtifact>causeline-example-spring-demo</excludeArtifact>
+                                <excludeArtifact>causeline-example-webflux-demo</excludeArtifact>
                             </excludeArtifacts>
                         </configuration>
                     </plugin>

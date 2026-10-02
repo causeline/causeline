@@ -4,8 +4,10 @@
   "license": "Apache-2.0",
   "workspaces": [
     "causeline-react",
+    "causeline-next",
     "causeline-ui",
-    "examples/react-demo"
+    "examples/react-demo",
+    "examples/next-demo"
   ],
   "scripts": {
     "build": "npm run build --workspaces --if-present",

@@ -1,0 +1,66 @@
+{
+  "name": "@causeline/next",
+  "version": "0.1.0-alpha.0",
+  "description": "Causeline for Next.js: puts route handlers, server actions, rendering and server-side fetches in the same trace as the React click and the Spring Boot request.",
+  "license": "Apache-2.0",
+  "author": "BGSudharma",
+  "homepage": "https://github.com/causeline/causeline#readme",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/causeline/causeline.git",
+    "directory": "causeline-next"
+  },
+  "bugs": {
+    "url": "https://github.com/causeline/causeline/issues"
+  },
+  "keywords": [
+    "nextjs",
+    "next",
+    "spring-boot",
+    "tracing",
+    "opentelemetry",
+    "traceparent",
+    "debugging",
+    "devtools"
+  ],
+  "type": "module",
+  "sideEffects": false,
+  "main": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.js"
+    }
+  },
+  "files": [
+    "dist",
+    "README.md",
+    "LICENSE"
+  ],
+  "engines": {
+    "node": ">=18.18"
+  },
+  "scripts": {
+    "build": "tsc -p tsconfig.build.json",
+    "typecheck": "tsc -p tsconfig.json --noEmit",
+    "test": "vitest run",
+    "prepublishOnly": "npm test && npm run build"
+  },
+  "peerDependencies": {
+    "@opentelemetry/api": "^1.9.0"
+  },
+  "dependencies": {
+    "@opentelemetry/core": "^2.11.0",
+    "@opentelemetry/sdk-trace-node": "^2.11.0"
+  },
+  "devDependencies": {
+    "@opentelemetry/api": "^1.9.1",
+    "@types/node": "^22.15.0",
+    "typescript": "^7.0.2",
+    "vitest": "^5.0.2"
+  },
+  "publishConfig": {
+    "access": "public"
+  }
+}

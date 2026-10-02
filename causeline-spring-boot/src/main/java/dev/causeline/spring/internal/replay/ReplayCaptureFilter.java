@@ -12,7 +12,6 @@ import jakarta.servlet.ServletException;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
 import java.io.IOException;
-import java.nio.charset.StandardCharsets;
 import java.util.Collections;
 import java.util.LinkedHashMap;
 import java.util.Locale;
@@ -20,7 +19,6 @@ import java.util.Map;
 import java.util.Set;
 import java.util.function.Predicate;
 import java.util.function.Supplier;
-import java.util.regex.Pattern;
 import org.springframework.web.filter.OncePerRequestFilter;
 import org.springframework.web.util.ContentCachingRequestWrapper;
 
@@ -34,20 +32,9 @@ import org.springframework.web.util.ContentCachingRequestWrapper;
  */
 public final class ReplayCaptureFilter extends OncePerRequestFilter {
 
-    public static final int MAX_BODY_BYTES = 64 * 1024;
+    public static final int MAX_BODY_BYTES = CapturedBodies.MAX_BODY_BYTES;
 
-    private static final Pattern TRACE_ID = Pattern.compile("[0-9a-f]{32}");
-
-    /**
-     * Never kept for replay: set by the HTTP client or by Causeline itself for each new request.
-     * Everything else, credentials included, is kept unless blocked.
-     */
-    static final Set<String> NOT_REPLAYED = Set.of("host", "content-length", "connection", "keep-alive",
-            "transfer-encoding", "upgrade", "te", "trailer", "expect", "http2-settings",
-            "traceparent", "tracestate", "baggage", "x-causeline-replay");
-
-    private static final Pattern TEXT_TYPE =
-            Pattern.compile("json|xml|text/|x-www-form-urlencoded|javascript|graphql", Pattern.CASE_INSENSITIVE);
+    static final Set<String> NOT_REPLAYED = CapturedBodies.NOT_REPLAYED;
 
     /** The span active on this thread, as {traceId, spanId}, or null. */
     public interface ActiveSpan extends Supplier<String[]> {
@@ -127,22 +114,15 @@ public final class ReplayCaptureFilter extends OncePerRequestFilter {
         if (observation == null) {
             return;
         }
-        String contentType = tee.getContentType();
-        boolean text = contentType != null && TEXT_TYPE.matcher(contentType).find();
-        byte[] body = text && tee.totalBytes() == tee.copy().length ? hideBlockedKeys(contentType, tee.copy()) : tee.copy();
-        String shown = text
-                ? new String(body, tee.charset())
-                : "[" + tee.totalBytes() + " bytes" + (contentType == null ? "" : ", " + contentType) + "]";
-        if (tee.totalBytes() > tee.copy().length && shown.charAt(0) != '[') {
-            shown += "… (first " + tee.copy().length + " of " + tee.totalBytes() + " bytes)";
-        }
+        String shown = CapturedBodies.shownResponse(userRedactor, tee.getContentType(), tee.charset(), tee.copy(),
+                tee.totalBytes());
         observation.highCardinalityKeyValue(KeyValue.of(RequestCaptureFilter.RESPONSE_BODY, shown));
     }
 
     private void record(HttpServletRequest request, String[] span, long length) {
         try {
             String replayOf = request.getHeader(ReplayService.REPLAY_HEADER);
-            if (replayOf != null && TRACE_ID.matcher(replayOf).matches()) {
+            if (replayOf != null && CapturedBodies.TRACE_ID.matcher(replayOf).matches()) {
                 store.markReplay(span[0], replayOf);
             }
             Map<String, String> headers = new LinkedHashMap<>();
@@ -177,12 +157,7 @@ public final class ReplayCaptureFilter extends OncePerRequestFilter {
     }
 
     private byte[] hideBlockedKeys(String contentType, byte[] body) {
-        if (userRedactor == null) {
-            return body;
-        }
-        byte[] redacted = userRedactor.redact(contentType, body);
-        // Bodies the redactor can't parse (binary, malformed) are kept as they are.
-        return redacted == null ? body : redacted;
+        return CapturedBodies.hideBlockedKeys(userRedactor, contentType, body);
     }
 
     private void attachToSpan(String contentType, byte[] body) {
@@ -190,14 +165,7 @@ public final class ReplayCaptureFilter extends OncePerRequestFilter {
         if (observation == null) {
             return;
         }
-        String shown = contentType != null && TEXT_TYPE.matcher(contentType).find()
-                ? new String(body, StandardCharsets.UTF_8)
-                : "[" + body.length + " bytes" + (contentType == null ? "" : ", " + contentType) + "]";
-        observation.highCardinalityKeyValue(KeyValue.of(RequestCaptureFilter.BODY, truncate(shown)));
-    }
-
-    private static String truncate(String value) {
-        int max = 16 * 1024;
-        return value.length() <= max ? value : value.substring(0, max) + "… (" + value.length() + " characters)";
+        observation.highCardinalityKeyValue(
+                KeyValue.of(RequestCaptureFilter.BODY, CapturedBodies.shownRequest(contentType, body)));
     }
 }

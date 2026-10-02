@@ -49,4 +49,15 @@ public final class MethodValues {
         }
         observation.highCardinalityKeyValue(RETURNED, renderer.value(value));
     }
+
+    /**
+     * What a {@code Mono} or {@code Flux} produced, recorded when it finishes. Nothing is recorded
+     * for an empty {@code Mono}, which is also what {@code Mono<Void>} always is.
+     */
+    public void produced(Observation observation, Object value) {
+        if (renderer == null || value == null) {
+            return;
+        }
+        observation.highCardinalityKeyValue(RETURNED, renderer.value(value));
+    }
 }

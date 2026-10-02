@@ -38,7 +38,10 @@ public final class ObservedValuesAspect implements Ordered {
             + " || @within(io.micrometer.observation.annotation.Observed)) && !within(dev.causeline.spring..*)")
     public Object record(ProceedingJoinPoint pjp) throws Throwable {
         Observation observation = registry.getCurrentObservation();
-        if (observation == null || !isFor(observation, pjp)) {
+        // Reactive methods are observed by ReactiveObservedAspect, which records their values itself.
+        if (observation == null || !isFor(observation, pjp)
+                || (pjp.getSignature() instanceof MethodSignature signature
+                        && ReactiveSupport.returnsReactive(signature.getMethod()))) {
             return pjp.proceed();
         }
         values.arguments(observation, pjp);

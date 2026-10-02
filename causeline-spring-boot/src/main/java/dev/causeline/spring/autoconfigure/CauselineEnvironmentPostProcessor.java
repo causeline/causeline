@@ -30,7 +30,10 @@ final class CauselineEnvironmentPostProcessor implements EnvironmentPostProcesso
             "spring.kafka.listener.observation-enabled", "true",
             "spring.rabbitmq.template.observation-enabled", "true",
             "spring.rabbitmq.listener.simple.observation-enabled", "true",
-            "spring.rabbitmq.listener.direct.observation-enabled", "true");
+            "spring.rabbitmq.listener.direct.observation-enabled", "true",
+            // WebFlux: the current span follows the request through Reactor operators, so services,
+            // queries and calls made inside a Mono or Flux stay in the request's trace.
+            "spring.reactor.context-propagation", "auto");
 
     @Override
     public void postProcessEnvironment(ConfigurableEnvironment environment, SpringApplication application) {
@@ -48,6 +51,7 @@ final class CauselineEnvironmentPostProcessor implements EnvironmentPostProcesso
         String sql = environment.getProperty("causeline.capture.sql", "full").trim();
         if (sql.equalsIgnoreCase("full")) {
             defaults.put("jdbc.datasource-proxy.include-parameter-values", "true");
+            defaults.put("management.observations.r2dbc.include-parameter-values", "true");
         }
         environment.getPropertySources().addLast(new MapPropertySource(PROPERTY_SOURCE_NAME, defaults));
     }

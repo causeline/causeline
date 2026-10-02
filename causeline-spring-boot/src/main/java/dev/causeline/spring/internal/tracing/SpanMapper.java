@@ -62,8 +62,8 @@ public final class SpanMapper {
     }
 
     /**
-     * The statement with its bound values in place of the {@code ?} placeholders, so it reads as it
-     * ran. {@code parameters} is datasource-proxy's display form, {@code (v1,v2,...)}, which does not
+     * The statement with its bound values in place of the placeholders ({@code ?} for JDBC,
+     * {@code $1}, {@code $2}... for R2DBC drivers), so it reads as it ran. {@code parameters} is datasource-proxy's display form, {@code (v1,v2,...)}, which does not
      * quote values; the values are only filled in when they match the placeholders one to one, so a
      * value containing a comma leaves the statement unchanged rather than showing a wrong query.
      * Quoting is inferred: numbers, booleans and null as-is, everything else as a string literal.
@@ -75,22 +75,36 @@ public final class SpanMapper {
         }
         String inner = parameters.substring(1, parameters.length() - 1);
         List<String> values = inner.isEmpty() ? List.of() : List.of(inner.split(",", -1));
-        List<Integer> placeholders = placeholderPositions(statement);
-        if (placeholders.size() != values.size() || values.isEmpty()) {
+        List<int[]> placeholders = placeholderPositions(statement);
+        if (values.isEmpty() || placeholders.isEmpty()) {
+            return statement;
+        }
+        boolean numbered = placeholders.getFirst()[2] > 0;
+        int expected = numbered ? placeholders.stream().mapToInt(p -> p[2]).max().orElse(0) : placeholders.size();
+        if (expected != values.size()) {
             return statement;
         }
         StringBuilder out = new StringBuilder(statement.length() + inner.length() + 8 * values.size());
         int from = 0;
         for (int i = 0; i < placeholders.size(); i++) {
-            out.append(statement, from, placeholders.get(i)).append(literal(values.get(i)));
-            from = placeholders.get(i) + 1;
+            int[] placeholder = placeholders.get(i);
+            // $n refers to the n-th value; a number with no value means the values don't match.
+            int index = numbered ? placeholder[2] - 1 : i;
+            if (index < 0 || index >= values.size()) {
+                return statement;
+            }
+            out.append(statement, from, placeholder[0]).append(literal(values.get(index)));
+            from = placeholder[1];
         }
         return out.append(statement.substring(from)).toString();
     }
 
-    /** Positions of {@code ?} outside string literals and quoted identifiers. */
-    private static List<Integer> placeholderPositions(String statement) {
-        List<Integer> positions = new ArrayList<>();
+    /**
+     * Placeholders outside string literals and quoted identifiers, as {start, end, number}: number
+     * is 0 for {@code ?} and n for {@code $n}. A statement mixing both styles is left alone.
+     */
+    private static List<int[]> placeholderPositions(String statement) {
+        List<int[]> positions = new ArrayList<>();
         char quote = 0;
         for (int i = 0; i < statement.length(); i++) {
             char c = statement.charAt(i);
@@ -101,10 +115,18 @@ public final class SpanMapper {
             } else if (c == '\'' || c == '"' || c == '`') {
                 quote = c;
             } else if (c == '?') {
-                positions.add(i);
+                positions.add(new int[] {i, i + 1, 0});
+            } else if (c == '$' && i + 1 < statement.length() && Character.isDigit(statement.charAt(i + 1))) {
+                int end = i + 1;
+                while (end < statement.length() && Character.isDigit(statement.charAt(end))) {
+                    end++;
+                }
+                positions.add(new int[] {i, end, Integer.parseInt(statement.substring(i + 1, end))});
+                i = end - 1;
             }
         }
-        return positions;
+        boolean mixed = positions.stream().map(p -> p[2] > 0).distinct().count() > 1;
+        return mixed ? List.of() : positions;
     }
 
     private static final Pattern NUMBER = Pattern.compile("-?\\d+(\\.\\d+)?([eE][-+]?\\d+)?");
@@ -157,11 +179,12 @@ public final class SpanMapper {
             }
             case DATABASE -> {
                 String dbName = databaseName(raw, attributes, data.getName());
-                String statement = raw.get("jdbc.query[0]");
+                String prefix = raw.containsKey("jdbc.query[0]") ? "jdbc." : "r2dbc.";
+                String statement = raw.get(prefix + "query[0]");
                 if (statement != null && sql == SqlCapture.STATEMENT) {
                     attributes.put("db.query.text", sanitizeSql(statement));
                 } else if (statement != null && sql == SqlCapture.FULL) {
-                    String parameters = raw.get("jdbc.params[0]");
+                    String parameters = raw.get(prefix + "params[0]");
                     if (parameters != null && !parameters.isBlank()) {
                         attributes.put("db.query.parameters", parameters);
                         attributes.put("db.query.statement", truncateSql(statement));
@@ -213,7 +236,7 @@ public final class SpanMapper {
         if (explicit != null) {
             return SpanKind.valueOf(explicit);
         }
-        if (raw.keySet().stream().anyMatch(k -> k.startsWith("jdbc."))) {
+        if (raw.keySet().stream().anyMatch(k -> k.startsWith("jdbc.") || k.startsWith("r2dbc."))) {
             return SpanKind.DATABASE;
         }
         return switch (data.getKind()) {
@@ -242,7 +265,7 @@ public final class SpanMapper {
     /** Names a query by operation and table only; the SQL text itself is never kept. */
     private static String databaseName(Map<String, String> raw, Map<String, String> attributes, String fallback) {
         String sql = raw.entrySet().stream()
-                .filter(e -> e.getKey().startsWith("jdbc.query"))
+                .filter(e -> e.getKey().startsWith("jdbc.query") || e.getKey().startsWith("r2dbc.query["))
                 .map(Map.Entry::getValue)
                 .findFirst()
                 .orElse("");

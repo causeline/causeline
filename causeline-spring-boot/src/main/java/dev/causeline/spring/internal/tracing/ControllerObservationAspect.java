@@ -41,11 +41,6 @@ public final class ControllerObservationAspect {
         Observation observation = Observation.createNotStarted("causeline.controller", registry)
                 .contextualName(name)
                 .lowCardinalityKeyValue(SpanMapper.KIND_ATTRIBUTE, SpanKind.CONTROLLER.name());
-        values.arguments(observation, pjp);
-        return observation.observeChecked((Observation.CheckedCallable<Object, Throwable>) () -> {
-            Object result = pjp.proceed();
-            values.returned(observation, pjp, result);
-            return result;
-        });
+        return MethodSpans.observe(observation, pjp, values);
     }
 }

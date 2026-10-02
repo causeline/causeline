@@ -22,8 +22,11 @@ Debugging "Checkout is slow and sometimes fails" means switching between the bro
 | `causeline-spring-boot` | Spring Boot auto-configuration, instrumentation, embedded UI and API |
 | `causeline-ui` | Trace explorer UI (React, Vite, Tailwind), packaged into the starter |
 | `causeline-react` | `@causeline/react` SDK |
+| `causeline-next` | `@causeline/next`: Next.js server-side tracing |
 | `examples/spring-demo` | Checkout API used for demos and end-to-end tests |
+| `examples/webflux-demo` | The same checkout on WebFlux, R2DBC and WebClient |
 | `examples/react-demo` | Checkout page using the SDK |
+| `examples/next-demo` | Next.js page and route handler in front of the Spring demo |
 
 ## Building from source
 
@@ -77,6 +80,14 @@ In short:
 
 Spring Boot: add `causeline-spring-boot`, set `causeline.enabled=true` in a dev profile, and annotate the service methods you care about with Micrometer's `@Observed`. If your app uses Spring Security, permit `/causeline/**`; Causeline protects those paths itself.
 
+**Spring MVC and WebFlux** are both supported, with the same UI, API and settings. On WebFlux:
+
+- The trace follows the request through Reactor operators (Causeline sets `spring.reactor.context-propagation=auto`).
+- A controller, `@Observed` service or repository method that returns a `Mono` or `Flux` gets a span that lasts until the result completes. Its "Returned" value is what the result produced: the `Mono`'s value, or the first 25 items of a `Flux`.
+- `WebClient` calls become HTTP client spans.
+- R2DBC queries become SQL spans with their values filled in. This needs `io.r2dbc:r2dbc-proxy` on the classpath, which is how Spring Boot observes R2DBC.
+- Request and response bodies are copied as they stream, never buffered first.
+
 **Supported API.** On the Java side that means the `causeline.*` configuration properties and the `dev.causeline.spring.ReplayAuthProvider` extension point. Everything under `dev.causeline.spring.internal` and `causeline-core` may change without notice. In React, it's everything exported from `@causeline/react`.
 
 React:
@@ -105,6 +116,33 @@ const onSave = () => trace('Save draft', (ctx) => ctx.fetch('/api/drafts', { met
 Optional provider props: `ignore={['/api/health', /analytics/]}` leaves requests untraced, and `captureClicks` labels requests made outside `trace()` with the click that likely caused them. For Redux, add `causelineReduxMiddleware` to your store's middleware.
 
 Wrap parts of the page in `<CauselineProfiler id="Checkout">` to see which renders an action caused.
+
+### Next.js
+
+`@causeline/react` works in Next.js client components unchanged. Add `@causeline/next` to also trace the Next.js server. Requests, route handlers, server actions, rendering and server-side `fetch` calls then appear in the same trace as the click and the Spring Boot request they lead to:
+
+```bash
+npm install @causeline/next@alpha @opentelemetry/api
+```
+
+```ts
+// instrumentation.ts (project root)
+export async function register() {
+  if (process.env.NEXT_RUNTIME === 'nodejs') {
+    const { registerCauseline } = await import('@causeline/next');
+    registerCauseline({ serviceName: 'storefront' }); // token: CAUSELINE_TOKEN, endpoint: CAUSELINE_ENDPOINT
+  }
+}
+```
+
+How it works:
+
+- **Where spans go.** Next.js spans are sent to the Causeline in your Spring Boot app (default `http://localhost:8080/causeline`). They need that app's `causeline.access-token`, given as `CAUSELINE_TOKEN`.
+- **Context to Spring.** Server-side `fetch` calls to localhost, to that app's host, and to anything listed in `propagateTo` carry `traceparent`. Third parties never get it.
+- **Redaction.** Sensitive query values are redacted before spans leave the Next.js server.
+- **Off by default.** Like the rest of Causeline, it does nothing in production. It is also off without a token and on the Edge runtime.
+- **Browser spans.** To get them through Next.js, proxy `/causeline/*` to the Spring app with a rewrite (see `examples/next-demo/next.config.ts`).
+- **If you already set up OpenTelemetry** (for example with `@vercel/otel`), pass `createCauselineSpanProcessor()` to it instead of calling `registerCauseline`.
 
 ### Configuration reference
 

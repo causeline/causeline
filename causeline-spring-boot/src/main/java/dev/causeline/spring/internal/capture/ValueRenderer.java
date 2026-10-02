@@ -55,7 +55,8 @@ public final class ValueRenderer {
             "org.springframework.ui.", "org.springframework.validation.", "org.springframework.core.io.",
             "org.springframework.web.context.request.", "org.springframework.http.server.",
             "org.springframework.web.servlet.", "org.springframework.context.", "org.springframework.beans.",
-            "reactor.core.", "java.lang.reflect.");
+            "org.springframework.web.server.", "org.springframework.web.reactive.", "org.reactivestreams.",
+            "reactor.", "io.netty.", "java.lang.reflect.");
 
     private static final Map<Class<?>, List<Field>> FIELDS = new ConcurrentHashMap<>();
     private static final MethodHandle IS_INITIALIZED = hibernate("isInitialized", MethodType.methodType(boolean.class, Object.class));

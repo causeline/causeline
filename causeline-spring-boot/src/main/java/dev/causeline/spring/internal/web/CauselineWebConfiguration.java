@@ -8,14 +8,10 @@ import dev.causeline.spring.internal.export.SpanForwarder;
 import dev.causeline.spring.internal.export.UpstreamForwarder;
 import dev.causeline.spring.internal.replay.ReplayStore;
 import dev.causeline.spring.internal.tracing.CauselineStats;
-import java.net.URI;
-import java.util.Optional;
 import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.core.env.Environment;
 import org.springframework.beans.factory.ObjectProvider;
 import io.micrometer.observation.ObservationPredicate;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnWebApplication;
 import org.springframework.boot.web.server.context.WebServerInitializedEvent;
 import org.springframework.boot.web.servlet.FilterRegistrationBean;
@@ -37,9 +33,7 @@ import org.springframework.web.servlet.config.annotation.WebMvcConfigurer;
 @ConditionalOnWebApplication(type = ConditionalOnWebApplication.Type.SERVLET)
 public class CauselineWebConfiguration {
 
-    static final String BASE_PATH = "/causeline";
-
-    private static final Logger log = LoggerFactory.getLogger(CauselineWebConfiguration.class);
+    static final String BASE_PATH = CauselinePaths.BASE_PATH;
 
     @Bean
     AccessToken causelineAccessToken(CauselineProperties properties) {
@@ -59,14 +53,7 @@ public class CauselineWebConfiguration {
     /** Prints where to open the UI once the port is known, the way Jupyter does. */
     @Bean
     ApplicationListener<WebServerInitializedEvent> causelineStartupLink(AccessToken token) {
-        return event -> {
-            String base = "http://localhost:" + event.getWebServer().getPort() + BASE_PATH + "/";
-            if (token.generated()) {
-                log.info("Causeline UI: {}?token={}  (token changes on every restart)", base, token.value());
-            } else {
-                log.info("Causeline UI: {}  (use your configured causeline.access-token)", base);
-            }
-        };
+        return CauselineWebSupport.startupLink(token);
     }
 
     @Bean
@@ -74,18 +61,8 @@ public class CauselineWebConfiguration {
             CauselineStats stats, @Qualifier("causelineForwarder") SpanForwarder causelineForwarder,
             ObjectProvider<UpstreamForwarder> upstream,
             CauselineProperties properties, Environment environment, SpanRedactor redactor) {
-        CauselineApiController.Status.Otlp otlpStatus = properties.export().otlp().enabled()
-                ? new CauselineApiController.Status.Otlp(true, URI.create(properties.export().otlp().endpoint()).getHost(), 0, 0, 0)
-                : CauselineApiController.Status.Otlp.disabled();
-        CauselineApiController controller = new CauselineApiController(store, traceId -> {
-            ReplayStore replayStore = replays.getIfAvailable();
-            return replayStore == null ? Optional.empty() : replayStore.replayOf(traceId);
-        }, stats, causelineForwarder, environment.getProperty("spring.application.name", "spring"), otlpStatus, redactor);
-        UpstreamForwarder up = upstream.getIfAvailable();
-        if (up != null) {
-            controller.setUpstream(up.host());
-        }
-        return controller;
+        return CauselineWebSupport.apiController(store, replays, stats, causelineForwarder, upstream, properties,
+                environment, redactor);
     }
 
     @Bean
@@ -115,12 +92,10 @@ public class CauselineWebConfiguration {
     }
 
     static boolean isCauselinePath(String uri) {
-        return uri != null && (uri.equals(BASE_PATH) || uri.startsWith(BASE_PATH + "/"));
+        return CauselinePaths.isCauselinePath(uri);
     }
 
     static boolean isIgnoredPath(String uri) {
-        return isCauselinePath(uri)
-                || "/favicon.ico".equals(uri)
-                || (uri != null && uri.startsWith("/.well-known/"));
+        return CauselinePaths.isIgnoredPath(uri);
     }
 }

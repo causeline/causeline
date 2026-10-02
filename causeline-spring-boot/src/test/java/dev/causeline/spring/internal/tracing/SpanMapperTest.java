@@ -88,6 +88,33 @@ class SpanMapperTest {
     }
 
     @Test
+    void r2dbcQueryBecomesADatabaseSpanWithNumberedPlaceholdersFilledIn() {
+        Span span = new SpanMapper("reactive-checkout", SqlCapture.FULL).map(data(io.opentelemetry.api.trace.SpanKind.CLIENT,
+                "query", attrs("r2dbc.query[0]", "INSERT INTO \"orders\" (\"ITEM\", \"QUANTITY\") VALUES ($1, $2)",
+                        "r2dbc.params[0]", "(book,2)", "r2dbc.connection", "H2")));
+
+        assertThat(span.kind()).isEqualTo(SpanKind.DATABASE);
+        assertThat(span.name()).isEqualTo("INSERT orders");
+        assertThat(span.attributes())
+                .containsEntry("db.query.text", "INSERT INTO \"orders\" (\"ITEM\", \"QUANTITY\") VALUES ('book', 2)")
+                .containsEntry("db.query.parameters", "(book,2)");
+    }
+
+    @Test
+    void numberedPlaceholdersTakeTheirValueByNumber() {
+        assertThat(SpanMapper.withValues("select * from t where b=$2 and a=$1 or c=$1", "(x,7)"))
+                .isEqualTo("select * from t where b=7 and a='x' or c='x'");
+        // More values than the highest number: a value contained a comma, so don't guess.
+        assertThat(SpanMapper.withValues("select * from t where a=$1 and b=$2", "(x,y,z)"))
+                .isEqualTo("select * from t where a=$1 and b=$2");
+        // Both styles in one statement is not something a driver produces.
+        assertThat(SpanMapper.withValues("select * from t where a=? and b=$1", "(x)"))
+                .isEqualTo("select * from t where a=? and b=$1");
+        // $ inside a string literal is text.
+        assertThat(SpanMapper.withValues("select '$1' from t where a=$1", "(x)")).isEqualTo("select '$1' from t where a='x'");
+    }
+
+    @Test
     void valuesAreOnlyFilledInWhenTheyMatchThePlaceholders() {
         // A value containing a comma makes the split ambiguous: keep the ? rather than guess.
         assertThat(SpanMapper.withValues("select * from t where a=? and b=?", "(x,y,z)"))

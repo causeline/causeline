@@ -3,7 +3,6 @@ package dev.causeline.spring.internal.web;
 
 import dev.causeline.core.TraceStore;
 import dev.causeline.spring.autoconfigure.CauselineProperties;
-import dev.causeline.spring.internal.capture.SensitiveData;
 import dev.causeline.spring.internal.replay.BodyRedactor;
 import dev.causeline.spring.ReplayAuthProvider;
 import dev.causeline.spring.internal.replay.ReplayCaptureFilter;
@@ -11,11 +10,8 @@ import dev.causeline.spring.internal.replay.ReplayService;
 import dev.causeline.spring.internal.replay.ReplayStore;
 import io.micrometer.observation.ObservationRegistry;
 import io.micrometer.tracing.Tracer;
-import java.util.List;
-import java.util.Locale;
 import java.util.Optional;
 import java.util.Set;
-import java.util.stream.Collectors;
 import org.springframework.beans.factory.ObjectProvider;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnClass;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnWebApplication;
@@ -47,17 +43,14 @@ public class CauselineReplayConfiguration {
             io.micrometer.tracing.Span span = current == null ? null : current.currentSpan();
             return span == null ? null : new String[] {span.context().traceId(), span.context().spanId()};
         };
-        List<String> redactKeys = properties.capture().redactKeys();
-        BodyRedactor userRedactor = redactKeys.isEmpty() ? null : new BodyRedactor(SensitiveData.userBlocked(redactKeys));
-        Set<String> blockedHeaders = properties.capture().headers().block().stream()
-                .map(h -> h.toLowerCase(Locale.ROOT))
-                .collect(Collectors.toUnmodifiableSet());
+        BodyRedactor userRedactor = CauselineWebSupport.userBodyRedactor(properties);
+        Set<String> blockedHeaders = CauselineWebSupport.blockedHeaders(properties);
         ReplayCaptureFilter filter = new ReplayCaptureFilter(store, properties.capture().requestBody(),
                 properties.capture().responseBody(), userRedactor,
                 activeSpan, () -> {
                     ObservationRegistry current = registry.getIfAvailable();
                     return current == null ? null : current.getCurrentObservation();
-                }, CauselineWebConfiguration::isIgnoredPath, blockedHeaders);
+                }, CauselinePaths::isIgnoredPath, blockedHeaders);
         FilterRegistrationBean<ReplayCaptureFilter> registration = new FilterRegistrationBean<>(filter);
         registration.setOrder(CAPTURE_FILTER_ORDER);
         return registration;

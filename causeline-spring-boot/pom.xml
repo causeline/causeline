@@ -69,6 +69,17 @@
             <artifactId>jakarta.servlet-api</artifactId>
             <optional>true</optional>
         </dependency>
+        <!-- WebFlux applications: reactive server spans, UI and API; Mono/Flux-aware method spans -->
+        <dependency>
+            <groupId>org.springframework.boot</groupId>
+            <artifactId>spring-boot-webflux</artifactId>
+            <optional>true</optional>
+        </dependency>
+        <dependency>
+            <groupId>io.projectreactor</groupId>
+            <artifactId>reactor-core</artifactId>
+            <optional>true</optional>
+        </dependency>
         <!-- JSON body redaction for replay and reading remote traces; present in every Spring MVC app -->
         <dependency>
             <groupId>tools.jackson.core</groupId>

@@ -133,6 +133,30 @@ causeline:
 
 Calls between them then show as one trace in the caller's UI.
 
+## WebFlux?
+
+Nothing changes: the same dependency and settings work in a WebFlux app. Methods that return `Mono` or `Flux` get spans that last until the result completes. To see R2DBC queries as SQL spans, add `io.r2dbc:r2dbc-proxy`.
+
+## Next.js in front of Spring?
+
+Step 4 works as written in a client component. To also see the Next.js server (route handlers, server actions, rendering, its calls to Spring) in the same trace:
+
+```bash
+npm install @causeline/next@alpha @opentelemetry/api
+```
+
+```ts
+// instrumentation.ts
+export async function register() {
+  if (process.env.NEXT_RUNTIME === 'nodejs') {
+    const { registerCauseline } = await import('@causeline/next');
+    registerCauseline({ serviceName: 'storefront' });
+  }
+}
+```
+
+Start Next.js with `CAUSELINE_TOKEN` set to the Spring app's `causeline.access-token`. Set `CAUSELINE_ENDPOINT` too if the Spring app isn't on `http://localhost:8080`. To get browser spans through Next.js, add a rewrite from `/causeline/:path*` to the Spring app.
+
 ## Troubleshooting
 
 | Symptom | Fix |

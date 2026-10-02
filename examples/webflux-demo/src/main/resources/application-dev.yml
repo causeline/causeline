@@ -1,0 +1,3 @@
+# Causeline is off unless enabled; this demo turns it on for the dev profile only.
+causeline:
+  enabled: true

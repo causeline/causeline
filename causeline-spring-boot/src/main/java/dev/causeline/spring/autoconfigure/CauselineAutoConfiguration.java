@@ -16,11 +16,14 @@ import dev.causeline.spring.internal.capture.ValueRenderer;
 import dev.causeline.spring.internal.tracing.ControllerObservationAspect;
 import dev.causeline.spring.internal.tracing.MethodValues;
 import dev.causeline.spring.internal.tracing.ObservedValuesAspect;
+import dev.causeline.spring.internal.tracing.ReactiveObservedAspect;
+import dev.causeline.spring.internal.tracing.ReactiveObservedAspectPostProcessor;
 import dev.causeline.spring.internal.tracing.ExceptionSpans;
 import dev.causeline.spring.internal.tracing.LoggedExceptionAppender;
 import dev.causeline.spring.internal.tracing.LoggedExceptionCapture;
 import dev.causeline.spring.internal.tracing.RepositoryObservationAspect;
 import dev.causeline.spring.internal.tracing.SpanMapper;
+import dev.causeline.spring.internal.web.CauselineReactiveWebConfiguration;
 import dev.causeline.spring.internal.web.CauselineReplayConfiguration;
 import dev.causeline.spring.internal.web.CauselineWebConfiguration;
 import io.micrometer.observation.ObservationRegistry;
@@ -40,6 +43,7 @@ import org.springframework.boot.autoconfigure.condition.ConditionalOnClass;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnMissingBean;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnExpression;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
+import org.springframework.boot.autoconfigure.condition.ConditionalOnWebApplication;
 import org.springframework.boot.context.properties.EnableConfigurationProperties;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Conditional;
@@ -56,7 +60,7 @@ import org.springframework.core.env.Environment;
         afterName = "org.springframework.boot.micrometer.observation.autoconfigure.ObservationAutoConfiguration")
 @Conditional(OnCauselineEnabledCondition.class)
 @EnableConfigurationProperties(CauselineProperties.class)
-@Import({CauselineWebConfiguration.class, CauselineReplayConfiguration.class})
+@Import({CauselineWebConfiguration.class, CauselineReplayConfiguration.class, CauselineReactiveWebConfiguration.class})
 public class CauselineAutoConfiguration {
 
     /** How often finished spans move from the batch queue into the store. */
@@ -83,9 +87,10 @@ public class CauselineAutoConfiguration {
                 : SpanRedactor.NONE;
     }
 
-    /** Opt-in request details (headers, query, raw path), filtered before they reach a span. */
+    /** Request details (headers, query, raw path) on server spans, filtered before they reach a span. */
     @Bean
-    @ConditionalOnClass(name = "org.springframework.http.server.observation.ServerRequestObservationContext")
+    @ConditionalOnWebApplication(type = ConditionalOnWebApplication.Type.SERVLET)
+    @ConditionalOnClass(name = "jakarta.servlet.http.HttpServletRequest")
     RequestCaptureFilter causelineRequestCaptureFilter(CauselineProperties properties) {
         return new RequestCaptureFilter(properties.capture(), SensitiveData.userBlocked(properties.capture().redactKeys()));
     }
@@ -187,6 +192,25 @@ public class CauselineAutoConfiguration {
     @ConditionalOnClass(name = "org.springframework.web.bind.annotation.RestController")
     ControllerObservationAspect causelineControllerObservationAspect(ObservationRegistry registry, MethodValues values) {
         return new ControllerObservationAspect(registry, values);
+    }
+
+    /**
+     * {@code @Observed} methods that return a Mono or Flux: their spans last until the result
+     * finishes, rather than ending when the method hands back the unstarted pipeline.
+     */
+    @Configuration(proxyBeanMethods = false)
+    @ConditionalOnClass(name = {"reactor.core.publisher.Mono", "io.micrometer.observation.aop.ObservedAspect"})
+    static class ReactiveObserved {
+
+        @Bean
+        static ReactiveObservedAspectPostProcessor causelineReactiveObservedAspectPostProcessor() {
+            return new ReactiveObservedAspectPostProcessor();
+        }
+
+        @Bean
+        ReactiveObservedAspect causelineReactiveObservedAspect(ObservationRegistry registry, MethodValues values) {
+            return new ReactiveObservedAspect(registry, values);
+        }
     }
 
     @Configuration(proxyBeanMethods = false)

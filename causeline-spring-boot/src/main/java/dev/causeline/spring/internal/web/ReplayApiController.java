@@ -12,6 +12,10 @@ import dev.causeline.spring.internal.replay.ReplayService.ReplayException;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
+import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.CompletionException;
+import java.util.concurrent.Executor;
+import java.util.concurrent.Executors;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.GetMapping;
@@ -29,6 +33,13 @@ import tools.jackson.databind.json.JsonMapper;
 public class ReplayApiController {
 
     private static final JsonMapper JSON = JsonMapper.builder().build();
+
+    /**
+     * Replays and remote comparisons wait on the network for up to 30 s, so they run here rather
+     * than on a request thread (or, in WebFlux, on the event loop). Both are started by hand from
+     * the UI, so a thread per call is fine.
+     */
+    private static final Executor NETWORK = Executors.newVirtualThreadPerTaskExecutor();
 
     private final ReplayService replays;
     private final TraceStore traces;
@@ -63,8 +74,9 @@ public class ReplayApiController {
     }
 
     @PostMapping("/replays")
-    public ReplayService.Outcome replay(@RequestBody ReplayRequest request) {
-        return replays.replay(request.traceId(), request.spanId(), request.target(), request.confirm(), request.body());
+    public CompletableFuture<ReplayService.Outcome> replay(@RequestBody ReplayRequest request) {
+        return CompletableFuture.supplyAsync(() -> replays.replay(request.traceId(), request.spanId(),
+                request.target(), request.confirm(), request.body()), NETWORK);
     }
 
     /**
@@ -72,9 +84,13 @@ public class ReplayApiController {
      * arrived; the UI retries.
      */
     @GetMapping("/replays/compare")
-    public ResponseEntity<Comparison> compare(@RequestParam("traceId") String traceId,
+    public CompletableFuture<ResponseEntity<Comparison>> compare(@RequestParam("traceId") String traceId,
             @RequestParam("spanId") String spanId, @RequestParam("replayTraceId") String replayTraceId,
             @RequestParam("target") String target) {
+        return CompletableFuture.supplyAsync(() -> compareNow(traceId, spanId, replayTraceId, target), NETWORK);
+    }
+
+    private ResponseEntity<Comparison> compareNow(String traceId, String spanId, String replayTraceId, String target) {
         Optional<List<Span>> originalSpans = traces.get(traceId);
         if (originalSpans.isEmpty()) {
             return ResponseEntity.notFound().build();
@@ -94,9 +110,13 @@ public class ReplayApiController {
                 .orElseGet(() -> ResponseEntity.notFound().build());
     }
 
-    @ExceptionHandler(ReplayException.class)
-    ResponseEntity<Map<String, String>> refused(ReplayException e) {
-        return ResponseEntity.status(e.status()).body(Map.of("error", e.getMessage()));
+    @ExceptionHandler({ReplayException.class, CompletionException.class})
+    ResponseEntity<Map<String, String>> refused(RuntimeException e) throws RuntimeException {
+        Throwable cause = e instanceof CompletionException && e.getCause() != null ? e.getCause() : e;
+        if (cause instanceof ReplayException refused) {
+            return ResponseEntity.status(refused.status()).body(Map.of("error", refused.getMessage()));
+        }
+        throw e;
     }
 
     private static Replayable describe(Span span, ReplayRecord record) {

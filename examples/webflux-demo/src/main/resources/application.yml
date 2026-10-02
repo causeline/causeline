@@ -1,0 +1,15 @@
+spring:
+  application:
+    name: reactive-checkout
+  r2dbc:
+    url: r2dbc:h2:mem:///checkout;DB_CLOSE_DELAY=-1
+  sql:
+    init:
+      mode: always
+
+server:
+  port: 8080
+
+demo:
+  payment:
+    delay-ms: 600

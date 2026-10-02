@@ -31,3 +31,7 @@ SECURITY.md
 
 # Local tool settings
 .claude/
+
+# Next.js build output
+.next/
+next-env.d.ts
