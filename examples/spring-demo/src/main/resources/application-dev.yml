@@ -1,0 +1,17 @@
+# Causeline is off unless enabled; the demo turns it on for the dev profile only.
+# Everything is captured and shown in the local UI by default (headers, bodies, SQL, exceptions).
+# Exports (OTLP, trace files) redact secrets unless causeline.export.redact-secrets=false.
+causeline:
+  enabled: true
+  # To hide things even locally:
+  # capture:
+  #   headers: { block: [Cookie] }
+  #   redact-keys: [password]
+  #
+  # "local" (this app) is always available as a replay target. A QA target would look like this:
+  # replay:
+  #   targets:
+  #     qa:
+  #       base-url: https://qa.example.internal
+  #       auth: { type: bearer, token: ${CAUSELINE_QA_TOKEN} }   # replaces the original Authorization
+  #       causeline-token: ${CAUSELINE_QA_API_TOKEN}             # lets Causeline fetch the replay's trace

@@ -1,0 +1,14 @@
+spring:
+  application:
+    name: checkout-demo
+  datasource:
+    url: jdbc:h2:mem:checkout;DB_CLOSE_DELAY=-1
+  jpa:
+    open-in-view: false
+
+server:
+  port: 8080
+
+demo:
+  payment:
+    delay-ms: 800

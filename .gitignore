@@ -1,0 +1,30 @@
+# Build output
+target/
+dist/
+*.tsbuildinfo
+
+# Dependencies
+node_modules/
+
+# Maven wrapper download
+.mvn/wrapper/maven-wrapper.jar
+
+# IDEs and OS
+.idea/
+*.iml
+.vscode/
+.DS_Store
+Thumbs.db
+
+# Logs and local env
+*.log
+.env
+.env.*
+
+# Internal working documents, kept local only
+CLAUDE.md
+SKILLS.md
+docs/PRD.md
+CHANGELOG.md
+CONTRIBUTING.md
+SECURITY.md

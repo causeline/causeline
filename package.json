@@ -1,0 +1,17 @@
+{
+  "name": "causeline-workspace",
+  "private": true,
+  "license": "Apache-2.0",
+  "workspaces": [
+    "causeline-react",
+    "causeline-ui",
+    "examples/react-demo"
+  ],
+  "scripts": {
+    "build": "npm run build --workspaces --if-present",
+    "test": "npm test --workspaces --if-present"
+  },
+  "engines": {
+    "node": ">=22"
+  }
+}
