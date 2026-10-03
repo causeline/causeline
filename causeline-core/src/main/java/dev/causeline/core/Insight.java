@@ -13,7 +13,10 @@ public record Insight(Rule rule, String spanId, String label, int sharePercent) 
         PRIMARY_BOTTLENECK,
         /** Self time of at least a quarter of the trace and at least 100 ms. */
         NOTABLE,
-        /** Ten or more identical queries under one parent: the classic N+1 pattern. */
+        /**
+         * The same query run again and again under one parent: five or more identical SELECTs (the
+         * classic N+1 of lazy loading), or ten or more of any other statement.
+         */
         REPEATED_QUERY,
         /** The browser took 100 ms or more to update state after a response arrived. */
         SLOW_CLIENT_HANDLING,

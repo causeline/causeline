@@ -11,7 +11,9 @@ import dev.causeline.spring.internal.export.TracePersistence;
 import dev.causeline.spring.internal.export.UpstreamForwarder;
 import dev.causeline.spring.internal.tracing.CauselineSpanExporter;
 import dev.causeline.spring.internal.tracing.CauselineSpanProcessor;
+import dev.causeline.spring.internal.tracing.CacheSpans;
 import dev.causeline.spring.internal.tracing.CauselineStats;
+import dev.causeline.spring.internal.tracing.TransactionSpans;
 import dev.causeline.spring.internal.capture.ValueRenderer;
 import dev.causeline.spring.internal.tracing.ControllerObservationAspect;
 import dev.causeline.spring.internal.tracing.MethodValues;
@@ -213,6 +215,26 @@ public class CauselineAutoConfiguration {
         }
     }
 
+    /** Transactions from begin to commit or rollback, on every transaction manager. */
+    @Configuration(proxyBeanMethods = false)
+    @ConditionalOnClass(name = "org.springframework.transaction.TransactionExecutionListener")
+    @ConditionalOnProperty(prefix = "causeline.capture", name = "transactions", havingValue = "true", matchIfMissing = true)
+    static class TransactionTracing {
+
+        @Bean
+        static TransactionSpans causelineTransactionSpans(ObjectProvider<ObservationRegistry> registry) {
+            return new TransactionSpans(registry::getIfAvailable);
+        }
+    }
+
+    /** Spring Cache lookups (hit or miss), writes and evictions. */
+    @Bean
+    @ConditionalOnProperty(prefix = "causeline.capture", name = "caches", havingValue = "true", matchIfMissing = true)
+    static CacheSpans causelineCacheSpans(ObjectProvider<ObservationRegistry> registry,
+            ObjectProvider<MethodValues> values) {
+        return new CacheSpans(registry::getIfAvailable, values::getIfAvailable);
+    }
+
     @Configuration(proxyBeanMethods = false)
     @ConditionalOnClass(name = "org.springframework.data.repository.Repository")
     static class RepositoryTracing {
@@ -224,14 +246,14 @@ public class CauselineAutoConfiguration {
         }
     }
 
-    /** Surfaces exceptions the application catches and logs, when Logback is the logging backend. */
+    /** Puts the application's log lines and logged exceptions on the timeline, when Logback is the logging backend. */
     @Configuration(proxyBeanMethods = false)
     @ConditionalOnClass(name = "ch.qos.logback.classic.LoggerContext")
     static class LoggedExceptions {
 
         @Bean
         LoggedExceptionCapture causelineLoggedExceptionCapture(ObjectProvider<Tracer> tracer, ExceptionSpans exceptions,
-                TraceStore store, Environment environment) {
+                TraceStore store, Environment environment, CauselineProperties properties) {
             Supplier<LoggedExceptionAppender.ActiveSpan> activeSpan = () -> {
                 // Resolved per event: the tracer is created after Causeline's configuration.
                 Tracer current = tracer.getIfAvailable();
@@ -240,7 +262,8 @@ public class CauselineAutoConfiguration {
                         : new LoggedExceptionAppender.ActiveSpan(span.context().traceId(), span.context().spanId());
             };
             return new LoggedExceptionCapture(
-                    new LoggedExceptionAppender(activeSpan, exceptions, store, source(environment)));
+                    new LoggedExceptionAppender(activeSpan, exceptions, store, source(environment),
+                            properties.capture().logs()));
         }
     }
 

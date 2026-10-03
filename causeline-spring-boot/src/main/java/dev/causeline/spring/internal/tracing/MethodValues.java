@@ -29,6 +29,11 @@ public final class MethodValues {
         return renderer != null;
     }
 
+    /** Any value as JSON, under the same rules as arguments; null when argument capture is off. */
+    public String render(Object value) {
+        return renderer == null ? null : renderer.value(value);
+    }
+
     public void arguments(Observation observation, ProceedingJoinPoint pjp) {
         if (renderer == null || !(pjp.getSignature() instanceof MethodSignature signature)) {
             return;

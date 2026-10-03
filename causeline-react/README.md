@@ -12,7 +12,7 @@ It links your click handlers, `fetch` and XHR calls, and React state updates to 
 npm install @causeline/react
 ```
 
-Requires React 18 or later (tested with React 19). No other dependencies; about 8 KB gzipped.
+Requires React 18 or later (tested with React 19). No other dependencies; about 9 KB gzipped.
 
 ## Use
 
@@ -53,10 +53,10 @@ The provider does nothing in production builds (`import.meta.env.PROD`) or witho
 
 ## What it records
 
-By default: full URLs, request and response bodies (text, up to 16 KB each), state values and Redux payloads. These are shown only in your local Causeline UI, and secrets are redacted when a trace is exported. To record less:
+By default: full URLs, request and response bodies (text, up to 16 KB each), state values, Redux payloads, and errors (uncaught errors, unhandled rejections, and `console.error` during an action). These are shown only in your local Causeline UI, and secrets are redacted when a trace is exported. To record less:
 
 ```tsx
-<CauselineProvider endpoint="/causeline/api/spans" capture={{ query: false, bodies: false, stateValues: false }}>
+<CauselineProvider endpoint="/causeline/api/spans" capture={{ query: false, bodies: false, stateValues: false, errors: false }}>
 ```
 
 Development and QA only: Causeline refuses to run under a production profile.

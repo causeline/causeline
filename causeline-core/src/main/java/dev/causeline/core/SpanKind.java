@@ -13,6 +13,12 @@ public enum SpanKind {
     EXCEPTION,
     STATE_UPDATE,
     RENDER,
-    /** Reserved for messaging instrumentation in V1.1. */
-    MESSAGE
+    /** A message sent or received (Kafka, RabbitMQ). */
+    MESSAGE,
+    /** A log line written while a span was active: a point event under that span. */
+    LOG,
+    /** A database transaction, from begin to commit or rollback. */
+    TRANSACTION,
+    /** A cache lookup, write or eviction (Spring Cache). */
+    CACHE
 }

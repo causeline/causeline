@@ -73,6 +73,30 @@ public final class TraceComparison {
                 rows);
     }
 
+    /**
+     * Compares two runs of the same action, recorded at different times (for example yesterday's
+     * fast checkout and today's slow one). Matching starts from each trace's root: the user action
+     * when there is one, otherwise the first request.
+     */
+    public static Result compareTraces(TraceView first, TraceView second) {
+        Tree left = Tree.of(first);
+        Tree right = Tree.of(second);
+        if (left.roots.isEmpty()) {
+            throw new IllegalArgumentException("trace " + first.traceId() + " has no spans");
+        }
+        TraceView.Row leftRoot = left.roots.stream().filter(r -> r.kind() == SpanKind.UI_ACTION).findFirst()
+                .orElse(left.roots.getFirst());
+        TraceView.Row rightRoot = right.roots.stream().filter(r -> key(r).equals(key(leftRoot))).findFirst()
+                .orElse(right.roots.isEmpty() ? null : right.roots.getFirst());
+        List<Row> rows = new ArrayList<>();
+        match(leftRoot, rightRoot, 0, left, right, rows);
+        return new Result(
+                side(first.traceId(), leftRoot, subtreeStatus(leftRoot, left)),
+                rightRoot == null ? new Side(second.traceId(), second.status(), second.durationNanos(), null)
+                        : side(second.traceId(), rightRoot, subtreeStatus(rightRoot, right)),
+                rows);
+    }
+
     private static Side side(String traceId, TraceView.Row root) {
         return new Side(traceId, root.status(), root.durationNanos(), root.attributes().get("http.response.status_code"));
     }
@@ -165,6 +189,10 @@ public final class TraceComparison {
             List<TraceView.Row> roots = new ArrayList<>();
             // TraceView rows are already in tree order, so children stay sorted by start time.
             for (TraceView.Row r : view.spans()) {
+                // Log lines differ in every run (IDs, values) and take no time: not something to compare.
+                if (r.kind() == SpanKind.LOG) {
+                    continue;
+                }
                 if (r.parentSpanId() != null && byId.containsKey(r.parentSpanId())) {
                     kids.computeIfAbsent(r.parentSpanId(), k -> new ArrayList<>()).add(r);
                 } else {

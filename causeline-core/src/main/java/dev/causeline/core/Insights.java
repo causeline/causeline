@@ -13,6 +13,8 @@ public final class Insights {
 
     static final long NOTABLE_MIN_NANOS = 100_000_000;
     static final int REPEATED_QUERY_MIN = 10;
+    /** Lazy loading shows up with as few rows as a page of results, so SELECTs are flagged sooner. */
+    static final int REPEATED_SELECT_MIN = 5;
     static final long SLOW_CLIENT_MIN_NANOS = 100_000_000;
 
     private Insights() {
@@ -73,17 +75,58 @@ public final class Insights {
                         share(r, total))));
     }
 
+    /**
+     * Identical statements under one parent. For SELECTs the label names where they ran and the query
+     * that most likely produced the rows they load (the "1" of N+1), and how to load them together.
+     */
     private static void repeatedQueries(List<TraceView.Row> rows, List<Insight> insights) {
+        Map<String, TraceView.Row> byId = new LinkedHashMap<>();
+        rows.forEach(r -> byId.put(r.spanId(), r));
         Map<String, List<TraceView.Row>> groups = new LinkedHashMap<>();
         rows.stream()
                 .filter(r -> r.kind() == SpanKind.DATABASE)
-                .forEach(r -> groups.computeIfAbsent(r.parentSpanId() + "|" + r.name(), k -> new ArrayList<>()).add(r));
-        groups.values().stream()
-                .filter(group -> group.size() >= REPEATED_QUERY_MIN)
-                .forEach(group -> insights.add(new Insight(Rule.REPEATED_QUERY, group.getFirst().spanId(),
-                        "Repeated query × " + group.size() + ": " + group.getFirst().name()
-                                + " (possible N+1; consider a join or batch fetch)",
-                        0)));
+                .forEach(r -> groups.computeIfAbsent(r.parentSpanId() + "|" + statementOf(r), k -> new ArrayList<>()).add(r));
+        groups.values().forEach(group -> {
+            TraceView.Row first = group.getFirst();
+            boolean select = first.name().startsWith("SELECT");
+            if (group.size() < (select ? REPEATED_SELECT_MIN : REPEATED_QUERY_MIN)) {
+                return;
+            }
+            TraceView.Row parent = byId.get(first.parentSpanId());
+            String where = parent == null ? "" : " in " + parent.name();
+            String label;
+            if (select) {
+                TraceView.Row before = queryBefore(rows, first);
+                String table = first.attributes().getOrDefault("db.collection.name", first.name().substring(6).trim());
+                label = "N+1 query: " + first.name() + " ran " + group.size() + " times" + where
+                        + (before == null ? "" : ", once per row of " + before.name())
+                        + ". Load " + table + " in the same query: JOIN FETCH or @EntityGraph on the repository method,"
+                        + " or @BatchSize / hibernate.default_batch_fetch_size";
+            } else {
+                label = "Repeated query × " + group.size() + ": " + first.name() + where
+                        + " (consider a batch statement or saveAll)";
+            }
+            insights.add(new Insight(Rule.REPEATED_QUERY, first.spanId(), label, 0));
+        });
+    }
+
+    /** Statements that differ only in their values count as the same query. */
+    private static String statementOf(TraceView.Row row) {
+        String prepared = row.attributes().get("db.query.statement");
+        return prepared != null ? prepared : row.name();
+    }
+
+    /** The last query that finished before the repeated ones started, from a different statement. */
+    private static TraceView.Row queryBefore(List<TraceView.Row> rows, TraceView.Row first) {
+        TraceView.Row best = null;
+        for (TraceView.Row r : rows) {
+            if (r.kind() == SpanKind.DATABASE && r.offsetNanos() + r.durationNanos() <= first.offsetNanos()
+                    && !statementOf(r).equals(statementOf(first)) && r.name().startsWith("SELECT")
+                    && (best == null || r.offsetNanos() > best.offsetNanos())) {
+                best = r;
+            }
+        }
+        return best;
     }
 
     private static void slowClientHandling(List<TraceView.Row> rows, List<Insight> insights) {

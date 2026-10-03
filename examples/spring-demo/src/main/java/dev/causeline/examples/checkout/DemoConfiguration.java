@@ -4,6 +4,7 @@ package dev.causeline.examples.checkout;
 import io.micrometer.observation.ObservationPredicate;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
+import org.springframework.cache.annotation.EnableCaching;
 import org.springframework.scheduling.annotation.EnableAsync;
 import org.springframework.http.server.observation.ServerRequestObservationContext;
 import org.springframework.web.context.request.RequestContextHolder;
@@ -11,6 +12,7 @@ import org.springframework.web.context.request.ServletRequestAttributes;
 
 @Configuration(proxyBeanMethods = false)
 @EnableAsync
+@EnableCaching
 class DemoConfiguration {
 
     /**

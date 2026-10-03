@@ -81,9 +81,12 @@ public record CauselineProperties(
      * @param sendOriginalCredentials   resend the original request's credential headers
      *                                  ({@code Authorization}, {@code Cookie}, ...). A target's auth
      *                                  profile still replaces {@code Authorization}.
+     * @param pauseTimeout              how long a replay paused at a step waits for you before it
+     *                                  carries on unchanged
      */
     public record Replay(@DefaultValue Map<String, Target> targets,
-            @DefaultValue("true") boolean sendOriginalCredentials) {
+            @DefaultValue("true") boolean sendOriginalCredentials,
+            @DefaultValue("5m") java.time.Duration pauseTimeout) {
     }
 
     /**
@@ -131,6 +134,10 @@ public record CauselineProperties(
      *                          repository methods (shown on their spans; lazy JPA data is never loaded)
      * @param redactKeys        body, query and state keys whose values are replaced with [REDACTED] everywhere,
      *                          including the local UI (e.g. {@code password})
+     * @param arguments         arguments and return values of controller, service and repository methods
+     * @param logs              log lines written during a traced request, at this level and above
+     * @param transactions      a span per transaction, from begin to commit or rollback
+     * @param caches            a span per Spring Cache lookup, write and eviction
      */
     public record Capture(
             @DefaultValue("full") RequestBodyCapture requestBody,
@@ -141,7 +148,21 @@ public record CauselineProperties(
             @DefaultValue("true") boolean pathValues,
             @DefaultValue("full") SqlCapture sql,
             @DefaultValue List<String> redactKeys,
-            @DefaultValue("true") boolean arguments) {
+            @DefaultValue("true") boolean arguments,
+            @DefaultValue("info") LogCapture logs,
+            @DefaultValue("true") boolean transactions,
+            @DefaultValue("true") boolean caches) {
+    }
+
+    /** Which log lines written during a traced request appear on its timeline. */
+    public enum LogCapture {
+        /** None (exceptions the application logs are still shown). */
+        OFF,
+        ERROR,
+        WARN,
+        /** INFO and above: the default. */
+        INFO,
+        DEBUG
     }
 
     /**

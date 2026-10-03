@@ -74,7 +74,39 @@ class InsightsTest {
         assertThat(Insights.analyze(rows, 100 * MS))
                 .filteredOn(i -> i.rule() == Rule.REPEATED_QUERY)
                 .singleElement()
-                .satisfies(i -> assertThat(i.label()).startsWith("Repeated query × 12: SELECT order_lines"));
+                .satisfies(i -> assertThat(i.label())
+                        .startsWith("N+1 query: SELECT order_lines ran 12 times in OrderRepository.findAll")
+                        .contains("JOIN FETCH"));
+    }
+
+    @Test
+    void namesTheQueryWhoseRowsTheRepeatedSelectsLoad() {
+        List<TraceView.Row> rows = new ArrayList<>();
+        rows.add(row("s", null, SpanKind.SERVICE, "OrderService.list", 0, 100, 10));
+        rows.add(row("o", "s", SpanKind.DATABASE, "SELECT orders", 0, 4, 4));
+        for (int i = 0; i < 5; i++) {
+            rows.add(row("q" + i, "s", SpanKind.DATABASE, "SELECT order_lines", 5 + i * 7, 7, 7));
+        }
+        // Four repeats is not yet a pattern.
+        assertThat(Insights.analyze(rows.subList(0, 6), 100 * MS)).noneMatch(i -> i.rule() == Rule.REPEATED_QUERY);
+
+        assertThat(Insights.analyze(rows, 100 * MS))
+                .filteredOn(i -> i.rule() == Rule.REPEATED_QUERY)
+                .singleElement()
+                .satisfies(i -> assertThat(i.label()).contains("ran 5 times in OrderService.list, once per row of SELECT orders"));
+    }
+
+    @Test
+    void repeatedWritesSuggestBatching() {
+        List<TraceView.Row> rows = new ArrayList<>();
+        rows.add(row("s", null, SpanKind.SERVICE, "ImportService.run", 0, 100, 10));
+        for (int i = 0; i < 10; i++) {
+            rows.add(row("q" + i, "s", SpanKind.DATABASE, "INSERT items", i * 7, 7, 7));
+        }
+        assertThat(Insights.analyze(rows, 100 * MS))
+                .filteredOn(i -> i.rule() == Rule.REPEATED_QUERY)
+                .singleElement()
+                .satisfies(i -> assertThat(i.label()).startsWith("Repeated query × 10: INSERT items in ImportService.run"));
     }
 
     @Test

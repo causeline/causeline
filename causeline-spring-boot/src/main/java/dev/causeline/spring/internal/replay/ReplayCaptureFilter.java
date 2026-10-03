@@ -48,6 +48,7 @@ public final class ReplayCaptureFilter extends OncePerRequestFilter {
     private final Supplier<Observation> currentObservation;
     private final Predicate<String> ignoredPath;
     private final Set<String> blockedHeaders;
+    private ReplaySessions sessions;
 
     /**
      * @param userRedactor        hides only the user's {@code redact-keys}; null when there are none
@@ -61,6 +62,15 @@ public final class ReplayCaptureFilter extends OncePerRequestFilter {
     }
 
     /** @param responseMode whether to record response bodies on the server span */
+    /** Lets replays with breakpoints pause this application's requests (servlet applications only). */
+    public void setSessions(ReplaySessions sessions) {
+        this.sessions = sessions;
+    }
+
+    private static boolean isLoopback(String address) {
+        return "127.0.0.1".equals(address) || "0:0:0:0:0:0:0:1".equals(address) || "::1".equals(address);
+    }
+
     public ReplayCaptureFilter(ReplayStore store, RequestBodyCapture mode, ResponseBodyCapture responseMode,
             BodyRedactor userRedactor, ActiveSpan activeSpan, Supplier<Observation> currentObservation,
             Predicate<String> ignoredPath, Set<String> blockedHeaders) {
@@ -90,9 +100,15 @@ public final class ReplayCaptureFilter extends OncePerRequestFilter {
         ResponseBodyTee tee = responseMode == ResponseBodyCapture.FULL ? new ResponseBodyTee(response, MAX_BODY_BYTES) : null;
         // Read the span before the chain: afterwards the observation may already be closing.
         String[] span = activeSpan.get();
+        // A paused replay: only Causeline's own replay, sent from this machine, names a session.
+        String session = sessions == null ? null : request.getHeader(ReplaySessions.HEADER);
+        boolean bound = session != null && isLoopback(request.getRemoteAddr()) && sessions.bind(session);
         try {
             chain.doFilter(actual, tee == null ? response : tee);
         } finally {
+            if (bound) {
+                ReplaySessions.unbind();
+            }
             if (tee != null) {
                 tee.finish();
             }

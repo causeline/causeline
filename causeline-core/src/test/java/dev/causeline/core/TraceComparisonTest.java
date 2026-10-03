@@ -47,6 +47,41 @@ class TraceComparisonTest {
     }
 
     @Test
+    void comparesTwoRecordedRunsOfTheSameActionFromTheirRoots() {
+        TraceView fast = view("a", SpanStatus.OK,
+                row("a1", null, 0, SpanKind.UI_ACTION, "Checkout", 300, SpanStatus.OK, null),
+                row("a2", "a1", 1, SpanKind.REQUEST, "POST /api/orders", 280, SpanStatus.OK, null),
+                row("a3", "a2", 2, SpanKind.HTTP_CLIENT, "POST payments/charge", 100, SpanStatus.OK, null));
+        TraceView slow = view("b", SpanStatus.ERROR,
+                row("b1", null, 0, SpanKind.UI_ACTION, "Checkout", 2100, SpanStatus.OK, null),
+                row("b2", "b1", 1, SpanKind.REQUEST, "POST /api/orders", 2080, SpanStatus.ERROR, null),
+                row("b3", "b2", 2, SpanKind.HTTP_CLIENT, "POST payments/charge", 2000, SpanStatus.ERROR, null));
+
+        TraceComparison.Result result = TraceComparison.compareTraces(fast, slow);
+
+        assertThat(result.original().traceId()).isEqualTo("a");
+        assertThat(result.replay().traceId()).isEqualTo("b");
+        assertThat(result.replay().status()).isEqualTo(SpanStatus.ERROR);
+        assertThat(result.rows()).extracting(TraceComparison.Row::name)
+                .containsExactly("Checkout", "POST /api/orders", "POST payments/charge");
+        assertThat(result.rows().getFirst().change()).isEqualTo(Change.SLOWER);
+        assertThat(result.rows().get(2).change()).isEqualTo(Change.STATUS_CHANGED);
+    }
+
+    @Test
+    void leavesLogLinesOutOfComparisons() {
+        TraceView first = view("a", SpanStatus.OK,
+                row("a1", null, 0, SpanKind.REQUEST, "POST /api/orders", 300, SpanStatus.OK, null),
+                row("a2", "a1", 1, SpanKind.LOG, "INFO OrderService: Order 1 paid", 0, SpanStatus.OK, null));
+        TraceView second = view("b", SpanStatus.OK,
+                row("b1", null, 0, SpanKind.REQUEST, "POST /api/orders", 310, SpanStatus.OK, null),
+                row("b2", "b1", 1, SpanKind.LOG, "INFO OrderService: Order 2 paid", 0, SpanStatus.OK, null));
+
+        assertThat(TraceComparison.compareTraces(first, second).rows()).extracting(TraceComparison.Row::name)
+                .containsExactly("POST /api/orders");
+    }
+
+    @Test
     void highlightsOnlyLargeRelativeDurationChanges() {
         assertThat(change(100, 70)).isEqualTo(Change.FASTER);
         assertThat(change(100, 130)).isEqualTo(Change.SLOWER);

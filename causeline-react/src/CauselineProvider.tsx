@@ -40,6 +40,7 @@ export function CauselineProvider({ endpoint, propagateTo, captureClicks, ignore
   const captureQuery = capture?.query;
   const captureStateValues = capture?.stateValues;
   const captureBodies = capture?.bodies;
+  const captureErrors = capture?.errors;
   useEffect(() => {
     if (!endpoint || isProductionBuild()) {
       return undefined;
@@ -49,10 +50,10 @@ export function CauselineProvider({ endpoint, propagateTo, captureClicks, ignore
       propagateTo: origins ? origins.split(' ') : undefined,
       captureClicks,
       ignore: ignoreRules,
-      capture: { query: captureQuery, stateValues: captureStateValues, bodies: captureBodies },
+      capture: { query: captureQuery, stateValues: captureStateValues, bodies: captureBodies, errors: captureErrors },
     });
     return installation.uninstall;
-  }, [endpoint, origins, captureClicks, ignoreRules, captureQuery, captureStateValues, captureBodies]);
+  }, [endpoint, origins, captureClicks, ignoreRules, captureQuery, captureStateValues, captureBodies, captureErrors]);
 
   return <>{children}</>;
 }

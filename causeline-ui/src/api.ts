@@ -15,7 +15,10 @@ export type SpanKind =
   | 'EXCEPTION'
   | 'STATE_UPDATE'
   | 'RENDER'
-  | 'MESSAGE';
+  | 'MESSAGE'
+  | 'LOG'
+  | 'TRANSACTION'
+  | 'CACHE';
 
 export interface TraceSummary {
   traceId: string;
@@ -277,3 +280,89 @@ export const fetchTraces = (token: string | undefined): Promise<TraceSummary[]> 
 
 export const fetchTrace = (traceId: string, token: string | undefined): Promise<TraceView> =>
   getJson(`/traces/${encodeURIComponent(traceId)}`, token);
+
+/** Where an application class's source file is on this machine. */
+export interface SourceLocation {
+  path: string;
+  line: number;
+}
+
+/** Looks up a class's source file to open it in the editor; undefined when it isn't in the project. */
+export async function fetchSource(
+  query: { className: string; method?: string; line?: number },
+  token: string | undefined,
+): Promise<SourceLocation | undefined> {
+  const params = new URLSearchParams({ class: query.className });
+  if (query.method) {
+    params.set('method', query.method);
+  }
+  if (query.line) {
+    params.set('line', String(query.line));
+  }
+  try {
+    return await send<SourceLocation>('GET', `/source?${params.toString()}`, token);
+  } catch (e) {
+    if (e instanceof ApiError && e.status === 404) {
+      return undefined;
+    }
+    throw e;
+  }
+}
+
+export interface SearchMatch {
+  spanId: string;
+  spanName: string;
+  /** "name", or the attribute that matched, e.g. http.request.body */
+  field: string;
+  excerpt: string;
+}
+
+export interface SearchHit {
+  traceId: string;
+  startTimeUnixNano: number;
+  matches: SearchMatch[];
+}
+
+/** Traces whose span names or captured values contain `q`. */
+export const searchTraces = (q: string, token: string | undefined) =>
+  send<SearchHit[]>('GET', `/search?${new URLSearchParams({ q }).toString()}`, token);
+
+export type ComparisonResult = NonNullable<Comparison['result']>;
+
+/** Two recorded runs compared span by span: `a` is the baseline. */
+export const compareTraces = (a: string, b: string, token: string | undefined) =>
+  send<ComparisonResult>('GET', `/compare?${new URLSearchParams({ a, b }).toString()}`, token);
+
+export interface PausedArgument {
+  name: string;
+  type: string;
+  json: string;
+  editable: boolean;
+}
+
+export interface ReplaySession {
+  id: string;
+  state: 'RUNNING' | 'PAUSED' | 'DONE' | 'FAILED';
+  replayTraceId: string | null;
+  paused: { step: string; occurrence: number; arguments: PausedArgument[]; since: string } | null;
+  outcome: ReplayOutcome | null;
+  error: string | null;
+  /** Steps whose arguments were changed, e.g. "OrderService.createOrder #1". */
+  edited: string[];
+}
+
+/** Starts a replay of this application that stops at the chosen steps (span IDs of the original). */
+export const startReplaySession = (
+  request: { traceId: string; spanId: string; confirm: boolean; body?: string; breakpoints: string[] },
+  token: string | undefined,
+) => send<ReplaySession>('POST', '/replay-sessions', token, { ...request, target: 'local' });
+
+export const fetchReplaySession = (id: string, token: string | undefined) =>
+  send<ReplaySession>('GET', `/replay-sessions/${encodeURIComponent(id)}`, token);
+
+/** Continues a paused replay; `arguments` holds the JSON of the arguments to change, by name. */
+export const continueReplaySession = (
+  id: string,
+  request: { arguments: Record<string, string>; skipRest?: boolean },
+  token: string | undefined,
+) => send<ReplaySession>('POST', `/replay-sessions/${encodeURIComponent(id)}/continue`, token, request);

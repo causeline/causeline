@@ -128,6 +128,8 @@ describe('SpanMapper', () => {
     });
     expect(exception?.spanId).toMatch(/^[0-9a-f]{16}$/);
     expect(exception?.attributes['code.location']).toBe('./app/api/checkout/route.ts:12:5');
+    expect(exception?.attributes['code.filepath']).toMatch(/app[\\/]api[\\/]checkout[\\/]route\.ts$/);
+    expect(exception?.attributes['code.lineno']).toBe('12');
     expect(exception?.attributes['exception.message']).toBe('order is undefined');
   });
 

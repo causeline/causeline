@@ -73,7 +73,8 @@ class ExceptionSpansTest {
     void fallsBackToFirstNonFrameworkFrameWithoutAppPackages() {
         ExceptionSpans exceptions = new ExceptionSpans(false, List.of());
 
-        assertThat(exceptions.appFrame(STACK)).isEqualTo(new ExceptionSpans.Frame("PaymentClient.java:42", "PaymentClient.charge"));
+        assertThat(exceptions.appFrame(STACK)).isEqualTo(new ExceptionSpans.Frame("PaymentClient.java:42", "PaymentClient.charge",
+                "com.shop.checkout.PaymentClient", 42));
     }
 
     private static SpanData spanWithException(String spanId) {

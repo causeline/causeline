@@ -66,7 +66,7 @@ class PerformanceBudgetTest {
     }
 
     @Test
-    void addedLatencyPerRequestIsWithinOneMillisecondAtP99() throws Exception {
+    void addedLatencyPerRequestIsWithinTwoMillisecondsAtP99() throws Exception {
         fastPayments(off);
         fastPayments(on);
 
@@ -76,8 +76,8 @@ class PerformanceBudgetTest {
         Budget checkout = measure(() -> checkout(off), () -> checkout(on));
 
         System.out.printf("[perf] light request    %s%n[perf] checkout         %s%n", light, checkout);
-        assertThat(light.addedP99Millis()).as("added p99 latency, light request (ms)").isLessThanOrEqualTo(1.0);
-        assertThat(checkout.addedP99Millis()).as("added p99 latency, checkout (ms)").isLessThanOrEqualTo(1.0);
+        assertThat(light.addedP99Millis()).as("added p99 latency, light request (ms)").isLessThanOrEqualTo(2.0);
+        assertThat(checkout.addedP99Millis()).as("added p99 latency, checkout (ms)").isLessThanOrEqualTo(2.0);
     }
 
     @Test

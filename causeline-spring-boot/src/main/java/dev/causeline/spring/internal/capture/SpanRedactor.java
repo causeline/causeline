@@ -52,7 +52,8 @@ public class SpanRedactor {
             case "url.full" -> redactUrl(value);
             case "http.request.body", "http.response.body", "causeline.arguments", "causeline.return" -> redactBody(value);
             case "db.query.text", "db.query.statement" -> SpanMapper.sanitizeSql(value);
-            case "db.query.parameters" -> SensitiveData.REDACTED;
+            case "db.query.parameters", "cache.key" -> SensitiveData.REDACTED;
+            case "log.message", "exception.message" -> sensitive.scrubText(value);
             case "causeline.state.value" -> sensitive.isSensitiveKey(all.getOrDefault("causeline.state.key", ""))
                     ? SensitiveData.REDACTED
                     : value;

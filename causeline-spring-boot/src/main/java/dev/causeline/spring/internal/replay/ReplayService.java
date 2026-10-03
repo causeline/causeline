@@ -97,6 +97,72 @@ public final class ReplayService {
      * @param bodyOverride a body typed by the developer, used when none was captured; may be null
      */
     public Outcome replay(String traceId, String spanId, String targetName, boolean confirmed, String bodyOverride) {
+        return replay(traceId, spanId, targetName, confirmed, bodyOverride, Map.of(), TIMEOUT, id -> { });
+    }
+
+    /**
+     * Checks that a replay can be sent, without sending it.
+     *
+     * @throws ReplayException with the reason it can't
+     */
+    public void check(String traceId, String spanId, String targetName, boolean confirmed, String bodyOverride) {
+        checked(traceId, spanId, targetName, confirmed, bodyOverride);
+    }
+
+    /**
+     * @param extraHeaders added to the replayed request, e.g. the replay session
+     * @param timeout      how long to wait for the response; longer when the replay may pause
+     * @param started      receives the replay's trace ID just before the request is sent
+     */
+    public Outcome replay(String traceId, String spanId, String targetName, boolean confirmed, String bodyOverride,
+            Map<String, String> extraHeaders, Duration timeout, java.util.function.Consumer<String> started) {
+        Checked checked = checked(traceId, spanId, targetName, confirmed, bodyOverride);
+        ReplayRecord record = checked.record();
+        Target target = checked.target();
+        byte[] body = checked.body();
+
+        String replayTraceId = randomHex(16);
+        HttpRequest.Builder request = HttpRequest.newBuilder(uri(target, record))
+                .timeout(timeout)
+                .method(record.method(), body == null
+                        ? HttpRequest.BodyPublishers.noBody()
+                        : HttpRequest.BodyPublishers.ofByteArray(body));
+        Map<String, String> auth = authHeaders(targetName, target.auth());
+        record.headers().forEach((name, value) -> {
+            boolean credential = SensitiveData.isCredentialHeader(name);
+            boolean replacedByTarget = auth.keySet().stream().anyMatch(name::equalsIgnoreCase);
+            boolean replacedHere = name.equalsIgnoreCase("Idempotency-Key");
+            if ((sendOriginalCredentials || !credential) && !replacedByTarget && !replacedHere
+                    && !RESTRICTED_BY_CLIENT.contains(name.toLowerCase(java.util.Locale.ROOT))) {
+                request.header(name, value);
+            }
+        });
+        // The target's own credentials win over the original request's.
+        auth.forEach(request::setHeader);
+        extraHeaders.forEach(request::setHeader);
+        request.setHeader("traceparent", "00-" + replayTraceId + "-" + randomHex(8) + "-01");
+        request.setHeader(REPLAY_HEADER, traceId);
+        if (record.hadIdempotencyKey()) {
+            request.setHeader("Idempotency-Key", UUID.randomUUID().toString());
+        }
+
+        traces.pin(traceId);
+        started.accept(replayTraceId);
+        long start = System.nanoTime();
+        try {
+            HttpResponse<Void> response = http.send(request.build(), HttpResponse.BodyHandlers.discarding());
+            boolean sentRedacted = bodyOverride == null && record.body() != null
+                    && new String(record.body(), StandardCharsets.UTF_8).contains(BodyRedactor.REDACTED);
+            return new Outcome(replayTraceId, targetName, response.statusCode(), System.nanoTime() - start, sentRedacted);
+        } catch (IOException e) {
+            throw new ReplayException(502, "Could not reach " + targetName + ": " + e.getMessage());
+        } catch (InterruptedException e) {
+            Thread.currentThread().interrupt();
+            throw new ReplayException(502, "Replay interrupted");
+        }
+    }
+
+    private Checked checked(String traceId, String spanId, String targetName, boolean confirmed, String bodyOverride) {
         ReplayRecord record = records.get(traceId, spanId).orElseThrow(() -> new ReplayException(404,
                 "Nothing captured to replay this request. It may be older than the replay buffer."));
         Target target = targets.get(targetName);
@@ -116,44 +182,10 @@ public final class ReplayService {
             throw new ReplayException(422, "The original body was not captured. Paste a body to replay, "
                     + "or set causeline.capture.request-body=replay-only.");
         }
+        return new Checked(record, target, body);
+    }
 
-        String replayTraceId = randomHex(16);
-        HttpRequest.Builder request = HttpRequest.newBuilder(uri(target, record))
-                .timeout(TIMEOUT)
-                .method(record.method(), body == null
-                        ? HttpRequest.BodyPublishers.noBody()
-                        : HttpRequest.BodyPublishers.ofByteArray(body));
-        Map<String, String> auth = authHeaders(targetName, target.auth());
-        record.headers().forEach((name, value) -> {
-            boolean credential = SensitiveData.isCredentialHeader(name);
-            boolean replacedByTarget = auth.keySet().stream().anyMatch(name::equalsIgnoreCase);
-            boolean replacedHere = name.equalsIgnoreCase("Idempotency-Key");
-            if ((sendOriginalCredentials || !credential) && !replacedByTarget && !replacedHere
-                    && !RESTRICTED_BY_CLIENT.contains(name.toLowerCase(java.util.Locale.ROOT))) {
-                request.header(name, value);
-            }
-        });
-        // The target's own credentials win over the original request's.
-        auth.forEach(request::setHeader);
-        request.setHeader("traceparent", "00-" + replayTraceId + "-" + randomHex(8) + "-01");
-        request.setHeader(REPLAY_HEADER, traceId);
-        if (record.hadIdempotencyKey()) {
-            request.setHeader("Idempotency-Key", UUID.randomUUID().toString());
-        }
-
-        traces.pin(traceId);
-        long start = System.nanoTime();
-        try {
-            HttpResponse<Void> response = http.send(request.build(), HttpResponse.BodyHandlers.discarding());
-            boolean sentRedacted = bodyOverride == null && record.body() != null
-                    && new String(record.body(), StandardCharsets.UTF_8).contains(BodyRedactor.REDACTED);
-            return new Outcome(replayTraceId, targetName, response.statusCode(), System.nanoTime() - start, sentRedacted);
-        } catch (IOException e) {
-            throw new ReplayException(502, "Could not reach " + targetName + ": " + e.getMessage());
-        } catch (InterruptedException e) {
-            Thread.currentThread().interrupt();
-            throw new ReplayException(502, "Replay interrupted");
-        }
+    private record Checked(ReplayRecord record, Target target, byte[] body) {
     }
 
     /** Reads a trace recorded by a remote target's Causeline, as raw JSON. */

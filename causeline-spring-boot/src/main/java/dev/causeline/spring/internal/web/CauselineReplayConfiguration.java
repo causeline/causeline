@@ -5,7 +5,12 @@ import dev.causeline.core.TraceStore;
 import dev.causeline.spring.autoconfigure.CauselineProperties;
 import dev.causeline.spring.internal.replay.BodyRedactor;
 import dev.causeline.spring.ReplayAuthProvider;
+import dev.causeline.spring.internal.capture.SensitiveData;
+import dev.causeline.spring.internal.capture.ValueRenderer;
 import dev.causeline.spring.internal.replay.ReplayCaptureFilter;
+import dev.causeline.spring.internal.replay.ReplayPauseAspect;
+import dev.causeline.spring.internal.replay.ReplaySessions;
+import tools.jackson.databind.json.JsonMapper;
 import dev.causeline.spring.internal.replay.ReplayService;
 import dev.causeline.spring.internal.replay.ReplayStore;
 import io.micrometer.observation.ObservationRegistry;
@@ -37,7 +42,8 @@ public class CauselineReplayConfiguration {
 
     @Bean
     FilterRegistrationBean<ReplayCaptureFilter> causelineReplayCaptureFilter(ReplayStore store,
-            CauselineProperties properties, ObjectProvider<Tracer> tracer, ObjectProvider<ObservationRegistry> registry) {
+            CauselineProperties properties, ObjectProvider<Tracer> tracer, ObjectProvider<ObservationRegistry> registry,
+            ReplaySessions sessions) {
         ReplayCaptureFilter.ActiveSpan activeSpan = () -> {
             Tracer current = tracer.getIfAvailable();
             io.micrometer.tracing.Span span = current == null ? null : current.currentSpan();
@@ -51,6 +57,7 @@ public class CauselineReplayConfiguration {
                     ObservationRegistry current = registry.getIfAvailable();
                     return current == null ? null : current.getCurrentObservation();
                 }, CauselinePaths::isIgnoredPath, blockedHeaders);
+        filter.setSessions(sessions);
         FilterRegistrationBean<ReplayCaptureFilter> registration = new FilterRegistrationBean<>(filter);
         registration.setOrder(CAPTURE_FILTER_ORDER);
         return registration;
@@ -63,8 +70,21 @@ public class CauselineReplayConfiguration {
                 () -> environment.getProperty("local.server.port", Integer.class, 8080));
     }
 
+    /** Replays that pause at chosen steps; servlet only, since a pause holds the request's thread. */
     @Bean
-    ReplayApiController causelineReplayApiController(ReplayService replays, TraceStore traces) {
-        return new ReplayApiController(replays, traces);
+    ReplaySessions causelineReplaySessions(CauselineProperties properties) {
+        return new ReplaySessions(properties.replay().pauseTimeout());
+    }
+
+    @Bean
+    ReplayPauseAspect causelineReplayPauseAspect(ObservationRegistry registry, CauselineProperties properties) {
+        return new ReplayPauseAspect(registry,
+                new ValueRenderer(SensitiveData.userBlocked(properties.capture().redactKeys())));
+    }
+
+    @Bean
+    ReplayApiController causelineReplayApiController(ReplayService replays, TraceStore traces, ReplaySessions sessions,
+            ObjectProvider<JsonMapper> mapper) {
+        return new ReplayApiController(replays, traces, sessions, mapper.getIfAvailable(() -> JsonMapper.builder().build()));
     }
 }

@@ -249,6 +249,70 @@ describe('body capture', () => {
   });
 });
 
+describe('error capture', () => {
+  // The page "handles" the synthetic errors, so the test runner doesn't report them as its own.
+  const handled = (e: Event) => e.preventDefault();
+  beforeEach(() => addEventListener('error', handled));
+  afterEach(() => removeEventListener('error', handled));
+
+  it('records an uncaught error under the action it happened in', async () => {
+    let actionTrace: string | undefined;
+    await trace('Checkout', async (ctx) => {
+      actionTrace = ctx.traceId;
+      const error = new TypeError('order is undefined');
+      dispatchEvent(new ErrorEvent('error', { error, message: error.message, filename: 'http://localhost/src/Checkout.tsx', lineno: 12, colno: 5, cancelable: true }));
+    });
+
+    const spans = await uploaded();
+    const action = spans.find((s) => s.kind === 'UI_ACTION');
+    const exception = spans.find((s) => s.kind === 'EXCEPTION');
+    expect(exception).toMatchObject({
+      traceId: actionTrace,
+      parentSpanId: action?.spanId,
+      name: 'TypeError',
+      status: 'ERROR',
+    });
+    expect(exception?.attributes).toMatchObject({
+      'exception.message': 'order is undefined',
+      'exception.escaped': 'uncaught',
+      'code.location': 'http://localhost/src/Checkout.tsx:12:5',
+    });
+  });
+
+  it('records unhandled rejections outside any action as a trace of their own', async () => {
+    const event = new Event('unhandledrejection') as Event & { reason: unknown };
+    event.reason = new Error('payment widget failed to load');
+    dispatchEvent(event);
+
+    const [exception] = (await uploaded()).filter((s) => s.kind === 'EXCEPTION');
+    expect(exception).toMatchObject({ parentSpanId: null, name: 'Error' });
+    expect(exception?.attributes['exception.escaped']).toBe('unhandled rejection');
+  });
+
+  it('records console.error during an action as a log line, and still logs it', async () => {
+    installation.uninstall();
+    const shown = vi.spyOn(console, 'error').mockImplementation(() => {});
+    installation = install({ endpoint: ENDPOINT, flushIntervalMs: 60_000 });
+    console.error('outside any action'); // not recorded
+    await trace('Save', async () => {
+      console.error('Could not save draft', { id: 7 });
+    });
+
+    const logs = (await uploaded()).filter((s) => s.kind === 'LOG');
+    expect(logs).toHaveLength(1);
+    expect(logs[0]?.attributes['log.message']).toBe('Could not save draft {"id":7}');
+    expect(shown).toHaveBeenCalledWith('Could not save draft', { id: 7 });
+    shown.mockRestore();
+  });
+
+  it('records no errors when capture.errors is false', async () => {
+    installation.uninstall();
+    installation = install({ endpoint: ENDPOINT, flushIntervalMs: 60_000, capture: { errors: false } });
+    dispatchEvent(new ErrorEvent('error', { error: new Error('x'), message: 'x', cancelable: true }));
+    expect((await uploaded()).filter((s) => s.kind === 'EXCEPTION')).toHaveLength(0);
+  });
+});
+
 describe('XMLHttpRequest capture', () => {
   it('adds traceparent and records the request once it ends', async () => {
     const setHeader = vi.spyOn(XMLHttpRequest.prototype, 'setRequestHeader');

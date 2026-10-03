@@ -208,6 +208,11 @@ public final class SpanMapper {
                 copy(raw, "method", attributes, "code.function");
                 copy(raw, MethodValues.ARGUMENTS, attributes, MethodValues.ARGUMENTS);
                 copy(raw, MethodValues.RETURNED, attributes, MethodValues.RETURNED);
+                // Transactions and cache operations.
+                for (String key : List.of("causeline.replay.edited", "db.transaction.outcome", "db.transaction.read_only", "cache.name",
+                        "cache.operation", "cache.key", "cache.hit")) {
+                    copy(raw, key, attributes, key);
+                }
                 yield raw.containsKey("class") && raw.containsKey("method")
                         ? simpleName(raw.get("class")) + "." + raw.get("method")
                         : data.getName();

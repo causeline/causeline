@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: Apache-2.0
 
 /** Span kinds a browser may report. Matches the server-side allowlist. */
-export type BrowserSpanKind = 'UI_ACTION' | 'REQUEST' | 'STATE_UPDATE' | 'RENDER' | 'EXCEPTION';
+export type BrowserSpanKind = 'UI_ACTION' | 'REQUEST' | 'STATE_UPDATE' | 'RENDER' | 'EXCEPTION' | 'LOG';
 
 export type SpanStatus = 'OK' | 'ERROR' | 'UNSET';
 

@@ -2,6 +2,7 @@
 import { resetActions } from './actions.js';
 import { expireAll } from './bodies.js';
 import { watchClicks } from './clicks.js';
+import { watchErrors } from './errors.js';
 import { nowMs } from './clock.js';
 import { patchFetch, patchXhr } from './network.js';
 import { Recorder } from './recorder.js';
@@ -32,9 +33,11 @@ export interface CaptureOptions {
   stateValues?: boolean;
   /** Record request and response bodies of fetch and XHR calls, up to 16 KB each (default true). */
   bodies?: boolean;
+  /** Record uncaught errors, unhandled promise rejections, and console.error calls made during an action (default true). */
+  errors?: boolean;
 }
 
-const ALL: Required<CaptureOptions> = { query: true, stateValues: true, bodies: true };
+const ALL: Required<CaptureOptions> = { query: true, stateValues: true, bodies: true, errors: true };
 let captureOptions: Required<CaptureOptions> = ALL;
 
 /** The active capture settings. */
@@ -110,6 +113,7 @@ export function install(options: InstallOptions): Installation {
   const restoreFetch = patchFetch(network);
   const restoreXhr = patchXhr(network);
   const stopClicks = options.captureClicks ? watchClicks(nowMs) : () => {};
+  const stopErrors = captureOptions.errors ? watchErrors(active) : () => {};
   recorder = active;
   active.start();
 
@@ -129,6 +133,7 @@ export function install(options: InstallOptions): Installation {
       restoreFetch();
       restoreXhr();
       stopClicks();
+      stopErrors();
       resetActions();
       captureOptions = ALL;
       active.stop();

@@ -171,7 +171,7 @@ export function App() {
                 className="flex flex-col border-b border-line md:sticky md:top-14 md:h-[calc(100vh-3.5rem)] md:w-[340px] md:shrink-0 md:border-r md:border-b-0"
               >
                 <div className="max-h-[45vh] flex-1 overflow-y-auto md:max-h-none">
-                  <TraceList traces={traces} selected={selected} onSelect={setSelected} />
+                  <TraceList traces={traces} selected={selected} onSelect={setSelected} token={token} />
                 </div>
                 <StatusLine status={status} />
               </nav>
@@ -180,6 +180,7 @@ export function App() {
                   <Timeline
                     trace={trace}
                     token={token}
+                    traces={traces}
                     usual={traces.find((t) => t.traceId === trace.traceId)}
                     replayOf={
                       replayOfSelected

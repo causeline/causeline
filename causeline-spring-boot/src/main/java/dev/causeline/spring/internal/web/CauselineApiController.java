@@ -4,6 +4,7 @@ package dev.causeline.spring.internal.web;
 import dev.causeline.core.Baselines;
 import dev.causeline.core.Span;
 import dev.causeline.core.TraceAssembler;
+import dev.causeline.core.TraceComparison;
 import dev.causeline.core.TraceFile;
 import dev.causeline.core.TraceStore;
 import dev.causeline.core.TraceSummary;
@@ -30,6 +31,7 @@ import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestHeader;
 import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 
 /** JSON API behind the Causeline UI, plus the ingest endpoint for browser spans. */
@@ -54,6 +56,7 @@ public class CauselineApiController {
     private Status.Upstream upstream = Status.Upstream.disabled();
     private final SpanRedactor redactor;
     private final Set<String> imported = ConcurrentHashMap.newKeySet();
+    private final SourceLocator sources = new SourceLocator(java.nio.file.Path.of(System.getProperty("user.dir", ".")));
 
     /**
      * @param replayOf   the original trace a trace replays, if any
@@ -88,6 +91,98 @@ public class CauselineApiController {
         return store.get(traceId)
                 .map(spans -> ResponseEntity.ok(TraceAssembler.assemble(traceId, spans)))
                 .orElseGet(() -> ResponseEntity.notFound().build());
+    }
+
+    /**
+     * Two runs compared span by span, e.g. yesterday's fast checkout and today's slow one.
+     * {@code a} is shown as the baseline and {@code b} as the run being explained.
+     */
+    @GetMapping("/compare")
+    public ResponseEntity<TraceComparison.Result> compare(@RequestParam("a") String a, @RequestParam("b") String b) {
+        Optional<List<Span>> first = store.get(a);
+        Optional<List<Span>> second = store.get(b);
+        if (first.isEmpty() || second.isEmpty()) {
+            return ResponseEntity.notFound().build();
+        }
+        return ResponseEntity.ok(TraceComparison.compareTraces(TraceAssembler.assemble(a, first.get()),
+                TraceAssembler.assemble(b, second.get())));
+    }
+
+    /**
+     * Traces with a span whose name or any captured value contains {@code q}, ignoring case: an
+     * order ID in a body, a table in SQL, a header value. Newest first.
+     */
+    @GetMapping("/search")
+    public List<SearchHit> search(@RequestParam("q") String q) {
+        String needle = q.strip().toLowerCase(java.util.Locale.ROOT);
+        if (needle.length() < 2) {
+            return List.of();
+        }
+        List<SearchHit> hits = new ArrayList<>();
+        for (List<Span> spans : store.snapshot()) {
+            List<SearchHit.Match> matches = new ArrayList<>();
+            // Requests first: a match in what was sent says more than one deep inside the trace.
+            List<Span> ordered = spans.stream()
+                    .sorted(Comparator.comparing((Span span) -> span.kind() != dev.causeline.core.SpanKind.REQUEST))
+                    .toList();
+            for (Span span : ordered) {
+                if (span.name().toLowerCase(java.util.Locale.ROOT).contains(needle)) {
+                    matches.add(new SearchHit.Match(span.spanId(), span.name(), "name", excerpt(span.name(), needle)));
+                }
+                for (Map.Entry<String, String> attribute : span.attributes().entrySet()) {
+                    if (matches.size() >= SearchHit.MAX_MATCHES) {
+                        break;
+                    }
+                    String value = attribute.getValue();
+                    if (value != null && value.toLowerCase(java.util.Locale.ROOT).contains(needle)) {
+                        matches.add(new SearchHit.Match(span.spanId(), span.name(), attribute.getKey(),
+                                excerpt(value, needle)));
+                    }
+                }
+                if (matches.size() >= SearchHit.MAX_MATCHES) {
+                    break;
+                }
+            }
+            if (!matches.isEmpty()) {
+                hits.add(new SearchHit(spans.getFirst().traceId(),
+                        spans.stream().mapToLong(Span::startTimeUnixNano).min().orElse(0), matches));
+            }
+        }
+        hits.sort(Comparator.comparingLong(SearchHit::startTimeUnixNano).reversed());
+        return hits.size() > SearchHit.MAX_TRACES ? hits.subList(0, SearchHit.MAX_TRACES) : hits;
+    }
+
+    /** Where an application class's source file is, so the UI can open it in the editor. Paths only. */
+    @GetMapping("/source")
+    public ResponseEntity<SourceLocator.Location> source(@RequestParam("class") String className,
+            @RequestParam(name = "method", required = false) String method,
+            @RequestParam(name = "line", defaultValue = "0") int line) {
+        return sources.locate(className, method, line)
+                .map(ResponseEntity::ok)
+                .orElseGet(() -> ResponseEntity.notFound().build());
+    }
+
+    /** The text around the first occurrence, so the trace list can show why a trace matched. */
+    static String excerpt(String value, String needle) {
+        String flat = value.replaceAll("\\s+", " ");
+        int at = flat.toLowerCase(java.util.Locale.ROOT).indexOf(needle);
+        if (at < 0) {
+            return flat.length() <= 80 ? flat : flat.substring(0, 80) + "…";
+        }
+        int from = Math.max(0, at - 30);
+        int to = Math.min(flat.length(), at + needle.length() + 40);
+        return (from > 0 ? "…" : "") + flat.substring(from, to) + (to < flat.length() ? "…" : "");
+    }
+
+    /** A trace that matched a search, with up to {@value #MAX_MATCHES} places it matched. */
+    public record SearchHit(String traceId, long startTimeUnixNano, List<Match> matches) {
+
+        static final int MAX_MATCHES = 3;
+        static final int MAX_TRACES = 100;
+
+        /** @param field "name", or the attribute that matched, e.g. {@code http.request.body} */
+        public record Match(String spanId, String spanName, String field, String excerpt) {
+        }
     }
 
     /** The trace as a file to attach to a bug report, with secrets redacted unless export.redact-secrets=false. */

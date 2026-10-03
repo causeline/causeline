@@ -174,6 +174,95 @@ class ReplayTest {
         assertThat(view.spans()).extracting(dev.causeline.core.TraceView.Row::name).contains("POST /api/orders");
     }
 
+    @Test
+    void pausedReplayRunsTheChosenStepWithTheEditedArguments() throws Exception {
+        String traceId = "5cf92f3577b34da6a3ce929d0e0e4736";
+        HttpRequest original = HttpRequest.newBuilder(uri("/api/orders"))
+                .header("Content-Type", "application/json")
+                .header("traceparent", "00-" + traceId + "-00f067aa0ba902b7-01")
+                .POST(HttpRequest.BodyPublishers.ofString("{\"item\":\"book\",\"quantity\":1}"))
+                .build();
+        assertThat(send(original).statusCode()).isEqualTo(201);
+        String requestSpan = awaitReplayableSpan(traceId);
+        String serviceSpan = store.get(traceId).orElseThrow().stream()
+                .filter(s -> s.name().equals("OrderService.createOrder")).findFirst().orElseThrow().spanId();
+
+        HttpResponse<String> started = api("POST", "/replay-sessions", JSON.writeValueAsString(Map.of(
+                "traceId", traceId, "spanId", requestSpan, "target", "local", "confirm", true,
+                "breakpoints", List.of(serviceSpan))));
+        assertThat(started.statusCode()).as(started.body()).isEqualTo(200);
+        String session = JSON.readTree(started.body()).get("id").asString();
+
+        // The replay stops at the service and shows what it was called with.
+        JsonNode paused = awaitSession(session, "PAUSED");
+        assertThat(paused.get("paused").get("step").asString()).isEqualTo("OrderService.createOrder");
+        assertThat(paused.get("paused").get("arguments").toString())
+                .contains("\"name\":\"item\"", "\"json\":\"\\\"book\\\"\"", "\"name\":\"quantity\"");
+
+        // A value that doesn't fit the parameter is refused, and the replay stays paused.
+        HttpResponse<String> wrong = api("POST", "/replay-sessions/" + session + "/continue",
+                JSON.writeValueAsString(Map.of("arguments", Map.of("quantity", "\"many\""))));
+        assertThat(wrong.statusCode()).isEqualTo(400);
+        assertThat(wrong.body()).contains("Argument 'quantity' is not a valid int");
+
+        HttpResponse<String> resumed = api("POST", "/replay-sessions/" + session + "/continue",
+                JSON.writeValueAsString(Map.of("arguments", Map.of("item", "\"lamp\"", "quantity", "3"))));
+        assertThat(resumed.statusCode()).as(resumed.body()).isEqualTo(200);
+
+        JsonNode done = awaitSession(session, "DONE");
+        assertThat(done.get("outcome").get("httpStatus").asInt()).isEqualTo(201);
+        assertThat(done.get("edited").toString()).contains("OrderService.createOrder #1");
+
+        // The replay's trace shows the method ran with the new values, and says they were edited.
+        String replayTraceId = done.get("replayTraceId").asString();
+        long deadline = System.nanoTime() + Duration.ofSeconds(10).toNanos();
+        List<Span> replay = List.of();
+        while (System.nanoTime() < deadline && replay.stream().noneMatch(s -> s.name().equals("UPDATE orders"))) {
+            Thread.sleep(100);
+            replay = store.get(replayTraceId).orElse(List.of());
+        }
+        Span service = replay.stream().filter(s -> s.name().equals("OrderService.createOrder")).findFirst().orElseThrow();
+        assertThat(service.attributes()).containsEntry("causeline.arguments", "{\"item\":\"lamp\",\"quantity\":3}")
+                .containsEntry("causeline.replay.edited", "true");
+        assertThat(replay).anySatisfy(s -> assertThat(s.attributes().getOrDefault("db.query.text", "")).contains("'lamp'"));
+    }
+
+    @Test
+    void onlyControllerAndServiceStepsCanBePaused() throws Exception {
+        String traceId = "6cf92f3577b34da6a3ce929d0e0e4736";
+        assertThat(send(HttpRequest.newBuilder(uri("/api/orders"))
+                .header("Content-Type", "application/json")
+                .header("traceparent", "00-" + traceId + "-00f067aa0ba902b7-01")
+                .POST(HttpRequest.BodyPublishers.ofString("{\"item\":\"book\",\"quantity\":1}"))
+                .build()).statusCode()).isEqualTo(201);
+        String requestSpan = awaitReplayableSpan(traceId);
+        String query = store.get(traceId).orElseThrow().stream()
+                .filter(s -> s.kind() == SpanKind.DATABASE).findFirst().orElseThrow().spanId();
+
+        HttpResponse<String> refused = api("POST", "/replay-sessions", JSON.writeValueAsString(Map.of(
+                "traceId", traceId, "spanId", requestSpan, "target", "qa", "confirm", true, "breakpoints", List.of())));
+        assertThat(refused.statusCode()).isEqualTo(400);
+        assertThat(refused.body()).contains("Only a replay to this application");
+
+        HttpResponse<String> notAStep = api("POST", "/replay-sessions", JSON.writeValueAsString(Map.of(
+                "traceId", traceId, "spanId", requestSpan, "target", "local", "confirm", true, "breakpoints", List.of(query))));
+        assertThat(notAStep.statusCode()).isEqualTo(400);
+        assertThat(notAStep.body()).contains("only controller and @Observed service methods");
+    }
+
+    private JsonNode awaitSession(String session, String state) throws Exception {
+        long deadline = System.nanoTime() + Duration.ofSeconds(15).toNanos();
+        JsonNode view = null;
+        while (System.nanoTime() < deadline) {
+            view = JSON.readTree(api("GET", "/replay-sessions/" + session, null).body());
+            if (view.get("state").asString().equals(state)) {
+                return view;
+            }
+            Thread.sleep(100);
+        }
+        throw new AssertionError("Replay session never reached " + state + ": " + view);
+    }
+
     private String awaitReplayableSpan(String traceId) throws Exception {
         long deadline = System.nanoTime() + Duration.ofSeconds(10).toNanos();
         while (System.nanoTime() < deadline) {

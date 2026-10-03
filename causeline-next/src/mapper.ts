@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: Apache-2.0
 import { SpanKind, SpanStatusCode, type HrTime } from '@opentelemetry/api';
 import type { ReadableSpan } from '@opentelemetry/sdk-trace-node';
+import { isAbsolute, resolve } from 'node:path';
 import type { CauselineSpan, CauselineSpanKind } from './types.js';
 
 const DEFAULT_SENSITIVE = 'token|secret|password|session|auth';
@@ -111,6 +112,12 @@ export class SpanMapper {
           const frame = appFrame(trace);
           if (frame) {
             attributes['code.location'] = frame;
+            // An absolute path and line, so the Causeline UI can open the file in the editor.
+            const parsed = /^(.*?):(\d+)(?::\d+)?$/.exec(frame);
+            if (parsed?.[1] && parsed[2]) {
+              attributes['code.filepath'] = isAbsolute(parsed[1]) ? parsed[1] : resolve(process.cwd(), parsed[1]);
+              attributes['code.lineno'] = parsed[2];
+            }
           }
         }
         return {

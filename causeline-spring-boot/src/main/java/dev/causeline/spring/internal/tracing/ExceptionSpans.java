@@ -76,8 +76,7 @@ public final class ExceptionSpans {
                 attributes.put("exception.type", type);
             }
             if (frame != null) {
-                attributes.put("code.location", frame.location());
-                attributes.put("code.function", frame.function());
+                frame.addTo(attributes);
             }
             if (includeDetails) {
                 putIfPresent(attributes, "exception.message", event.getAttributes().get(MESSAGE));
@@ -104,8 +103,7 @@ public final class ExceptionSpans {
         attributes.put("log.level", level);
         attributes.put("log.logger", logger);
         if (frame != null) {
-            attributes.put("code.location", frame.location());
-            attributes.put("code.function", frame.function());
+            frame.addTo(attributes);
         }
         if (includeDetails) {
             putIfPresent(attributes, "exception.message", error.getMessage());
@@ -124,7 +122,8 @@ public final class ExceptionSpans {
                 String simple = element.getClassName().substring(element.getClassName().lastIndexOf('.') + 1);
                 int nested = simple.indexOf('$');
                 return new Frame(element.getFileName() + ":" + element.getLineNumber(),
-                        (nested > 0 ? simple.substring(0, nested) : simple) + "." + element.getMethodName());
+                        (nested > 0 ? simple.substring(0, nested) : simple) + "." + element.getMethodName(),
+                        outerClass(element.getClassName()), element.getLineNumber());
             }
         }
         return null;
@@ -141,7 +140,8 @@ public final class ExceptionSpans {
                 String simple = className.substring(className.lastIndexOf('.') + 1);
                 int nested = simple.indexOf('$');
                 return new Frame(m.group(3) + ":" + m.group(4),
-                        (nested > 0 ? simple.substring(0, nested) : simple) + "." + m.group(2));
+                        (nested > 0 ? simple.substring(0, nested) : simple) + "." + m.group(2),
+                        outerClass(className), Integer.parseInt(m.group(4)));
             }
         }
         return null;
@@ -178,6 +178,25 @@ public final class ExceptionSpans {
         return HexFormat.of().toHexDigits(id);
     }
 
-    record Frame(String location, String function) {
+    /** The top-level class a (possibly nested or lambda) class belongs to: the one its source file is named after. */
+    private static String outerClass(String className) {
+        int nested = className.indexOf('$');
+        return nested > 0 ? className.substring(0, nested) : className;
+    }
+
+    /**
+     * Where in the application's code an exception happened.
+     *
+     * @param location  {@code OrderService.java:42}, as shown
+     * @param className the top-level class, so the UI can find the source file and open it
+     */
+    record Frame(String location, String function, String className, int line) {
+
+        void addTo(Map<String, String> attributes) {
+            attributes.put("code.location", location);
+            attributes.put("code.function", function);
+            attributes.put("code.namespace", className);
+            attributes.put("code.lineno", Integer.toString(line));
+        }
     }
 }

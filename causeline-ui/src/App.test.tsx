@@ -1,8 +1,9 @@
 // SPDX-License-Identifier: Apache-2.0
 import { renderToString } from 'react-dom/server';
 import { describe, expect, it } from 'vitest';
-import type { TraceView } from './api';
+import type { SpanRow, TraceView } from './api';
 import { App } from './App';
+import { pausableSteps } from './ReplayPanel';
 import { SpanDetail, Timeline } from './Timeline';
 import { TraceList } from './TraceList';
 
@@ -232,5 +233,95 @@ describe('span details panel', () => {
     expect(html).toContain('Arguments');
     expect(html).toContain('&quot;quantity&quot;: 3');
     expect(html).toContain('Returned');
+  });
+});
+
+describe('debugging tools', () => {
+  const base = {
+    parentSpanId: null,
+    source: 'checkout-demo',
+    status: 'OK' as const,
+    depth: 0,
+    offsetNanos: 0,
+    durationNanos: 10_000_000,
+    selfNanos: 1_000_000,
+    clockSkew: false,
+  };
+  const request: SpanRow = {
+    ...base,
+    spanId: 'c'.repeat(16),
+    kind: 'REQUEST',
+    name: 'POST /api/orders',
+    attributes: { 'http.request.method': 'POST', 'url.path': '/api/orders', 'http.request.body': '{"item":"book"}' },
+  };
+  const service: SpanRow = {
+    ...base,
+    spanId: 'd'.repeat(16),
+    parentSpanId: request.spanId,
+    depth: 1,
+    kind: 'SERVICE',
+    name: 'OrderService.createOrder',
+    attributes: {
+      'code.namespace': 'com.shop.OrderService',
+      'code.function': 'createOrder',
+      'causeline.arguments': '{"item":"lamp"}',
+      'causeline.replay.edited': 'true',
+    },
+  };
+  const cache: SpanRow = {
+    ...base,
+    spanId: 'e'.repeat(16),
+    parentSpanId: service.spanId,
+    depth: 2,
+    kind: 'CACHE',
+    name: 'GET prices',
+    attributes: { 'cache.name': 'prices', 'cache.hit': 'false' },
+  };
+  const log: SpanRow = {
+    ...base,
+    spanId: 'f'.repeat(16),
+    parentSpanId: service.spanId,
+    depth: 2,
+    kind: 'LOG',
+    name: 'INFO OrderService: Order 7 paid',
+    durationNanos: 0,
+    attributes: { 'log.level': 'INFO', 'log.logger': 'com.shop.OrderService', 'log.message': 'Order 7 paid' },
+  };
+  const trace: TraceView = {
+    traceId: '1af7651916cd43dd8448eb211c80319c',
+    name: 'POST /api/orders',
+    status: 'OK',
+    startTimeUnixNano: 1_790_612_345_123_456_000,
+    durationNanos: 10_000_000,
+    spans: [request, service, cache, log],
+    insights: [],
+  };
+
+  it('lists log lines in their own panel instead of as waterfall rows, and marks cache misses', () => {
+    const html = renderToString(<Timeline trace={trace} />).replaceAll('<!-- -->', '');
+    expect(html).toContain('aria-label="Logs"');
+    expect(html).toContain('Order 7 paid');
+    expect(html).toContain('3 spans');
+    expect(html).toContain('1 log line');
+    expect(html).not.toContain(`data-span-row="${log.spanId}"`);
+    expect(html).toContain('>miss<');
+    expect(html).toContain('>edited<');
+  });
+
+  it('offers opening the code and copying a request as cURL or a test', () => {
+    const serviceHtml = renderToString(<SpanDetail span={service} logs={[log]} />).replaceAll('<!-- -->', '');
+    expect(serviceHtml).toContain('Open in VS Code');
+    expect(serviceHtml).toContain('Arguments (edited during replay)');
+    expect(serviceHtml).toContain('Logged here (1)');
+
+    const requestHtml = renderToString(<SpanDetail span={request} />);
+    expect(requestHtml).toContain('Copy as cURL');
+    expect(requestHtml).toContain('Copy as MockMvc test');
+    expect(requestHtml).toContain('Copy as WebTestClient test');
+  });
+
+  it('offers only controller and service steps inside the replayed request as places to pause', () => {
+    expect(pausableSteps([request, service, cache, log], request.spanId).map((s) => s.name)).toEqual(['OrderService.createOrder']);
+    expect(pausableSteps([request, service], 'other')).toEqual([]);
   });
 });

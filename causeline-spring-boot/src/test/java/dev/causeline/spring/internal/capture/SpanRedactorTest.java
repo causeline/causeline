@@ -78,6 +78,20 @@ class SpanRedactorTest {
     }
 
     @Test
+    void hidesSecretsInLogLinesExceptionMessagesAndCacheKeys() {
+        Span redacted = redactor.redact(span(Map.of(
+                "log.message", "Login for alice: password=hunter2, coupon: SAVE50, token=\"abc def\" sent with Bearer eyJhbGciOi.x.y",
+                "exception.message", "{\"apiKey\":\"SECRET-KEY\",\"item\":\"book\"}",
+                "cache.key", "\"alice@example.com\"")));
+
+        assertThat(redacted.attributes().get("log.message"))
+                .isEqualTo("Login for alice: password=[REDACTED], coupon: [REDACTED], token=[REDACTED] sent with Bearer [REDACTED]");
+        assertThat(redacted.attributes().get("exception.message"))
+                .isEqualTo("{\"apiKey\":[REDACTED],\"item\":\"book\"}");
+        assertThat(redacted.attributes()).containsEntry("cache.key", SensitiveData.REDACTED);
+    }
+
+    @Test
     void withholdsBodiesItCannotParse() {
         assertThat(redactor.redact(span(Map.of("http.request.body", "raw secret text"))).attributes())
                 .containsEntry("http.request.body", "[body withheld on export]");

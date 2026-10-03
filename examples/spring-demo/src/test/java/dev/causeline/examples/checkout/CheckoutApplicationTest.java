@@ -166,8 +166,83 @@ class CheckoutApplicationTest {
                     assertThat(e.name()).isEqualTo("PaymentTimeoutException");
                     assertThat(e.attributes().get("code.location")).startsWith("PaymentClient.java:");
                     assertThat(e.attributes()).containsEntry("code.function", "PaymentClient.charge");
+                    assertThat(e.attributes()).containsEntry("code.namespace", "dev.causeline.examples.checkout.PaymentClient");
                 });
         assertThat(get("/causeline/api/traces/" + traceId, null).body()).contains("\"status\":\"ERROR\"");
+        // The checkout's transaction was rolled back, and the timeline says so.
+        assertThat(spans).filteredOn(s -> s.kind() == SpanKind.TRANSACTION)
+                .singleElement()
+                .satisfies(tx -> {
+                    assertThat(tx.name()).isEqualTo("Transaction OrderService.createOrder (rollback)");
+                    assertThat(tx.attributes()).containsEntry("db.transaction.outcome", "rollback");
+                });
+    }
+
+    @Test
+    void transactionsCachesAndLogLinesAppearOnTheTimeline() throws Exception {
+        String first = "c1f92f3577b34da6a3ce929d0e0e4736";
+        String second = "c2f92f3577b34da6a3ce929d0e0e4736";
+        post("/api/orders", "{\"item\":\"globe\",\"quantity\":2}", "00-" + first + "-" + BROWSER_SPAN_ID + "-01");
+        List<Span> spans = awaitSpans(first, List.of(SpanKind.TRANSACTION, SpanKind.CACHE, SpanKind.LOG, SpanKind.DATABASE));
+
+        Span tx = spans.stream().filter(s -> s.kind() == SpanKind.TRANSACTION).findFirst().orElseThrow();
+        assertThat(tx.name()).isEqualTo("Transaction OrderService.createOrder");
+        assertThat(tx.attributes()).containsEntry("db.transaction.outcome", "commit");
+        // The queries ran inside the transaction.
+        java.util.Map<String, Span> byId = spans.stream().collect(java.util.stream.Collectors.toMap(Span::spanId, s -> s));
+        Span insert = spans.stream().filter(s -> s.name().equals("INSERT orders")).findFirst().orElseThrow();
+        assertThat(ancestors(insert, byId)).contains(tx.spanId());
+
+        // A miss: looked up, computed, then stored.
+        assertThat(spans).filteredOn(s -> s.kind() == SpanKind.CACHE).extracting(Span::name)
+                .containsExactly("GET prices", "PUT prices");
+        assertThat(spans).filteredOn(s -> s.name().equals("GET prices"))
+                .singleElement()
+                .satisfies(c -> assertThat(c.attributes()).containsEntry("cache.key", "\"globe\"")
+                        .containsEntry("cache.hit", "false"));
+        assertThat(spans).filteredOn(s -> s.kind() == SpanKind.LOG)
+                .anySatisfy(log -> {
+                    assertThat(log.name()).startsWith("INFO OrderService: Order ").contains("paid: 2 x globe");
+                    assertThat(log.attributes()).containsEntry("log.level", "INFO")
+                            .containsEntry("log.logger", "dev.causeline.examples.checkout.OrderService");
+                    assertThat(log.durationNanos()).isZero();
+                });
+
+        post("/api/orders", "{\"item\":\"globe\",\"quantity\":1}", "00-" + second + "-" + BROWSER_SPAN_ID + "-01");
+        assertThat(awaitSpans(second, List.of(SpanKind.REQUEST, SpanKind.CONTROLLER, SpanKind.TRANSACTION, SpanKind.CACHE,
+                SpanKind.LOG))).filteredOn(s -> s.kind() == SpanKind.CACHE)
+                .singleElement().satisfies(c -> assertThat(c.attributes()).containsEntry("cache.hit", "true"));
+
+        // Two runs of the same action, compared span by span.
+        HttpResponse<String> comparison = get("/causeline/api/compare?a=" + first + "&b=" + second, null);
+        assertThat(comparison.statusCode()).isEqualTo(200);
+        assertThat(comparison.body()).contains("\"traceId\":\"" + first + "\"").contains("GET prices")
+                .doesNotContain("\"kind\":\"LOG\"");
+
+        // Search finds the trace by a value in its request body.
+        HttpResponse<String> search = get("/causeline/api/search?q=GLOBE", null);
+        assertThat(search.body()).contains(first).contains(second).contains("http.request.body");
+    }
+
+    @Test
+    void sourceFilesCanBeFoundToOpenInTheEditor() throws Exception {
+        HttpResponse<String> exact = get("/causeline/api/source?class=dev.causeline.examples.checkout.PaymentClient&line=42", null);
+        assertThat(exact.statusCode()).isEqualTo(200);
+        assertThat(exact.body()).contains("PaymentClient.java").contains("\"line\":42");
+
+        HttpResponse<String> method = get("/causeline/api/source?class=dev.causeline.examples.checkout.OrderService&method=createOrder", null);
+        assertThat(method.body()).contains("OrderService.java").doesNotContain("\"line\":1}");
+
+        assertThat(get("/causeline/api/source?class=java.lang.String", null).statusCode()).isEqualTo(404);
+        assertThat(get("/causeline/api/source?class=../../etc/passwd", null).statusCode()).isEqualTo(404);
+    }
+
+    private static List<String> ancestors(Span span, java.util.Map<String, Span> byId) {
+        List<String> ids = new java.util.ArrayList<>();
+        for (Span parent = byId.get(span.parentSpanId()); parent != null; parent = byId.get(parent.parentSpanId())) {
+            ids.add(parent.spanId());
+        }
+        return ids;
     }
 
     @Test

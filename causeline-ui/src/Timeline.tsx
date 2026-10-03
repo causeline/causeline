@@ -1,10 +1,13 @@
 // SPDX-License-Identifier: Apache-2.0
 import { useCallback, useEffect, useState } from 'react';
 import type { ReactNode } from 'react';
-import { downloadReport, downloadTrace } from './api';
-import type { Insight, SpanKind, SpanRow, TraceSummary, TraceView } from './api';
+import { compareTraces, downloadReport, downloadTrace, fetchSource } from './api';
+import type { ComparisonResult, Insight, SpanKind, SpanRow, TraceSummary, TraceView } from './api';
+import { EDITORS, openInEditor, useEditor } from './editor';
+import type { Editor } from './editor';
 import { formatClock, formatDuration, percent } from './format';
-import { ReplayPanel } from './ReplayPanel';
+import { ComparisonTable, ReplayPanel } from './ReplayPanel';
+import { capturedRequest, toCurl, toMockMvcTest, toWebTestClientTest } from './snippets';
 import { SLOW_FACTOR, slowdown } from './TraceList';
 
 const KIND_LABEL: Record<SpanKind, string> = {
@@ -19,6 +22,9 @@ const KIND_LABEL: Record<SpanKind, string> = {
   STATE_UPDATE: 'State',
   RENDER: 'Render',
   MESSAGE: 'Message',
+  LOG: 'Log',
+  TRANSACTION: 'Transaction',
+  CACHE: 'Cache',
 };
 
 const INSIGHT_STYLE: Record<Insight['rule'], { accent: string; tag: string }> = {
@@ -84,9 +90,12 @@ export function Timeline({
   usual,
   replayOf,
   onOpenTrace,
+  traces = [],
 }: {
   trace: TraceView;
   token?: string;
+  /** Other recorded traces, to compare this one with. */
+  traces?: TraceSummary[];
   /** This trace's line in the list, which carries how long the action usually takes. */
   usual?: TraceSummary;
   /** Set when this trace is a replay: the original's ID and a readable label. */
@@ -96,17 +105,28 @@ export function Timeline({
   const total = Math.max(trace.durationNanos, 1);
   const [selectedId, setSelectedId] = useState<string>();
   const [placement, setPlacement] = useDetailPlacement();
-  const selectedIndex = trace.spans.findIndex((s) => s.spanId === selectedId);
-  const selected = selectedIndex >= 0 ? trace.spans[selectedIndex] : undefined;
+  const [editor, setEditor] = useEditor();
+  const [comparing, setComparing] = useState(false);
+  // Log lines are point events: listed under their span and in the Logs panel, not as waterfall rows.
+  const rows = trace.spans.filter((s) => s.kind !== 'LOG');
+  const logs = trace.spans.filter((s) => s.kind === 'LOG');
+  const logsBySpan = new Map<string, SpanRow[]>();
+  for (const log of logs) {
+    const key = log.parentSpanId ?? '';
+    logsBySpan.set(key, [...(logsBySpan.get(key) ?? []), log]);
+  }
+  const selectedIndex = rows.findIndex((s) => s.spanId === selectedId);
+  const selected = selectedIndex >= 0 ? rows[selectedIndex] : undefined;
   const close = useCallback(() => setSelectedId(undefined), []);
   const step = useCallback(
     (delta: number) => {
-      const next = trace.spans[Math.min(trace.spans.length - 1, Math.max(0, selectedIndex + delta))];
+      const next = rows[Math.min(rows.length - 1, Math.max(0, selectedIndex + delta))];
       if (next) {
         setSelectedId(next.spanId);
         document.querySelector(`[data-span-row="${next.spanId}"]`)?.scrollIntoView({ block: 'nearest' });
       }
     },
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- rows is derived from trace.spans
     [trace.spans, selectedIndex],
   );
 
@@ -144,7 +164,11 @@ export function Timeline({
       onPlacement={setPlacement}
       onClose={close}
       onStep={step}
-      position={{ index: selectedIndex, total: trace.spans.length }}
+      position={{ index: selectedIndex, total: rows.length }}
+      token={token}
+      editor={editor}
+      onEditor={setEditor}
+      logs={logsBySpan.get(selected.spanId) ?? []}
     />
   );
 
@@ -158,6 +182,17 @@ export function Timeline({
           </span>
           <code className="sr-only">trace {trace.traceId}</code>
           <div className="ml-auto flex items-center gap-2">
+            {traces.some((t) => t.traceId !== trace.traceId) && (
+              <button
+                type="button"
+                aria-expanded={comparing}
+                onClick={() => setComparing((c) => !c)}
+                title="Compare this run with another recorded trace, span by span"
+                className="btn"
+              >
+                Compare with…
+              </button>
+            )}
             <button
               type="button"
               onClick={() => void downloadReport(trace.traceId, token).catch(() => {})}
@@ -179,7 +214,12 @@ export function Timeline({
         <h2 className="fade-up mt-2 font-serif text-4xl leading-tight tracking-tight md:text-[44px]">{trace.name}</h2>
         <div className="mt-3 flex flex-wrap items-center gap-2 text-[13px]">
           <span className="chip font-mono text-ink">{formatDuration(trace.durationNanos)}</span>
-          <span className="chip text-ink-2">{trace.spans.length} spans</span>
+          <span className="chip text-ink-2">{rows.length} spans</span>
+          {logs.length > 0 && (
+            <a href="#trace-logs" className="chip text-ink-2 hover:border-ink/50">
+              {logs.length} log {logs.length === 1 ? 'line' : 'lines'}
+            </a>
+          )}
           {trace.status === 'ERROR' ? (
             <span className="chip border-error/50 bg-error/10 font-medium text-error">Failed</span>
           ) : (
@@ -207,10 +247,15 @@ export function Timeline({
         </div>
       </header>
 
+      {comparing && (
+        <ComparePanel key={trace.traceId} trace={trace} traces={traces} token={token} onOpenTrace={onOpenTrace} />
+      )}
+
       <ReplayPanel
         key={trace.traceId}
         traceId={trace.traceId}
         token={token}
+        spans={trace.spans}
         capturedBodies={Object.fromEntries(
           trace.spans
             .filter((s) => s.attributes['http.request.body'] !== undefined && s.source !== 'browser')
@@ -268,7 +313,7 @@ export function Timeline({
               </tr>
             </thead>
             <tbody>
-              {trace.spans.map((span, index) => {
+              {rows.map((span, index) => {
                 const left = (span.offsetNanos / total) * 100;
                 const width = Math.max((span.durationNanos / total) * 100, 0.4);
                 const insight = flagged.get(span.spanId);
@@ -298,6 +343,7 @@ export function Timeline({
                             {span.source}
                           </span>
                         )}
+                        <SpanChips span={span} logCount={logsBySpan.get(span.spanId)?.length ?? 0} />
                         {isHandled(span) && (
                           <span
                             className="chip shrink-0 px-1.5 text-[10px] text-muted"
@@ -364,9 +410,19 @@ export function Timeline({
 
       {selected && placement === 'below' && <div className="panel fade-up mx-6 mt-5">{detail}</div>}
       {exceptions.some((e) => !isHandled(e)) && (
-        <ExceptionPanel exceptions={exceptions.filter((e) => !isHandled(e))} handled={false} />
+        <ExceptionPanel
+          exceptions={exceptions.filter((e) => !isHandled(e))}
+          handled={false}
+          token={token}
+          editor={editor}
+        />
       )}
-      {exceptions.some(isHandled) && <ExceptionPanel exceptions={exceptions.filter(isHandled)} handled />}
+      {exceptions.some(isHandled) && (
+        <ExceptionPanel exceptions={exceptions.filter(isHandled)} handled token={token} editor={editor} />
+      )}
+      {logs.length > 0 && (
+        <LogPanel logs={logs} spans={trace.spans} onSelect={(spanId) => setSelectedId(spanId)} />
+      )}
     </section>
     {side && (
       <>
@@ -418,6 +474,10 @@ export function SpanDetail({
   onPlacement,
   onStep,
   position,
+  token,
+  editor = 'vscode',
+  onEditor,
+  logs = [],
 }: {
   span: SpanRow;
   onClose?: () => void;
@@ -425,6 +485,11 @@ export function SpanDetail({
   onPlacement?: (placement: DetailPlacement) => void;
   onStep?: (delta: number) => void;
   position?: { index: number; total: number };
+  token?: string;
+  editor?: Editor;
+  onEditor?: (editor: Editor) => void;
+  /** Log lines written while this span was the active one. */
+  logs?: SpanRow[];
 }) {
   const narrow = placement === 'side';
   const entries = Object.entries(span.attributes).filter(([key]) => !BLOCK_ATTRIBUTES.has(key));
@@ -486,6 +551,7 @@ export function SpanDetail({
           {KIND_LABEL[span.kind]}: {span.name}
         </h3>
       </div>
+      <SpanActions span={span} token={token} editor={editor} onEditor={onEditor} />
       <div className={`mt-4 grid grid-cols-2 gap-2 ${narrow ? '' : 'sm:grid-cols-4'}`}>
         <Stat label="Status" value={span.status} tone={span.status === 'ERROR' ? 'text-error' : 'text-ink'} />
         <Stat label="Starts at" value={formatDuration(span.offsetNanos)} />
@@ -505,7 +571,22 @@ export function SpanDetail({
           ))}
         </dl>
       )}
-      {args && <Block title="Arguments" value={prettyBody(args)} />}
+      {logs.length > 0 && (
+        <div className="mt-4">
+          <span className="eyebrow">Logged here ({logs.length})</span>
+          <ul className="mt-1.5 space-y-1">
+            {logs.map((log) => (
+              <LogLine key={log.spanId} log={log} />
+            ))}
+          </ul>
+        </div>
+      )}
+      {args && (
+        <Block
+          title={span.attributes['causeline.replay.edited'] === 'true' ? 'Arguments (edited during replay)' : 'Arguments'}
+          value={prettyBody(args)}
+        />
+      )}
       {returned && <Block title="Returned" value={prettyBody(returned)} />}
       {sql && <Block title={prepared ? 'SQL (with values)' : 'SQL'} value={sql} />}
       {prepared && <Block title="SQL as prepared" value={prepared} />}
@@ -620,7 +701,17 @@ function Attribute({ name, value }: { name: string; value: string }) {
   );
 }
 
-function ExceptionPanel({ exceptions, handled }: { exceptions: SpanRow[]; handled: boolean }) {
+function ExceptionPanel({
+  exceptions,
+  handled,
+  token,
+  editor = 'vscode',
+}: {
+  exceptions: SpanRow[];
+  handled: boolean;
+  token?: string;
+  editor?: Editor;
+}) {
   const title = handled
     ? `${exceptions.length === 1 ? 'Handled exception' : `${exceptions.length} handled exceptions`}: caught and logged, request continued`
     : exceptions.length === 1
@@ -642,6 +733,7 @@ function ExceptionPanel({ exceptions, handled }: { exceptions: SpanRow[]; handle
             {e.attributes['code.location'] && (
               <div className="mt-0.5 text-xs text-muted">
                 at {e.attributes['code.function']} (<span className="font-mono text-ink-2">{e.attributes['code.location']}</span>)
+                <OpenSource span={e} token={token} editor={editor} compact />
               </div>
             )}
             {handled && e.attributes['log.logger'] && (
@@ -667,6 +759,275 @@ function ExceptionPanel({ exceptions, handled }: { exceptions: SpanRow[]; handle
           </li>
         ))}
       </ul>
+    </section>
+  );
+}
+
+/** Small markers on a waterfall row: cache hit or miss, a rolled-back transaction, edited arguments, logs. */
+function SpanChips({ span, logCount }: { span: SpanRow; logCount: number }) {
+  const a = span.attributes;
+  return (
+    <>
+      {a['cache.hit'] === 'true' && <span className="chip shrink-0 border-ok/40 px-1.5 text-[10px] text-ok">hit</span>}
+      {a['cache.hit'] === 'false' && <span className="chip shrink-0 border-warn/40 px-1.5 text-[10px] text-warn">miss</span>}
+      {a['db.transaction.outcome'] && a['db.transaction.outcome'] !== 'commit' && (
+        <span className="chip shrink-0 border-error/40 px-1.5 text-[10px] text-error" title="The transaction did not commit">
+          {a['db.transaction.outcome']}
+        </span>
+      )}
+      {a['causeline.replay.edited'] === 'true' && (
+        <span className="chip shrink-0 border-server/50 px-1.5 text-[10px] text-server" title="Run with arguments changed during a paused replay">
+          edited
+        </span>
+      )}
+      {logCount > 0 && (
+        <span className="shrink-0 font-mono text-[10px] text-muted" title="Log lines written during this span">
+          {logCount} log{logCount === 1 ? '' : 's'}
+        </span>
+      )}
+    </>
+  );
+}
+
+const LEVEL_TONE: Record<string, string> = { ERROR: 'text-error', WARN: 'text-warn', INFO: 'text-ink-2', DEBUG: 'text-muted' };
+
+function LogLine({ log, owner, onSelect }: { log: SpanRow; owner?: SpanRow; onSelect?: () => void }) {
+  const level = log.attributes['log.level'] ?? 'INFO';
+  const logger = log.attributes['log.logger'] ?? '';
+  return (
+    <li className="grid grid-cols-[auto_auto_1fr] items-baseline gap-x-2 font-mono text-[11.5px]">
+      <span className="text-muted tabular-nums">{formatDuration(log.offsetNanos)}</span>
+      <span className={`w-11 ${LEVEL_TONE[level] ?? 'text-ink-2'}`}>{level}</span>
+      <span className="min-w-0 break-words text-ink-2">
+        <span className="text-muted" title={logger}>
+          {logger.slice(logger.lastIndexOf('.') + 1)}
+        </span>{' '}
+        {log.attributes['log.message'] ?? log.name}
+        {owner && (
+          <button type="button" onClick={onSelect} className="ml-2 text-[10px] text-muted underline-offset-2 hover:text-ink hover:underline">
+            in {owner.name}
+          </button>
+        )}
+      </span>
+    </li>
+  );
+}
+
+/** Every log line in the trace, in time order, each linked to the span it was written in. */
+function LogPanel({ logs, spans, onSelect }: { logs: SpanRow[]; spans: SpanRow[]; onSelect: (spanId: string) => void }) {
+  const byId = new Map(spans.map((s) => [s.spanId, s]));
+  const sorted = [...logs].sort((a, b) => a.offsetNanos - b.offsetNanos);
+  return (
+    <section id="trace-logs" aria-label="Logs" className="panel mx-6 mt-5 overflow-hidden text-sm">
+      <div className="flex items-center gap-2 border-b border-line px-5 py-3">
+        <h3 className="font-semibold text-ink-2">Logs</h3>
+        <span className="text-xs text-muted">
+          {logs.length} {logs.length === 1 ? 'line' : 'lines'} written during this trace
+        </span>
+      </div>
+      <ul className="max-h-80 space-y-1 overflow-y-auto px-5 py-3">
+        {sorted.map((log) => {
+          const owner = log.parentSpanId ? byId.get(log.parentSpanId) : undefined;
+          return (
+            <LogLine key={log.spanId} log={log} owner={owner} onSelect={owner ? () => onSelect(owner.spanId) : undefined} />
+          );
+        })}
+      </ul>
+    </section>
+  );
+}
+
+/** Opens the span's code in the developer's editor: the method, or the line an exception was thrown at. */
+function OpenSource({
+  span,
+  token,
+  editor,
+  compact = false,
+}: {
+  span: SpanRow;
+  token?: string;
+  editor: Editor;
+  compact?: boolean;
+}) {
+  const [missing, setMissing] = useState(false);
+  const a = span.attributes;
+  const className = a['code.namespace'];
+  const filePath = a['code.filepath'];
+  if (!className && !filePath) {
+    return null;
+  }
+  const line = Number(a['code.lineno']) || 0;
+  const fn = a['code.function'] ?? '';
+  const method = fn.includes('.') ? fn.slice(fn.lastIndexOf('.') + 1) : fn;
+  const open = async () => {
+    if (filePath) {
+      openInEditor(editor, filePath, line || 1);
+      return;
+    }
+    const location = await fetchSource({ className: className ?? '', method, line }, token).catch(() => undefined);
+    if (location) {
+      openInEditor(editor, location.path, location.line);
+    } else {
+      setMissing(true);
+    }
+  };
+  const label = EDITORS.find((e) => e.id === editor)?.label ?? 'editor';
+  return (
+    <>
+      <button
+        type="button"
+        onClick={() => void open()}
+        title={`Open ${filePath ?? className}${line ? `:${line}` : method ? ` at ${method}` : ''} in ${label}`}
+        className={compact ? 'ml-2 text-[11px] text-server underline-offset-2 hover:underline' : 'btn'}
+      >
+        {compact ? 'Open' : `Open in ${label}`}
+      </button>
+      {missing && <span className="ml-2 text-[11px] text-muted">Source not found under the app's working directory.</span>}
+    </>
+  );
+}
+
+/** Things to do with a span: open its code, copy its request as a command or a test. */
+function SpanActions({
+  span,
+  token,
+  editor,
+  onEditor,
+}: {
+  span: SpanRow;
+  token?: string;
+  editor: Editor;
+  onEditor?: (editor: Editor) => void;
+}) {
+  const request = capturedRequest(span);
+  const [copied, setCopied] = useState<string>();
+  const hasSource = Boolean(span.attributes['code.namespace'] || span.attributes['code.filepath']);
+  if (!request && !hasSource) {
+    return null;
+  }
+  const copy = (what: string, text: string) =>
+    void navigator.clipboard?.writeText(text).then(() => {
+      setCopied(what);
+      setTimeout(() => setCopied(undefined), 1400);
+    });
+  return (
+    <div className="mt-3 flex flex-wrap items-center gap-2">
+      {hasSource && (
+        <>
+          <OpenSource span={span} token={token} editor={editor} />
+          {onEditor && (
+            <select
+              aria-label="Editor"
+              value={editor}
+              onChange={(e) => onEditor(e.target.value as Editor)}
+              className="rounded-full border border-line bg-paper-2 px-2 py-1 text-[11px] text-ink-2"
+            >
+              {EDITORS.map((e) => (
+                <option key={e.id} value={e.id}>
+                  {e.label}
+                </option>
+              ))}
+            </select>
+          )}
+        </>
+      )}
+      {request && (
+        <>
+          <button type="button" className="btn" onClick={() => copy('curl', toCurl(request, window.location.origin))}>
+            {copied === 'curl' ? 'Copied' : 'Copy as cURL'}
+          </button>
+          {span.source !== 'browser' && (
+            <>
+              <button
+                type="button"
+                className="btn"
+                title="A JUnit test that sends this request with MockMvc and expects the same status (Spring MVC)"
+                onClick={() => copy('mockmvc', toMockMvcTest(request))}
+              >
+                {copied === 'mockmvc' ? 'Copied' : 'Copy as MockMvc test'}
+              </button>
+              <button
+                type="button"
+                className="btn"
+                title="The same test with WebTestClient (WebFlux)"
+                onClick={() => copy('webtestclient', toWebTestClientTest(request))}
+              >
+                {copied === 'webtestclient' ? 'Copied' : 'Copy as WebTestClient test'}
+              </button>
+            </>
+          )}
+        </>
+      )}
+    </div>
+  );
+}
+
+/** This run next to another recorded one, span by span: what got slower, what failed, what's new. */
+function ComparePanel({
+  trace,
+  traces,
+  token,
+  onOpenTrace,
+}: {
+  trace: TraceView;
+  traces: TraceSummary[];
+  token?: string;
+  onOpenTrace?: (traceId: string) => void;
+}) {
+  // Runs of the same action first: that is almost always what you want to compare with.
+  const others = traces
+    .filter((t) => t.traceId !== trace.traceId)
+    .sort((a, b) => Number(b.name === trace.name) - Number(a.name === trace.name) || b.startTimeUnixNano - a.startTimeUnixNano);
+  const [other, setOther] = useState(others[0]?.traceId ?? '');
+  const [result, setResult] = useState<ComparisonResult>();
+  const [error, setError] = useState<string>();
+  useEffect(() => {
+    if (!other) {
+      return undefined;
+    }
+    let cancelled = false;
+    setError(undefined);
+    compareTraces(other, trace.traceId, token)
+      .then((r) => !cancelled && setResult(r))
+      .catch((e: unknown) => !cancelled && setError(e instanceof Error ? e.message : String(e)));
+    return () => {
+      cancelled = true;
+    };
+  }, [other, trace.traceId, token]);
+  const chosen = others.find((t) => t.traceId === other);
+  return (
+    <section aria-label="Compare traces" className="panel fade-up mx-6 mt-5 space-y-3 p-4 text-sm">
+      <div className="flex flex-wrap items-center gap-2">
+        <h3 className="font-semibold">Compare with</h3>
+        <select
+          aria-label="Trace to compare with"
+          value={other}
+          onChange={(e) => setOther(e.target.value)}
+          className="min-w-0 max-w-full rounded-lg border border-line bg-paper-2 px-2 py-1 text-[13px] text-ink"
+        >
+          {others.map((t) => (
+            <option key={t.traceId} value={t.traceId}>
+              {t.name} at {formatClock(t.startTimeUnixNano)} · {formatDuration(t.durationNanos)}
+              {t.status === 'ERROR' ? ' · failed' : ''}
+            </option>
+          ))}
+        </select>
+        {chosen && onOpenTrace && (
+          <button type="button" onClick={() => onOpenTrace(chosen.traceId)} className="text-xs text-muted hover:text-ink">
+            Open it
+          </button>
+        )}
+      </div>
+      {error && <p role="alert" className="text-xs text-error">{error}</p>}
+      {result && (
+        <div className="rounded-lg border border-line-soft bg-paper-2 p-3">
+          <ComparisonTable
+            result={result}
+            left={chosen ? `Then (${formatClock(chosen.startTimeUnixNano)})` : 'Then'}
+            right="This run"
+          />
+        </div>
+      )}
     </section>
   );
 }

@@ -113,7 +113,9 @@ Click the button, then open the newest trace in `/causeline`. You'll see the cli
 ## Next steps
 
 - **Something is slow or failing?** The insights panel names the primary bottleneck, repeated queries and exceptions, including exceptions your code catches and logs.
-- **Replay** a captured request, with **Replay…** on a trace, and compare the two runs.
+- **Replay** a captured request, with **Replay…** on a trace, and compare the two runs. Tick "Pause at steps" to stop at a controller or service method and change its arguments before it runs.
+- **Jump to the code:** click **Open in VS Code** (or IntelliJ, or Cursor) on a span or an exception.
+- **Turn a request into a test:** **Copy as MockMvc test** on a request span.
 - **Block data** you don't want captured: see the configuration reference in the [README](../README.md#configuration-reference).
 - **Share a trace:** **Export** writes a file with secrets redacted.
 

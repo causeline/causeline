@@ -7,13 +7,21 @@ import io.micrometer.observation.ObservationRegistry;
 import org.aspectj.lang.ProceedingJoinPoint;
 import org.aspectj.lang.annotation.Around;
 import org.aspectj.lang.annotation.Aspect;
+import org.springframework.core.Ordered;
 
 /**
  * Adds a {@link SpanKind#CONTROLLER} span around each controller method, below the HTTP server
  * span Spring already records. Causeline's own endpoints are excluded.
  */
 @Aspect
-public final class ControllerObservationAspect {
+public final class ControllerObservationAspect implements Ordered {
+
+    /** Just outside the innermost aspects (a paused replay's), so they run inside this span. */
+    @Override
+    public int getOrder() {
+        return Ordered.LOWEST_PRECEDENCE - 1;
+    }
+
 
     private final ObservationRegistry registry;
     private final MethodValues values;
@@ -40,7 +48,10 @@ public final class ControllerObservationAspect {
         String name = pjp.getSignature().getDeclaringType().getSimpleName() + "." + pjp.getSignature().getName();
         Observation observation = Observation.createNotStarted("causeline.controller", registry)
                 .contextualName(name)
-                .lowCardinalityKeyValue(SpanMapper.KIND_ATTRIBUTE, SpanKind.CONTROLLER.name());
+                .lowCardinalityKeyValue(SpanMapper.KIND_ATTRIBUTE, SpanKind.CONTROLLER.name())
+                // Which source file and method, so the UI can open it in the editor.
+                .lowCardinalityKeyValue("class", pjp.getSignature().getDeclaringTypeName())
+                .lowCardinalityKeyValue("method", pjp.getSignature().getName());
         return MethodSpans.observe(observation, pjp, values);
     }
 }

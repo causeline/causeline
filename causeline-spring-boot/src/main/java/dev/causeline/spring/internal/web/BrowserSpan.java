@@ -27,7 +27,8 @@ public record BrowserSpan(
 
     /** Kinds a browser can legitimately report; anything else is rejected. */
     private static final Set<SpanKind> BROWSER_KINDS =
-            EnumSet.of(SpanKind.UI_ACTION, SpanKind.REQUEST, SpanKind.STATE_UPDATE, SpanKind.RENDER, SpanKind.EXCEPTION);
+            EnumSet.of(SpanKind.UI_ACTION, SpanKind.REQUEST, SpanKind.STATE_UPDATE, SpanKind.RENDER, SpanKind.EXCEPTION,
+                    SpanKind.LOG);
 
     /** @throws IllegalArgumentException when the span is malformed or claims a server-side kind */
     public Span toSpan() {

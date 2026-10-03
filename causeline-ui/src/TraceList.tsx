@@ -1,13 +1,56 @@
 // SPDX-License-Identifier: Apache-2.0
-import { useMemo, useState } from 'react';
-import type { TraceSummary } from './api';
+import { useEffect, useMemo, useState } from 'react';
+import { searchTraces } from './api';
+import type { SearchMatch, TraceSummary } from './api';
 import { formatClock, formatDuration } from './format';
 
 interface Props {
   traces: TraceSummary[];
   selected: string | undefined;
   onSelect(traceId: string): void;
+  /** For searching inside traces; without it, search matches names and IDs only. */
+  token?: string;
 }
+
+const SEARCH_DELAY_MS = 250;
+
+/** Matches inside traces (bodies, SQL, headers...), found by the server as the developer types. */
+function useDeepSearch(query: string, token: string | undefined): Map<string, SearchMatch[]> {
+  const [hits, setHits] = useState<Map<string, SearchMatch[]>>(new Map());
+  useEffect(() => {
+    const q = query.trim();
+    if (q.length < 2) {
+      setHits(new Map());
+      return undefined;
+    }
+    let cancelled = false;
+    const timer = setTimeout(() => {
+      searchTraces(q, token)
+        .then((found) => !cancelled && setHits(new Map(found.map((h) => [h.traceId, h.matches]))))
+        .catch(() => {});
+    }, SEARCH_DELAY_MS);
+    return () => {
+      cancelled = true;
+      clearTimeout(timer);
+    };
+  }, [query, token]);
+  return hits;
+}
+
+const FIELD_LABEL: Record<string, string> = {
+  name: 'name',
+  'http.request.body': 'request body',
+  'http.response.body': 'response body',
+  'db.query.text': 'SQL',
+  'url.query': 'query',
+  'causeline.arguments': 'arguments',
+  'causeline.return': 'returned',
+  'log.message': 'log',
+  'exception.message': 'exception',
+};
+
+const fieldLabel = (field: string) =>
+  FIELD_LABEL[field] ?? (field.startsWith('http.request.header.') ? `header ${field.slice(20)}` : field);
 
 type Filter = 'all' | 'errors' | 'slow' | 'replays';
 
@@ -49,10 +92,14 @@ export function matches(trace: TraceSummary, query: string, filter: Filter): boo
   }
 }
 
-export function TraceList({ traces, selected, onSelect }: Props) {
+export function TraceList({ traces, selected, onSelect, token }: Props) {
   const [query, setQuery] = useState('');
   const [filter, setFilter] = useState<Filter>('all');
-  const visible = useMemo(() => traces.filter((t) => matches(t, query, filter)), [traces, query, filter]);
+  const hits = useDeepSearch(query, token);
+  const visible = useMemo(
+    () => traces.filter((t) => matches(t, query, filter) || (hits.has(t.traceId) && matches(t, '', filter))),
+    [traces, query, filter, hits],
+  );
   const longest = Math.max(1, ...traces.map((t) => t.durationNanos));
 
   if (traces.length === 0) {
@@ -84,7 +131,7 @@ export function TraceList({ traces, selected, onSelect }: Props) {
             type="search"
             value={query}
             onChange={(e) => setQuery(e.target.value)}
-            placeholder="Search by name or trace ID"
+            placeholder="Search names, IDs, bodies, SQL, headers…"
             className="w-full rounded-lg border border-line bg-paper-2 py-2 pr-3 pl-9 text-[13px] text-ink placeholder:text-muted focus:border-ink/50 focus:outline-none"
           />
         </label>
@@ -138,6 +185,12 @@ export function TraceList({ traces, selected, onSelect }: Props) {
                 {trace.replayOf && (
                   <div className="mt-0.5 truncate pl-4 text-xs text-server">of {originalLabel(traces, trace.replayOf)}</div>
                 )}
+                {!matches(trace, query, 'all') &&
+                  hits.get(trace.traceId)?.slice(0, 2).map((m, i) => (
+                    <div key={i} className="mt-0.5 truncate pl-4 text-[11px] text-ink-2" title={`${m.spanName}: ${m.excerpt}`}>
+                      <span className="font-mono text-[10px] text-muted uppercase">{fieldLabel(m.field)}</span> {m.excerpt}
+                    </div>
+                  ))}
                 <div className="mt-1.5 flex items-center gap-3 pl-4 font-mono text-[11px] text-muted">
                   <span>{formatClock(trace.startTimeUnixNano)}</span>
                   <span className={factor !== undefined && factor >= SLOW_FACTOR ? 'text-warn' : ''}>
