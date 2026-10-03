@@ -7,7 +7,7 @@ import { EDITORS, openInEditor, useEditor } from './editor';
 import type { Editor } from './editor';
 import { formatClock, formatDuration, percent } from './format';
 import { ComparisonTable, ReplayPanel } from './ReplayPanel';
-import { capturedRequest, toCurl, toMockMvcTest, toWebTestClientTest } from './snippets';
+import { capturedRequest, toCurl, toMockMvcTest, toWebTestClientTest, traceGuard } from './snippets';
 import { SLOW_FACTOR, slowdown } from './TraceList';
 
 const KIND_LABEL: Record<SpanKind, string> = {
@@ -169,6 +169,7 @@ export function Timeline({
       editor={editor}
       onEditor={setEditor}
       logs={logsBySpan.get(selected.spanId) ?? []}
+      trace={trace}
     />
   );
 
@@ -478,6 +479,7 @@ export function SpanDetail({
   editor = 'vscode',
   onEditor,
   logs = [],
+  trace,
 }: {
   span: SpanRow;
   onClose?: () => void;
@@ -490,6 +492,8 @@ export function SpanDetail({
   onEditor?: (editor: Editor) => void;
   /** Log lines written while this span was the active one. */
   logs?: SpanRow[];
+  /** The trace the span belongs to, so a copied test can assert what the request did. */
+  trace?: TraceView;
 }) {
   const narrow = placement === 'side';
   const entries = Object.entries(span.attributes).filter(([key]) => !BLOCK_ATTRIBUTES.has(key));
@@ -551,7 +555,7 @@ export function SpanDetail({
           {KIND_LABEL[span.kind]}: {span.name}
         </h3>
       </div>
-      <SpanActions span={span} token={token} editor={editor} onEditor={onEditor} />
+      <SpanActions span={span} token={token} editor={editor} onEditor={onEditor} trace={trace} />
       <div className={`mt-4 grid grid-cols-2 gap-2 ${narrow ? '' : 'sm:grid-cols-4'}`}>
         <Stat label="Status" value={span.status} tone={span.status === 'ERROR' ? 'text-error' : 'text-ink'} />
         <Stat label="Starts at" value={formatDuration(span.offsetNanos)} />
@@ -893,13 +897,16 @@ function SpanActions({
   token,
   editor,
   onEditor,
+  trace,
 }: {
   span: SpanRow;
   token?: string;
   editor: Editor;
   onEditor?: (editor: Editor) => void;
+  trace?: TraceView;
 }) {
   const request = capturedRequest(span);
+  const guard = trace && traceGuard(span, trace);
   const [copied, setCopied] = useState<string>();
   const hasSource = Boolean(span.attributes['code.namespace'] || span.attributes['code.filepath']);
   if (!request && !hasSource) {
@@ -941,8 +948,8 @@ function SpanActions({
               <button
                 type="button"
                 className="btn"
-                title="A JUnit test that sends this request with MockMvc and expects the same status (Spring MVC)"
-                onClick={() => copy('mockmvc', toMockMvcTest(request))}
+                title="A JUnit test that sends this request with MockMvc and expects the same status, queries and steps (Spring MVC)"
+                onClick={() => copy('mockmvc', toMockMvcTest(request, guard))}
               >
                 {copied === 'mockmvc' ? 'Copied' : 'Copy as MockMvc test'}
               </button>
@@ -950,7 +957,7 @@ function SpanActions({
                 type="button"
                 className="btn"
                 title="The same test with WebTestClient (WebFlux)"
-                onClick={() => copy('webtestclient', toWebTestClientTest(request))}
+                onClick={() => copy('webtestclient', toWebTestClientTest(request, guard))}
               >
                 {copied === 'webtestclient' ? 'Copied' : 'Copy as WebTestClient test'}
               </button>

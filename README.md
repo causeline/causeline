@@ -20,6 +20,7 @@ Debugging "Checkout is slow and sometimes fails" means switching between the bro
 | --- | --- |
 | `causeline-core` | Span model, self-time calculation, trace store (no Spring dependency) |
 | `causeline-spring-boot` | Spring Boot auto-configuration, instrumentation, embedded UI and API |
+| `causeline-test` | JUnit 5 guard: assert on the trace a Spring Boot test produced |
 | `causeline-ui` | Trace explorer UI (React, Vite, Tailwind), packaged into the starter |
 | `causeline-react` | `@causeline/react` SDK |
 | `causeline-next` | `@causeline/next`: Next.js server-side tracing |
@@ -88,7 +89,7 @@ Spring Boot: add `causeline-spring-boot`, set `causeline.enabled=true` in a dev 
 - R2DBC queries become SQL spans with their values filled in. This needs `io.r2dbc:r2dbc-proxy` on the classpath, which is how Spring Boot observes R2DBC.
 - Request and response bodies are copied as they stream, never buffered first.
 
-**Supported API.** On the Java side that means the `causeline.*` configuration properties and the `dev.causeline.spring.ReplayAuthProvider` extension point. Everything under `dev.causeline.spring.internal` and `causeline-core` may change without notice. In React, it's everything exported from `@causeline/react`.
+**Supported API.** On the Java side that means the `causeline.*` configuration properties, the `dev.causeline.spring.ReplayAuthProvider` extension point, and `dev.causeline.test` (`@CauselineTest`, `RecordedTraces`, `TraceAssert`) from `causeline-test`. Everything under `dev.causeline.spring.internal` and `causeline-core` may change without notice. In React, it's everything exported from `@causeline/react`.
 
 React:
 
@@ -204,10 +205,61 @@ OTLP export sends Causeline's stored spans, never Spring's raw spans, with secre
 **Debugging tools:**
 
 - **Open in editor:** on a controller, service or repository span, or on an exception's location, open the code in VS Code, IntelliJ IDEA or Cursor, at the method or the line that threw. Causeline finds the source file under the application's working directory, and only ever shows its path.
-- **Copy as cURL, or as a test:** on any request span, copy a cURL command, a MockMvc test (Spring MVC) or a WebTestClient test (WebFlux) built from what was captured. Credentials are left out of the tests.
+- **Copy as cURL, or as a test:** on any request span, copy a cURL command, a MockMvc test (Spring MVC) or a WebTestClient test (WebFlux) built from what was captured. Credentials, and the headers a browser adds by itself (`user-agent`, `sec-*`, `referer` and the like), are left out of the tests, so a test can be pasted as it is. The test also asserts what the trace did, using the guard below.
 - **Search inside traces:** the search box finds traces by an order ID in a body, a table in SQL, a header value or a log line, not just by name.
 - **Compare with…:** put any two runs side by side, span by span, such as yesterday's fast checkout and today's slow one.
 - **Slower than usual:** a run is flagged when it's slower than the median of other runs of the same action. The trace list can also filter by errors, slow runs and replays.
+
+### Guard it in a test
+
+What you saw in a trace can be kept as a JUnit 5 test, so it stays true after you close the browser. Add `causeline-test` in test scope (it ships with the release after `0.1.0-alpha.1`):
+
+```xml
+<dependency>
+  <groupId>dev.causeline</groupId>
+  <artifactId>causeline-test</artifactId>
+  <version>…</version>
+  <scope>test</scope>
+</dependency>
+```
+
+Put `@CauselineTest` next to `@SpringBootTest` and take a `RecordedTraces` parameter. **Copy as MockMvc test** writes exactly this from a captured request:
+
+```java
+@SpringBootTest
+@AutoConfigureMockMvc
+@CauselineTest
+class CreateOrderTest {
+
+    @Autowired
+    MockMvc mockMvc;
+
+    @Test
+    void createsAnOrder(RecordedTraces causeline) throws Exception {
+        mockMvc.perform(post("/api/orders").contentType("application/json").content("{\"item\":\"book\",\"quantity\":1}"))
+                .andExpect(status().isCreated());
+
+        causeline.trace("POST /api/orders")
+                .hasNoFailedSpans()
+                .hasQueryCountAtMost(2)
+                .hasNoRepeatedQueries()
+                .hasSpans("OrderController.createOrder", "OrderService.createOrder", "OrderRepository.save");
+    }
+}
+```
+
+| Check | Fails when |
+| --- | --- |
+| `hasNoFailedSpans()` | a span failed or an exception was thrown, including one the application caught and logged |
+| `hasException("PaymentTimeoutException")` | no exception with that simple class name was thrown or logged |
+| `hasQueryCount(n)`, `hasQueryCountAtMost(n)` | the number of SQL statements differs, or exceeds the limit |
+| `hasNoRepeatedQueries()` | the same query ran again and again under one parent (N+1), by the rule the UI flags |
+| `hasSpan(name)`, `hasSpans(names…)`, `hasSpansInOrder(names…)`, `hasNoSpan(name)` | a controller, service, repository, query or call is missing, out of order, or present when it shouldn't be |
+
+- Every check is about what the application did, never how long it took, so a test gives the same answer on any machine. A failure message prints the whole trace as a tree, with each query's SQL and where each exception was thrown. Values captured from requests are never printed (SQL shows `?` for literals and bind values), because build logs leave your machine.
+- `@CauselineTest` sets `causeline.enabled=true` for the test's application context. `causeline.trace()` is the one trace recorded since the test started; `causeline.trace("POST /api/orders")` picks one by a span name when there are several; `causeline.reset()` forgets set-up requests.
+- It works with MockMvc, WebTestClient, a real port, or a direct call to an `@Observed` method. Work handed to another thread (`@Async`) may finish after the test has looked, so the generated test doesn't expect it.
+- Tests in one class must not run in parallel: a trace can't be told apart from a neighbour's.
 
 ### Replay
 

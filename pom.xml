@@ -48,6 +48,7 @@
     <modules>
         <module>causeline-core</module>
         <module>causeline-spring-boot</module>
+        <module>causeline-test</module>
         <module>examples/spring-demo</module>
         <module>examples/webflux-demo</module>
     </modules>
@@ -78,6 +79,11 @@
             <dependency>
                 <groupId>dev.causeline</groupId>
                 <artifactId>causeline-spring-boot</artifactId>
+                <version>${project.version}</version>
+            </dependency>
+            <dependency>
+                <groupId>dev.causeline</groupId>
+                <artifactId>causeline-test</artifactId>
                 <version>${project.version}</version>
             </dependency>
             <dependency>
