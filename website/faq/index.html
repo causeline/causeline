@@ -1,0 +1,296 @@
+<!doctype html>
+<!-- SPDX-License-Identifier: Apache-2.0 -->
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>FAQ · Causeline</title>
+<meta name="description" content="Answers about Causeline: tracing a request through Spring Boot, finding slow SQL and N+1 queries, performance, data and security, and how it compares with Zipkin, Jaeger and APM tools.">
+<meta name="keywords" content="Causeline, Causeline FAQ, Spring Boot tracing FAQ, how to trace a request in Spring Boot, find slow SQL queries, N+1 queries Spring Boot, Zipkin vs Jaeger vs Causeline, APM for development, Spring Security tracing, Kafka tracing, RabbitMQ tracing, microservices tracing, OpenTelemetry questions, debugging, tracing, observability, performance monitoring">
+<meta name="author" content="Sudharma BG">
+<meta name="robots" content="index, follow, max-snippet:-1, max-image-preview:large">
+<link rel="canonical" href="https://causeline.dev/faq/">
+<meta name="theme-color" content="#000000">
+<meta name="color-scheme" content="dark">
+<link rel="icon" href="/favicon.svg" type="image/svg+xml">
+<link rel="apple-touch-icon" sizes="180x180" href="/apple-touch-icon.png">
+<link rel="manifest" href="/site.webmanifest">
+<meta property="og:type" content="website">
+<meta property="og:site_name" content="Causeline">
+<meta property="og:url" content="https://causeline.dev/faq/">
+<meta property="og:title" content="FAQ · Causeline">
+<meta property="og:description" content="Answers about Causeline: tracing a request through Spring Boot, finding slow SQL and N+1 queries, performance, data and security, and how it compares with Zipkin, Jaeger and APM tools.">
+<meta property="og:image" content="https://causeline.dev/og.png">
+<meta property="og:image:width" content="1200">
+<meta property="og:image:height" content="630">
+<meta name="twitter:card" content="summary_large_image">
+<meta name="twitter:title" content="FAQ · Causeline">
+<meta name="twitter:description" content="Answers about Causeline: tracing a request through Spring Boot, finding slow SQL and N+1 queries, performance, data and security, and how it compares with Zipkin, Jaeger and APM tools.">
+<meta name="twitter:image" content="https://causeline.dev/og.png">
+<link rel="preload" href="/fonts/hanken-grotesk.woff2" as="font" type="font/woff2" crossorigin>
+<link rel="stylesheet" href="/styles.css">
+<script src="/main.js"></script>
+<script type="application/ld+json">
+{
+  "@context": "https://schema.org",
+  "@graph": [
+    {
+      "@type": "BreadcrumbList",
+      "itemListElement": [
+        {
+          "@type": "ListItem",
+          "position": 1,
+          "name": "Causeline",
+          "item": "https://causeline.dev/"
+        },
+        {
+          "@type": "ListItem",
+          "position": 2,
+          "name": "FAQ",
+          "item": "https://causeline.dev/faq/"
+        }
+      ]
+    },
+    {
+      "@type": "FAQPage",
+      "mainEntity": [
+        {
+          "@type": "Question",
+          "name": "Is Causeline safe to run in production?",
+          "acceptedAnswer": {
+            "@type": "Answer",
+            "text": "No. Causeline is for development and QA. It is off unless causeline.enabled is true, and it refuses to start when a prod or production profile is active, because it shows headers, cookies and bodies in full."
+          }
+        },
+        {
+          "@type": "Question",
+          "name": "Do I need an account, an agent or a collector?",
+          "acceptedAnswer": {
+            "@type": "Answer",
+            "text": "No. Causeline runs inside your Spring Boot application and serves its UI at /causeline. There is no account, no cloud service and no separate process."
+          }
+        },
+        {
+          "@type": "Question",
+          "name": "Which versions of Spring Boot and React does Causeline support?",
+          "acceptedAnswer": {
+            "@type": "Answer",
+            "text": "Spring Boot 4.1 with Spring MVC or WebFlux on Java 21 or newer, and React 18 or newer. Next.js server code (Node.js runtime) is traced with @causeline/next."
+          }
+        },
+        {
+          "@type": "Question",
+          "name": "Does Causeline work with OpenTelemetry?",
+          "acceptedAnswer": {
+            "@type": "Answer",
+            "text": "Yes. It propagates the W3C traceparent header and is built on Micrometer Observation and OpenTelemetry. It can also export redacted spans over OTLP to Jaeger, Grafana Tempo or an OpenTelemetry Collector."
+          }
+        },
+        {
+          "@type": "Question",
+          "name": "What does Causeline record, and can I hide sensitive data?",
+          "acceptedAnswer": {
+            "@type": "Answer",
+            "text": "By default it records headers, query strings, request and response bodies, SQL with bound values and exception details, and shows them only in your local UI. Any of it can be blocked with causeline.capture settings, and anything exported is redacted."
+          }
+        },
+        {
+          "@type": "Question",
+          "name": "Can I keep what I saw in a trace as a test?",
+          "acceptedAnswer": {
+            "@type": "Answer",
+            "text": "Yes. Add causeline-test in test scope and put @CauselineTest on a Spring Boot test. It asserts on the trace the test produced: no failed spans or exceptions, the SQL query count, no N+1 and which spans ran, never timings. The UI can copy any request as a MockMvc or WebTestClient test with those checks filled in."
+          }
+        },
+        {
+          "@type": "Question",
+          "name": "How do I trace a request through a Spring Boot app?",
+          "acceptedAnswer": {
+            "@type": "Answer",
+            "text": "Add the causeline-spring-boot starter and set causeline.enabled to true in a dev profile. Every request then shows up at /causeline as one trace: the HTTP request, controller, @Observed services, repositories, each SQL statement with its values, and outbound calls. Add @causeline/react and the trace starts at the click in the browser."
+          }
+        },
+        {
+          "@type": "Question",
+          "name": "How do I find slow SQL queries and N+1 problems?",
+          "acceptedAnswer": {
+            "@type": "Answer",
+            "text": "Every JDBC and R2DBC statement is a span with its real values and its duration. When the same query runs five or more times under one parent, Causeline flags it as N+1, names the query that loaded the rows, and suggests JOIN FETCH, @EntityGraph or batch fetching. Explain query shows the plan and points out full table scans."
+          }
+        },
+        {
+          "@type": "Question",
+          "name": "How is Causeline different from Zipkin, Jaeger or an APM tool?",
+          "acceptedAnswer": {
+            "@type": "Answer",
+            "text": "Those are built to collect traces from services in production. Causeline is for development and QA: it runs inside your app with no collector, starts the trace at the React click, shows request and response bodies and SQL values, names the bottleneck, and can replay a request and compare the runs. It can also export redacted spans over OTLP to Jaeger or Grafana Tempo."
+          }
+        },
+        {
+          "@type": "Question",
+          "name": "Will it slow down my application?",
+          "acceptedAnswer": {
+            "@type": "Answer",
+            "text": "Very little. On the demo app it added about 2 ms at p99 to a full checkout with everything captured. Spans leave the request thread through a bounded queue that drops and counts spans rather than ever blocking a request, and the React SDK is under 10 KB gzipped."
+          }
+        },
+        {
+          "@type": "Question",
+          "name": "Does it work with microservices, Kafka and RabbitMQ?",
+          "acceptedAnswer": {
+            "@type": "Answer",
+            "text": "Yes. Point a downstream Spring Boot service at the calling service with causeline.export.upstream and calls between them show as one trace. Kafka and RabbitMQ producers and consumers appear as message spans, and @Async work stays in the request trace."
+          }
+        },
+        {
+          "@type": "Question",
+          "name": "Does it work with Spring Security?",
+          "acceptedAnswer": {
+            "@type": "Answer",
+            "text": "Yes. Permit /causeline/** in your security configuration. Causeline protects those paths itself with an access token, checks the Host header, and only accepts browser spans from allowed origins."
+          }
+        },
+        {
+          "@type": "Question",
+          "name": "Where are traces stored?",
+          "acceptedAnswer": {
+            "@type": "Answer",
+            "text": "In memory, inside your app: the latest 1,000 traces within 64 MB, oldest first out. Nothing is sent anywhere unless you turn on OTLP export or causeline.store.persist, and both write redacted copies."
+          }
+        },
+        {
+          "@type": "Question",
+          "name": "Is Causeline free?",
+          "acceptedAnswer": {
+            "@type": "Answer",
+            "text": "Yes. Causeline is open source under the Apache License 2.0."
+          }
+        }
+      ],
+      "url": "https://causeline.dev/faq/"
+    }
+  ]
+}
+</script>
+</head>
+<body>
+<a class="skip" href="#main">Skip to content</a>
+
+<header class="nav">
+  <div class="wrap">
+    <a class="brand" href="/" aria-label="Causeline home">
+      <svg width="26" height="26" viewBox="0 0 32 32" aria-hidden="true"><rect x="3" y="7" width="16" height="5" rx="2" fill="#5b86ff"/><rect x="9" y="14" width="20" height="5" rx="2" fill="#9b7bff"/><rect x="3" y="21" width="12" height="5" rx="2" fill="#5b86ff"/></svg>
+      Causeline
+    </a>
+    <nav class="nav-links" aria-label="Main">
+      <a class="opt" href="/#features">Features</a>
+      <a class="opt" href="/how-it-works/">How it works</a>
+      <a class="opt" href="/install/">Install</a>
+      <a class="opt" href="/faq/" aria-current="page">FAQ</a>
+      <a class="opt" href="/#developer">Developer</a>
+      <a class="btn" href="https://github.com/causeline/causeline" rel="noopener">GitHub</a>
+    </nav>
+  </div>
+</header>
+
+<main id="main">
+  <section class="page-head" aria-labelledby="page-title">
+    <div class="wrap">
+      <h1 id="page-title" class="lines">
+        <span class="line"><span data-line style="--i:0">Questions,</span></span>
+        <span class="line"><span data-line style="--i:1">answered</span></span>
+      </h1>
+      <p class="rise" style="--i:0">Setup, performance, your data, and how Causeline compares with other tracing and debugging tools. Something missing? <a class="link" href="https://github.com/causeline/causeline/issues">Open an issue</a>.</p>
+    </div>
+  </section>
+
+  <section class="faq faq-page" aria-label="Frequently asked questions">
+    <div class="wrap grid">
+      <div class="faq-list">
+        <details>
+          <summary>Is Causeline safe to run in production?<span class="pm" aria-hidden="true"></span></summary>
+          <div class="answer"><div><p>No, and it makes sure of that. Causeline is for development and QA. It is off unless <code>causeline.enabled</code> is true, and it refuses to start when a <code>prod</code> or <code>production</code> profile is active, because it shows headers, cookies and bodies in full.</p></div></div>
+        </details>
+        <details>
+          <summary>Do I need an account, an agent or a collector?<span class="pm" aria-hidden="true"></span></summary>
+          <div class="answer"><div><p>No. Causeline runs inside your Spring Boot application and serves its UI at <code>/causeline</code>. There is no account, no cloud service and no separate process to run.</p></div></div>
+        </details>
+        <details>
+          <summary>Which versions are supported?<span class="pm" aria-hidden="true"></span></summary>
+          <div class="answer"><div><p>Spring Boot 4.1 with Spring MVC or WebFlux on Java 21 or newer, and React 18 or newer. With <code>@causeline/next</code>, Next.js server code (requests, route handlers, server actions, rendering and <code>fetch</code>) joins the same trace. Edge runtime code isn’t traced yet.</p></div></div>
+        </details>
+        <details>
+          <summary>Does it work with my OpenTelemetry setup?<span class="pm" aria-hidden="true"></span></summary>
+          <div class="answer"><div><p>Yes. It propagates the W3C <code>traceparent</code> header and is built on Micrometer Observation and OpenTelemetry. It can also export redacted spans over OTLP to Jaeger, Grafana Tempo or an OpenTelemetry Collector.</p></div></div>
+        </details>
+        <details>
+          <summary>What does it record, and can I hide sensitive data?<span class="pm" aria-hidden="true"></span></summary>
+          <div class="answer"><div><p>By default it records headers, query strings, request and response bodies, SQL with bound values and exception details, and shows them only in your local UI. Any of it can be blocked with <code>causeline.capture.*</code> settings or the React <code>capture</code> prop, and anything exported is redacted.</p></div></div>
+        </details>
+        <details>
+          <summary>Can I keep what I saw as a test?<span class="pm" aria-hidden="true"></span></summary>
+          <div class="answer"><div><p>Yes. Add <code>causeline-test</code> in test scope and put <code>@CauselineTest</code> on a <code>@SpringBootTest</code>. It checks the trace the test produced: no failed spans or exceptions (caught-and-logged ones included), the SQL query count, no N+1, and which controller, service and repository methods ran. There are no timing checks, so a test gives the same answer on any machine. <b>Copy as MockMvc test</b> in the UI writes one for you from a captured request.</p></div></div>
+        </details>
+        <details>
+          <summary>How do I trace a request through a Spring Boot app?<span class="pm" aria-hidden="true"></span></summary>
+          <div class="answer"><div><p>Add the <code>causeline-spring-boot</code> starter and set <code>causeline.enabled: true</code> in a dev profile. Every request then shows up at <code>/causeline</code> as one trace: the HTTP request, controller, <code>@Observed</code> services, repositories, each SQL statement with its values, and outbound calls. Add <code>@causeline/react</code> and the trace starts at the click in the browser.</p></div></div>
+        </details>
+        <details>
+          <summary>How do I find slow SQL queries and N+1 problems?<span class="pm" aria-hidden="true"></span></summary>
+          <div class="answer"><div><p>Every JDBC and R2DBC statement is a span with its real values and its duration. When the same query runs five or more times under one parent, Causeline flags it as N+1, names the query that loaded the rows, and suggests <code>JOIN FETCH</code>, <code>@EntityGraph</code> or batch fetching. <b>Explain query</b> shows the plan and points out full table scans.</p></div></div>
+        </details>
+        <details>
+          <summary>How is Causeline different from Zipkin, Jaeger or an APM tool?<span class="pm" aria-hidden="true"></span></summary>
+          <div class="answer"><div><p>Those are built to collect traces from services in production. Causeline is for development and QA: it runs inside your app with no collector, starts the trace at the React click, shows request and response bodies and SQL values, names the bottleneck, and can replay a request and compare the runs. It can also export redacted spans over OTLP to Jaeger or Grafana Tempo.</p></div></div>
+        </details>
+        <details>
+          <summary>Will it slow down my application?<span class="pm" aria-hidden="true"></span></summary>
+          <div class="answer"><div><p>Very little. On the demo app it added about 2&nbsp;ms at p99 to a full checkout with everything captured. Spans leave the request thread through a bounded queue that drops and counts spans rather than ever blocking a request, and the React SDK is under 10&nbsp;KB gzipped.</p></div></div>
+        </details>
+        <details>
+          <summary>Does it work with microservices, Kafka and RabbitMQ?<span class="pm" aria-hidden="true"></span></summary>
+          <div class="answer"><div><p>Yes. Point a downstream Spring Boot service at the calling service with <code>causeline.export.upstream</code> and calls between them show as one trace. Kafka and RabbitMQ producers and consumers appear as message spans, and <code>@Async</code> work stays in the request’s trace.</p></div></div>
+        </details>
+        <details>
+          <summary>Does it work with Spring Security?<span class="pm" aria-hidden="true"></span></summary>
+          <div class="answer"><div><p>Yes. Permit <code>/causeline/**</code> in your security configuration. Causeline protects those paths itself with an access token, checks the <code>Host</code> header, and only accepts browser spans from allowed origins.</p></div></div>
+        </details>
+        <details>
+          <summary>Where are traces stored?<span class="pm" aria-hidden="true"></span></summary>
+          <div class="answer"><div><p>In memory, inside your app: the latest 1,000 traces within 64&nbsp;MB, oldest first out. Nothing is sent anywhere unless you turn on OTLP export or <code>causeline.store.persist</code>, and both write redacted copies.</p></div></div>
+        </details>
+        <details>
+          <summary>Is it free?<span class="pm" aria-hidden="true"></span></summary>
+          <div class="answer"><div><p>Yes. Causeline is open source under the Apache License 2.0. The code, issues and roadmap are on <a class="link" href="https://github.com/causeline/causeline">GitHub</a>.</p></div></div>
+        </details>
+      </div>
+    </div>
+  </section>
+
+  <section class="next-page" aria-label="Next page">
+    <div class="wrap">
+      <a href="/install/"><div><span>Ready to try it?</span><strong>Install it in five minutes</strong></div><svg width="48" height="48" viewBox="0 0 48 48" fill="none" stroke="currentColor" stroke-width="3" aria-hidden="true"><path d="M8 24h32M28 12l12 12-12 12"/></svg></a>
+    </div>
+  </section>
+</main>
+
+<footer>
+  <div class="wrap">
+    <div class="foot">
+      <span>© 2026 Causeline · Built by <a href="https://sudharmabg.vercel.app/" rel="noopener">Sudharma BG</a> · Apache License 2.0 · For development and QA, never production.</span>
+      <nav aria-label="Footer">
+        <a href="https://github.com/causeline/causeline">GitHub</a>
+        <a href="https://www.npmjs.com/package/@causeline/react">npm</a>
+        <a href="https://www.npmjs.com/package/@causeline/next">Next.js</a>
+        <a href="https://central.sonatype.com/artifact/dev.causeline/causeline-spring-boot">Maven Central</a>
+        <a href="/how-it-works/">How it works</a>
+        <a href="/install/">Install</a>
+        <a href="/faq/">FAQ</a>
+        <a href="https://www.linkedin.com/in/sudharmabg/" rel="noopener">LinkedIn</a>
+      </nav>
+    </div>
+    <p class="wordmark" aria-hidden="true">causeline</p>
+  </div>
+</footer>
+</body>
+</html>

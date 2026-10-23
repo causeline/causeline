@@ -1,0 +1,212 @@
+<!doctype html>
+<!-- SPDX-License-Identifier: Apache-2.0 -->
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>How it works · Causeline</title>
+<meta name="description" content="How Causeline follows a React click through Spring Boot: the traceparent header, Micrometer and OpenTelemetry spans, the in-memory store at /causeline, and the insights that name the slow call.">
+<meta name="keywords" content="Causeline, how distributed tracing works, how request tracing works, traceparent header, W3C trace context, OpenTelemetry Spring Boot, Micrometer Observation, Micrometer Tracing, span, self time, trace waterfall, debugging, debugger, debugging tool, web debugging, API debugging, full stack debugging, Java debugging, Spring Boot debugger, React debugger, tracing, request tracing, application tracing, trace viewer, observability, APM, application performance monitoring, performance monitoring, performance profiling, profiler, latency, slow API, slow requests, slow SQL queries, SQL query analysis, database performance, Hibernate performance, JPA debugging, root cause analysis, error tracking, exception tracking, logging, log correlation, network requests, HTTP request inspector, microservices debugging, developer productivity, open source developer tools, free developer tools, local development tools, Postman alternative, Zipkin alternative, Jaeger alternative">
+<meta name="author" content="Sudharma BG">
+<meta name="robots" content="index, follow, max-snippet:-1, max-image-preview:large">
+<link rel="canonical" href="https://causeline.dev/how-it-works/">
+<meta name="theme-color" content="#000000">
+<meta name="color-scheme" content="dark">
+<link rel="icon" href="/favicon.svg" type="image/svg+xml">
+<link rel="apple-touch-icon" sizes="180x180" href="/apple-touch-icon.png">
+<link rel="manifest" href="/site.webmanifest">
+<meta property="og:type" content="website">
+<meta property="og:site_name" content="Causeline">
+<meta property="og:url" content="https://causeline.dev/how-it-works/">
+<meta property="og:title" content="How it works · Causeline">
+<meta property="og:description" content="How Causeline follows a React click through Spring Boot: the traceparent header, Micrometer and OpenTelemetry spans, the in-memory store at /causeline, and the insights that name the slow call.">
+<meta property="og:image" content="https://causeline.dev/og.png">
+<meta property="og:image:width" content="1200">
+<meta property="og:image:height" content="630">
+<meta name="twitter:card" content="summary_large_image">
+<meta name="twitter:title" content="How it works · Causeline">
+<meta name="twitter:description" content="How Causeline follows a React click through Spring Boot: the traceparent header, Micrometer and OpenTelemetry spans, the in-memory store at /causeline, and the insights that name the slow call.">
+<meta name="twitter:image" content="https://causeline.dev/og.png">
+<link rel="preload" href="/fonts/hanken-grotesk.woff2" as="font" type="font/woff2" crossorigin>
+<link rel="stylesheet" href="/styles.css">
+<script src="/main.js"></script>
+<script type="application/ld+json">
+{
+  "@context": "https://schema.org",
+  "@graph": [
+    {
+      "@type": "BreadcrumbList",
+      "itemListElement": [
+        {
+          "@type": "ListItem",
+          "position": 1,
+          "name": "Causeline",
+          "item": "https://causeline.dev/"
+        },
+        {
+          "@type": "ListItem",
+          "position": 2,
+          "name": "How it works",
+          "item": "https://causeline.dev/how-it-works/"
+        }
+      ]
+    },
+    {
+      "@type": "TechArticle",
+      "headline": "How Causeline turns a click into a trace",
+      "url": "https://causeline.dev/how-it-works/",
+      "about": {
+        "@id": "https://causeline.dev/#software"
+      },
+      "author": {
+        "@id": "https://causeline.dev/#sudharma"
+      },
+      "dateModified": "2026-10-23",
+      "inLanguage": "en"
+    }
+  ]
+}
+</script>
+</head>
+<body>
+<a class="skip" href="#main">Skip to content</a>
+
+<header class="nav">
+  <div class="wrap">
+    <a class="brand" href="/" aria-label="Causeline home">
+      <svg width="26" height="26" viewBox="0 0 32 32" aria-hidden="true"><rect x="3" y="7" width="16" height="5" rx="2" fill="#5b86ff"/><rect x="9" y="14" width="20" height="5" rx="2" fill="#9b7bff"/><rect x="3" y="21" width="12" height="5" rx="2" fill="#5b86ff"/></svg>
+      Causeline
+    </a>
+    <nav class="nav-links" aria-label="Main">
+      <a class="opt" href="/#features">Features</a>
+      <a class="opt" href="/how-it-works/" aria-current="page">How it works</a>
+      <a class="opt" href="/install/">Install</a>
+      <a class="opt" href="/faq/">FAQ</a>
+      <a class="opt" href="/#developer">Developer</a>
+      <a class="btn" href="https://github.com/causeline/causeline" rel="noopener">GitHub</a>
+    </nav>
+  </div>
+</header>
+
+<main id="main">
+  <section class="page-head" aria-labelledby="page-title">
+    <div class="wrap">
+      <h1 id="page-title" class="lines">
+        <span class="line"><span data-line style="--i:0">How a click</span></span>
+        <span class="line"><span data-line style="--i:1">becomes a trace</span></span>
+      </h1>
+      <p class="rise" style="--i:0">Six steps, from the button your user presses to the insight that names the slow call. Standard headers, Micrometer and OpenTelemetry, nothing proprietary.</p>
+    </div>
+  </section>
+
+  <section class="stepper" data-stepper data-interval="7000" aria-label="How Causeline works, step by step">
+    <div class="wrap grid">
+      <div class="step-nav" role="tablist" aria-label="Steps" style="--steps:6">
+        <button role="tab" id="s1-tab" aria-controls="s1" aria-selected="true"><small>Step 1</small>The click gets a name<span class="bar"><i></i></span></button>
+        <button role="tab" id="s2-tab" aria-controls="s2" aria-selected="false" tabindex="-1"><small>Step 2</small>The header carries it<span class="bar"><i></i></span></button>
+        <button role="tab" id="s3-tab" aria-controls="s3" aria-selected="false" tabindex="-1"><small>Step 3</small>Spring Boot joins in<span class="bar"><i></i></span></button>
+        <button role="tab" id="s4-tab" aria-controls="s4" aria-selected="false" tabindex="-1"><small>Step 4</small>It lands at /causeline<span class="bar"><i></i></span></button>
+        <button role="tab" id="s5-tab" aria-controls="s5" aria-selected="false" tabindex="-1"><small>Step 5</small>Rules read the tree<span class="bar"><i></i></span></button>
+        <button role="tab" id="s6-tab" aria-controls="s6" aria-selected="false" tabindex="-1"><small>Step 6</small>Replay, compare, keep<span class="bar"><i></i></span></button>
+      </div>
+
+      <div class="step-view">
+        <div class="step-track">
+          <article class="step-panel is-active" role="tabpanel" id="s1" aria-labelledby="s1-tab">
+            <span class="tag">In the browser</span>
+            <h2>The click gets a name</h2>
+            <p><code>@causeline/react</code> wraps <code>fetch</code> and XHR. Wrap a handler in <code>trace()</code> and the click becomes the root of a trace, with every request and state update inside it.</p>
+            <div class="code"><div class="code-head"><span>Checkout.tsx</span></div>
+<pre><span class="k">const</span> onCheckout = () =&gt;
+  <span class="f">trace</span>(<span class="s">'Checkout'</span>, <span class="k">async</span> () =&gt; {
+    <span class="k">const</span> res = <span class="k">await</span> <span class="f">fetch</span>(<span class="s">'/api/orders'</span>, { method: <span class="s">'POST'</span>, body });
+    <span class="f">setStatus</span>(res.ok ? <span class="s">'paid'</span> : <span class="s">'failed'</span>);
+  });</pre></div>
+          </article>
+
+          <article class="step-panel" role="tabpanel" id="s2" aria-labelledby="s2-tab">
+            <span class="tag">On the wire</span>
+            <h2>The header carries it</h2>
+            <p>Each request to your own API gets a W3C <code>traceparent</code> header: the trace ID, the span that sent it, and a sampled flag. Calls to other origins are left alone.</p>
+            <div class="code"><div class="code-head"><span>POST /api/orders</span></div>
+<pre><span class="k">traceparent</span>: 00-<span class="v">8969ad7e690b50a8721f9fd8e0e5c925</span>-<span class="s">00f067aa0ba902b7</span>-01
+<span class="c">#              trace id                         parent span      sampled</span></pre></div>
+          </article>
+
+          <article class="step-panel" role="tabpanel" id="s3" aria-labelledby="s3-tab">
+            <span class="tag">In Spring Boot</span>
+            <h2>Spring Boot joins in</h2>
+            <p>The starter reads the header and builds on Micrometer Observation. Controllers, <code>@Observed</code> services, repositories, transactions, JDBC and R2DBC queries, outbound calls and messages become spans in the same trace.</p>
+            <ul class="spans-mini" aria-label="Server spans from the demo checkout">
+              <li style="--d:0"><span><b>REQUEST</b>POST /api/orders</span><em>925 ms</em></li>
+              <li style="--d:1"><span><b>CONTROLLER</b>OrderController.createOrder</span><em>915 ms</em></li>
+              <li style="--d:2"><span><b>TRANSACTION</b>OrderService.createOrder</span><em>907 ms</em></li>
+              <li style="--d:3"><span><b>DATABASE</b>insert into orders (item, quantity) values ('book', 1)</span><em>3 ms</em></li>
+              <li style="--d:3"><span><b>SERVICE</b>PaymentClient.charge</span><em>857 ms</em></li>
+              <li class="hot" style="--d:4"><span><b>HTTP CLIENT</b>POST /fake-payment/charge</span><em>844 ms</em></li>
+            </ul>
+          </article>
+
+          <article class="step-panel" role="tabpanel" id="s4" aria-labelledby="s4-tab">
+            <span class="tag">Inside your app</span>
+            <h2>It lands at /causeline</h2>
+            <p>Browser spans upload to <code>/causeline/api/spans</code>; server spans go through a bounded queue that never blocks a request. Both land in an in-memory store inside your app, lined up by the span tree, not by clocks.</p>
+            <div class="code"><div class="code-head"><span>Application log</span></div>
+<pre><span class="c">INFO  CauselineWebConfiguration :</span> Causeline UI: <span class="s">http://localhost:8080/causeline/?token=…</span></pre></div>
+            <p>Open the link and the whole action is there. The store keeps the latest 1,000 traces, within 64 MB.</p>
+          </article>
+
+          <article class="step-panel" role="tabpanel" id="s5" aria-labelledby="s5-tab">
+            <span class="tag">Insights</span>
+            <h2>Rules read the tree</h2>
+            <p>Self time is a span’s duration minus the time its children ran. The rules use it to name the bottleneck, then look for repeated queries, long transactions and exceptions.</p>
+            <p class="insight-box"><b>Bottleneck</b>POST /fake-payment/charge · 844 ms · 88% of the checkout.</p>
+            <p class="insight-box"><b>Long transaction</b>OrderService.createOrder lasted 907 ms, 844 ms of it waiting for the payment call. It holds a database connection the whole time.</p>
+          </article>
+
+          <article class="step-panel" role="tabpanel" id="s6" aria-labelledby="s6-tab">
+            <span class="tag">After the fix</span>
+            <h2>Replay, compare, keep</h2>
+            <p>Replay the captured request to local, dev or QA, then compare the two runs span by span. When it’s right, copy it as a test so it stays right.</p>
+            <div class="code"><div class="code-head"><span>CreateOrderTest.java</span></div>
+<pre>causeline.<span class="f">trace</span>(<span class="s">"POST /api/orders"</span>)
+    .<span class="f">hasNoFailedSpans</span>()
+    .<span class="f">hasQueryCountAtMost</span>(<span class="v">2</span>)
+    .<span class="f">hasNoRepeatedQueries</span>();</pre></div>
+          </article>
+        </div>
+        <div class="step-arrows">
+          <button type="button" data-step="prev" aria-label="Previous step"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="M15 5l-7 7 7 7"/></svg></button>
+          <button type="button" data-step="next" aria-label="Next step"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="M9 5l7 7-7 7"/></svg></button>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <section class="next-page" aria-label="Next page">
+    <div class="wrap">
+      <a href="/install/"><div><span>Next</span><strong>Install it in five minutes</strong></div><svg width="48" height="48" viewBox="0 0 48 48" fill="none" stroke="currentColor" stroke-width="3" aria-hidden="true"><path d="M8 24h32M28 12l12 12-12 12"/></svg></a>
+    </div>
+  </section>
+</main>
+
+<footer>
+  <div class="wrap">
+    <div class="foot">
+      <span>© 2026 Causeline · Built by <a href="https://sudharmabg.vercel.app/" rel="noopener">Sudharma BG</a> · Apache License 2.0 · For development and QA, never production.</span>
+      <nav aria-label="Footer">
+        <a href="https://github.com/causeline/causeline">GitHub</a>
+        <a href="https://www.npmjs.com/package/@causeline/react">npm</a>
+        <a href="https://www.npmjs.com/package/@causeline/next">Next.js</a>
+        <a href="https://central.sonatype.com/artifact/dev.causeline/causeline-spring-boot">Maven Central</a>
+        <a href="/how-it-works/">How it works</a>
+        <a href="/install/">Install</a>
+        <a href="/faq/">FAQ</a>
+        <a href="https://www.linkedin.com/in/sudharmabg/" rel="noopener">LinkedIn</a>
+      </nav>
+    </div>
+    <p class="wordmark" aria-hidden="true">causeline</p>
+  </div>
+</footer>
+</body>
+</html>
