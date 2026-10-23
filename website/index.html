@@ -4,9 +4,9 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
-<title>Causeline · Trace a React click through Spring Boot and back</title>
-<meta name="description" content="Open-source tracing for React, Next.js and Spring Boot. Follow one click through controllers and SQL on one timeline, find the bottleneck, replay the request.">
-<meta name="keywords" content="Causeline, React Spring Boot tracing, Spring Boot tracing, Spring WebFlux tracing, Next.js tracing, full stack tracing, end-to-end tracing, distributed tracing, request tracing, OpenTelemetry, OpenTelemetry Spring Boot, W3C trace context, traceparent, Micrometer Tracing, Micrometer Observation, Spring Boot debugging, React debugging, Spring Boot performance, slow API, find bottleneck, Spring Boot slow request, JPA N+1 queries, Hibernate N+1, SQL query tracing, JDBC tracing, R2DBC, request replay, replay HTTP request, compare requests, Spring Boot developer tools, local-first developer tool, Zipkin alternative, Jaeger alternative, JUnit trace assertions, Spring Boot test, MockMvc, WebTestClient, EXPLAIN query, OpenAPI contract check, Kafka tracing, RabbitMQ tracing, open source, Java 21, Spring Boot 4, debugging, debugger, debugging tool, web debugging, API debugging, full stack debugging, Java debugging, Spring Boot debugger, React debugger, tracing, request tracing, application tracing, trace viewer, observability, APM, application performance monitoring, performance monitoring, performance profiling, profiler, latency, slow API, slow requests, slow SQL queries, SQL query analysis, database performance, Hibernate performance, JPA debugging, root cause analysis, error tracking, exception tracking, logging, log correlation, network requests, HTTP request inspector, microservices debugging, developer productivity, open source developer tools, free developer tools, local development tools, Postman alternative, Zipkin alternative, Jaeger alternative">
+<title>Causeline · Debugging tool for React and Spring Boot apps</title>
+<meta name="description" content="Open-source debugging tool for React and Spring Boot. Trace a click to the SQL, find what’s slow, check security hints and see what grows under load.">
+<meta name="keywords" content="Causeline debugging tool, Causeline, React Spring Boot tracing, Spring Boot tracing, Spring WebFlux tracing, Next.js tracing, full stack tracing, end-to-end tracing, distributed tracing, request tracing, OpenTelemetry, OpenTelemetry Spring Boot, W3C trace context, traceparent, Micrometer Tracing, Micrometer Observation, Spring Boot debugging, React debugging, Spring Boot performance, slow API, find bottleneck, Spring Boot slow request, JPA N+1 queries, Hibernate N+1, SQL query tracing, JDBC tracing, R2DBC, request replay, replay HTTP request, compare requests, Spring Boot developer tools, local-first developer tool, Zipkin alternative, Jaeger alternative, JUnit trace assertions, Spring Boot test, MockMvc, WebTestClient, EXPLAIN query, OpenAPI contract check, Kafka tracing, RabbitMQ tracing, open source, Java 21, Spring Boot 4, debugging, debugger, debugging tool, web debugging, API debugging, full stack debugging, Java debugging, Spring Boot debugger, React debugger, tracing, request tracing, application tracing, trace viewer, observability, APM, application performance monitoring, performance monitoring, performance profiling, profiler, latency, slow API, slow requests, slow SQL queries, SQL query analysis, database performance, Hibernate performance, JPA debugging, root cause analysis, error tracking, exception tracking, logging, log correlation, network requests, HTTP request inspector, microservices debugging, developer productivity, open source developer tools, free developer tools, local development tools, Postman alternative, Zipkin alternative, Jaeger alternative, React debugging tool, Spring Boot debugging tool, debug React and Spring Boot, debug Spring Boot API, debug slow API, pre-production debugger, OWASP Top 10, OWASP security checks, API security testing, Spring Boot security, IDOR testing, mass assignment, open redirect, broken access control, secret in logs, SSRF, security hints, load testing Spring Boot, load replay, k6, what grows under load, connection pool contention">
 <meta name="author" content="Sudharma BG">
 <meta name="creator" content="Sudharma BG">
 <meta name="publisher" content="Causeline">
@@ -34,8 +34,8 @@
 <meta property="og:type" content="website">
 <meta property="og:site_name" content="Causeline">
 <meta property="og:url" content="https://causeline.dev/">
-<meta property="og:title" content="Causeline · Trace a React click through Spring Boot and back">
-<meta property="og:description" content="One click, one timeline: React, Spring Boot, SQL and API calls together. Find the bottleneck, replay the request, compare the runs. Open source and local-first.">
+<meta property="og:title" content="Causeline · Debugging tool for React and Spring Boot apps">
+<meta property="og:description" content="Debug a React and Spring Boot app on one timeline: why it’s slow, why it broke, whether it’s safe and what grows under load. Open source, runs inside your app.">
 <meta property="og:image" content="https://causeline.dev/og.png">
 <meta property="og:image:secure_url" content="https://causeline.dev/og.png">
 <meta property="og:image:type" content="image/png">
@@ -51,13 +51,13 @@
 <meta name="twitter:data1" content="Apache 2.0, free">
 <meta name="twitter:label2" content="Works with">
 <meta name="twitter:data2" content="Spring Boot, React, Next.js">
-<meta name="twitter:title" content="Causeline · Trace a React click through Spring Boot and back">
-<meta name="twitter:description" content="One click, one timeline: React, Spring Boot, SQL and API calls together. Open source and local-first.">
+<meta name="twitter:title" content="Causeline · Debugging tool for React and Spring Boot apps">
+<meta name="twitter:description" content="Debug a React and Spring Boot app on one timeline: why it’s slow, why it broke, whether it’s safe and what grows under load. Open source, runs inside your app.">
 <meta name="twitter:image" content="https://causeline.dev/og.png">
 
 <link rel="preload" href="/fonts/hanken-grotesk.woff2" as="font" type="font/woff2" crossorigin>
-<link rel="stylesheet" href="/styles.css?v=20261023c">
-<script src="/main.js?v=20261023c"></script>
+<link rel="stylesheet" href="/styles.css?v=20261023d">
+<script src="/main.js?v=20261023d"></script>
 
 <script type="application/ld+json">
 {
@@ -67,7 +67,7 @@
       "@type": "SoftwareApplication",
       "@id": "https://causeline.dev/#software",
       "name": "Causeline",
-      "description": "Open-source, local-first developer tool that traces one React click through Spring Boot and back as a single timeline, flags the bottleneck, and replays and compares requests.",
+      "description": "Open-source, local-first debugging tool for React and Spring Boot. It traces one click through Spring Boot and back on a single timeline, names the bottleneck, flags OWASP Top 10 security hints, replays and compares requests, and shows which span grows under load.",
       "url": "https://causeline.dev/",
       "applicationCategory": "DeveloperApplication",
       "operatingSystem": "Windows, macOS, Linux",
@@ -76,16 +76,17 @@
       "dateModified": "2026-10-23",
       "image": "https://causeline.dev/og.png",
       "screenshot": "https://causeline.dev/og.png",
-      "applicationSubCategory": "Tracing and debugging",
+      "applicationSubCategory": "Debugging, tracing, security and performance",
       "softwareRequirements": "Java 21+, Spring Boot 4.1 (Spring MVC or WebFlux); React 18+ or Next.js for the browser SDK",
       "featureList": [
         "One timeline from a React click through Spring Boot controllers, services, repositories and SQL, and back to the state update",
-        "Bottleneck detection by self time, N+1 query hints, and caught-and-logged exceptions with their source line",
-        "Replay a captured request to local, dev or QA and compare the two runs span by span",
-        "Spring MVC and WebFlux, JDBC and R2DBC, Kafka and RabbitMQ, @Async, transactions and caches",
-        "Next.js server tracing with @causeline/next",
-        "EXPLAIN for captured SQL queries and OpenAPI contract checks",
-        "JUnit 5 trace assertions with causeline-test: query count, no N+1, no failed spans",
+        "Bottleneck detection by self time, N+1 query hints, long-transaction hints and EXPLAIN for captured queries",
+        "Exceptions with the file and line that threw, including caught-and-logged ones, one click from the editor",
+        "OWASP Top 10 security hints on captured traffic, plus hand-sent probes for IDOR, mass assignment, open redirect and auth boundaries",
+        "Load replay of a captured request or flow, showing which span grew, with copy as k6",
+        "Replay to local, dev or QA and compare runs span by span",
+        "JUnit 5 trace assertions with causeline-test: query count, no N+1, no failures, no security findings",
+        "Spring MVC and WebFlux, JDBC and R2DBC, Kafka and RabbitMQ, React and Next.js",
         "Local-first: runs inside your app, redacts everything it exports"
       ],
       "license": "https://www.apache.org/licenses/LICENSE-2.0",
@@ -107,7 +108,7 @@
       "creator": {
         "@id": "https://causeline.dev/#sudharma"
       },
-      "keywords": "React, Next.js, Spring Boot, WebFlux, OpenTelemetry, tracing, debugging, replay, JUnit",
+      "keywords": "debugging, React, Next.js, Spring Boot, WebFlux, OpenTelemetry, tracing, OWASP, security testing, load testing, replay, JUnit",
       "sameAs": [
         "https://github.com/causeline/causeline",
         "https://www.npmjs.com/package/@causeline/react",
@@ -133,7 +134,10 @@
         "LLM",
         "RAG",
         "Redis",
-        "MySQL"
+        "MySQL",
+        "PostgreSQL",
+        "Microservices",
+        "AWS"
       ],
       "sameAs": [
         "https://www.linkedin.com/in/sudharmabg/",
@@ -166,7 +170,7 @@
       "@type": "WebPage",
       "@id": "https://causeline.dev/#webpage",
       "url": "https://causeline.dev/",
-      "name": "Causeline · Trace a React click through Spring Boot and back",
+      "name": "Causeline · Debugging tool for React and Spring Boot apps",
       "isPartOf": {
         "@id": "https://causeline.dev/#website"
       },
@@ -207,10 +211,32 @@
       <a class="opt" href="/install/">Install</a>
       <a class="opt" href="/faq/">FAQ</a>
       <a class="opt" href="/#developer">Developer</a>
-      <a class="btn" href="https://github.com/causeline/causeline" rel="noopener">GitHub</a>
+      <button class="menu-btn" type="button" aria-expanded="false" aria-controls="site-menu">Menu</button>
+      <a class="btn nav-gh" href="https://github.com/causeline/causeline" rel="noopener">GitHub</a>
     </nav>
   </div>
 </header>
+
+<div class="site-menu" id="site-menu" role="dialog" aria-modal="true" aria-label="Menu" hidden>
+  <div class="site-menu-top">
+    <a class="brand" href="/" aria-label="Causeline home">
+      <svg width="26" height="26" viewBox="0 0 32 32" aria-hidden="true"><rect x="3" y="7" width="16" height="5" rx="2" fill="#5b86ff"/><rect x="9" y="14" width="20" height="5" rx="2" fill="#9b7bff"/><rect x="3" y="21" width="12" height="5" rx="2" fill="#5b86ff"/></svg>
+      Causeline
+    </a>
+    <button class="menu-btn menu-close" type="button" data-menu-close>Close</button>
+  </div>
+  <nav class="site-menu-links" aria-label="Menu">
+    <a href="/#features" style="--i:0">Features</a>
+    <a href="/how-it-works/" style="--i:1">How it works</a>
+    <a href="/install/" style="--i:2">Install</a>
+    <a href="/faq/" style="--i:3">FAQ</a>
+    <a href="/#developer" style="--i:4">Developer</a>
+  </nav>
+  <div class="site-menu-foot">
+    <a class="btn" href="/install/">Install in 5 minutes</a>
+    <a class="btn btn-ghost" href="https://github.com/causeline/causeline" rel="noopener">GitHub</a>
+  </div>
+</div>
 
 <main id="main">
 
@@ -222,7 +248,7 @@
         <span class="line"><span data-line style="--i:1">through Spring&nbsp;Boot</span></span>
       </h1>
       <div class="hero-copy">
-        <p class="tagline rise" style="--i:0">From the React click to the SQL and back, on one timeline inside your own app.</p>
+        <p class="tagline rise" style="--i:0">Debug why it’s slow, why it broke and whether it’s safe, from the React click to the SQL, inside your own app.</p>
         <div class="hero-actions rise" style="--i:1">
           <a class="btn" href="/install/">Install in 5 minutes</a>
           <button class="chip-copy" type="button" data-copy="npm install @causeline/react" aria-label="Copy the npm install command"><code>npm i @causeline/react</code><span class="state">Copy</span></button>
@@ -236,21 +262,21 @@
               <picture>
                 <source media="(max-width: 720px)" srcset="/img/trace-slow-phone.webp" type="image/webp" width="800" height="579">
                 <source srcset="/img/trace-slow.webp" type="image/webp">
-                <img src="/img/trace-slow.jpg" width="1920" height="1200" alt="The Causeline UI showing a 960 ms checkout trace: a bottleneck insight on the payment call, a long-transaction insight, and the waterfall from the browser action down to the controller, transaction and services">
+                <img src="/img/trace-slow.jpg" width="1920" height="1200" alt="Debugging a slow checkout in the Causeline UI: a 960 ms trace with a bottleneck insight on the payment call, a long-transaction insight, and the waterfall from the browser action down to the controller, transaction and services">
               </picture>
             </div>
             <div class="shot" role="group" aria-roledescription="slide" aria-label="2 of 3">
               <picture>
                 <source media="(max-width: 720px)" srcset="/img/trace-failed-phone.webp" type="image/webp" width="800" height="427">
                 <source srcset="/img/trace-failed.webp" type="image/webp">
-                <img src="/img/trace-failed.jpg" width="1200" height="991" alt="A failed checkout in the Causeline UI: failed spans in red, the transaction rolled back, and two exceptions with their source lines, PaymentClient.java:36 and PaymentClient.java:38" loading="lazy">
+                <img src="/img/trace-failed.jpg" width="1200" height="991" alt="Debugging a failed checkout in the Causeline UI: failed spans in red, the transaction rolled back, and two exceptions with their source lines, PaymentClient.java:36 and PaymentClient.java:38" loading="lazy">
               </picture>
             </div>
             <div class="shot" role="group" aria-roledescription="slide" aria-label="3 of 3">
               <picture>
                 <source media="(max-width: 720px)" srcset="/img/compare-runs-phone.webp" type="image/webp" width="800" height="389">
                 <source srcset="/img/compare-runs.webp" type="image/webp">
-                <img src="/img/compare-runs.jpg" width="1200" height="746" alt="Two checkout runs compared span by span in the Causeline UI: the payment call took 55 ms in one and 844 ms in the other" loading="lazy">
+                <img src="/img/compare-runs.jpg" width="1200" height="746" alt="Debugging a regression by comparing two checkout runs span by span in the Causeline UI: the payment call took 55 ms in one and 844 ms in the other" loading="lazy">
               </picture>
             </div>
           </div>
@@ -273,7 +299,7 @@
       <div class="wrap grid">
         <div class="features-head">
           <h2 id="features-title" class="section-title">From click to&nbsp;database</h2>
-          <p class="section-lede">Six things Causeline does while you click through your app.</p>
+          <p class="section-lede">Four questions every request raises, answered on one trace.</p>
           <div class="features-ctrl">
             <span class="features-count" aria-hidden="true"><b data-count>1</b> / 6</span>
             <span class="features-bar" aria-hidden="true"><i data-bar></i></span>
@@ -286,11 +312,11 @@
         </div>
         <ul class="feature-list" aria-live="polite">
           <li class="feature-row"><h3>One timeline, any stack</h3><p>The click, fetch, controllers, services, repositories, <b>every SQL statement with its real values</b>, transactions, logs, messages and the re-render. Spring MVC or WebFlux, JDBC or R2DBC, React or Next.js.</p></li>
-          <li class="feature-row"><h3>Find what’s slow</h3><p>The bottleneck is <b>ranked by self time</b>, so a slow parent never hides the real culprit. N+1 queries come with the fix to try, and transactions held open during an HTTP call are flagged.</p></li>
+          <li class="feature-row"><h3>Find what’s slow</h3><p>The bottleneck is <b>ranked by self time</b>, so a slow parent never hides the real culprit. N+1 queries come with the fix to try, long transactions are flagged, and <b>EXPLAIN</b> shows a slow query’s plan.</p></li>
           <li class="feature-row"><h3>See where it broke</h3><p>The file and line in your code that threw, <b>one click from VS Code, IntelliJ IDEA or Cursor</b>. Exceptions your code catches and only logs show up too.</p></li>
-          <li class="feature-row"><h3>Replay and compare</h3><p>Send a captured request again to local, dev or QA with that environment’s credentials, then <b>compare the two runs span by span</b>, response bodies included.</p></li>
-          <li class="feature-row"><h3>Prove the fix</h3><p>Run <b>EXPLAIN</b> on a captured query, check a response against your <b>OpenAPI</b> document, then copy the request as a test. <code>@CauselineTest</code> checks query count, N+1 and failures on every build.</p></li>
-          <li class="feature-row"><h3>Local first</h3><p>Runs inside your app at <code>/causeline</code>. <b>No account, agent or cloud.</b> Off by default, refuses to start in production, and redacts everything it exports, including OTLP.</p></li>
+          <li class="feature-row"><h3>Check it’s safe</h3><p><b>OWASP Top 10 hints</b> on the traffic you already captured: a secret in a log or a response, a request value in SQL or steering an outbound call. Then try IDOR, mass assignment, open redirect or an auth boundary, <b>one request at a time</b>, with a verdict read from the trace.</p></li>
+          <li class="feature-row"><h3>See what grows under load</h3><p>Send a captured request or a whole flow many times and see <b>which span grew</b>: the transaction, the connection pool, the one query. When you need real load, <b>copy it as a k6 script</b>.</p></li>
+          <li class="feature-row"><h3>Prove the fix, keep it fixed</h3><p>Replay to local, dev or QA and <b>compare the runs span by span</b>. Copy the request as a MockMvc test, and <code>@CauselineTest</code> fails the build on extra queries, N+1, errors or security findings.</p></li>
         </ul>
       </div>
     </div>
@@ -335,14 +361,14 @@
           </div>
         </div>
         <meta itemprop="jobTitle" content="Senior Full Stack &amp; AI Engineer">
-        <p class="dev-bio" data-reveal itemprop="description">Sudharma has spent more than five years building backend systems with <b>Spring Boot</b> and front ends with <b>React</b>, along with RAG pipelines and LLM-based platforms. Causeline is built for exactly that kind of work: following a request across React and Spring Boot without switching between five tools.</p>
+        <p class="dev-bio" data-reveal itemprop="description">Sudharma has spent six years building backend systems with <b>Spring Boot</b> and front ends with <b>React</b>, along with RAG pipelines and LLM-based platforms. Causeline is built for exactly that kind of work: following a request across React and Spring Boot without switching between five tools.</p>
         <dl class="dev-facts" data-reveal>
-          <div><dt>5+ years</dt><dd>building production systems</dd></div>
+          <div><dt>6 years</dt><dd>building production systems</dd></div>
           <div><dt>Full stack</dt><dd>Spring Boot, Java and React</dd></div>
           <div><dt>AI</dt><dd>RAG pipelines and LLM platforms</dd></div>
         </dl>
         <ul class="chips" data-reveal aria-label="Stack">
-          <li>Spring Boot</li><li>React</li><li>Java</li><li>LLMs &amp; RAG</li><li>Redis</li><li>MySQL</li>
+          <li>Spring Boot</li><li>React</li><li>Java</li><li>LLMs &amp; RAG</li><li>Redis</li><li>MySQL</li><li>PostgreSQL</li><li>Microservices</li><li>AWS</li>
         </ul>
         <div class="dev-links" data-reveal>
           <a class="pill" href="https://www.linkedin.com/in/sudharmabg/" rel="me noopener" itemprop="sameAs"><svg width="15" height="15" viewBox="0 0 24 24" aria-hidden="true"><path fill="currentColor" d="M20.45 20.45h-3.55v-5.57c0-1.33-.03-3.04-1.85-3.04-1.86 0-2.14 1.45-2.14 2.94v5.67H9.36V9h3.41v1.56h.05c.48-.9 1.64-1.85 3.37-1.85 3.6 0 4.27 2.37 4.27 5.46v6.28zM5.34 7.43a2.06 2.06 0 1 1 0-4.12 2.06 2.06 0 0 1 0 4.12zM7.12 20.45H3.56V9h3.56v11.45zM22.22 0H1.77C.79 0 0 .77 0 1.73v20.54C0 23.23.79 24 1.77 24h20.45c.98 0 1.78-.77 1.78-1.73V1.73C24 .77 23.2 0 22.22 0z"/></svg> LinkedIn</a>

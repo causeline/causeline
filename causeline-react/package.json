@@ -21,7 +21,14 @@
     "traceparent",
     "debugging",
     "devtools",
-    "observability"
+    "observability",
+    "debugger",
+    "debugging-tool",
+    "react-debugging",
+    "spring-boot-debugging",
+    "performance",
+    "n-plus-one",
+    "full-stack"
   ],
   "type": "module",
   "sideEffects": false,

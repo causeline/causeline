@@ -50,6 +50,61 @@
   }
 
   ready(function () {
+    // Phone menu. The back gesture closes it, and focus stays inside while it is open.
+    var menu = document.getElementById('site-menu');
+    var menuBtn = document.querySelector('.nav .menu-btn');
+    if (menu && menuBtn) {
+      var closeBtn = menu.querySelector('[data-menu-close]');
+      var here = location.pathname.replace(/index\.html$/, '');
+      menu.querySelectorAll('.site-menu-links a').forEach(function (a) {
+        if (a.getAttribute('href') === here) a.setAttribute('aria-current', 'page');
+      });
+      var isOpen = false;
+      function focusables() { return menu.querySelectorAll('a[href], button'); }
+      function openMenu() {
+        if (isOpen) return;
+        isOpen = true;
+        menu.hidden = false;
+        void menu.offsetWidth; // so the fade-in runs
+        menu.classList.add('open');
+        document.body.classList.add('menu-open');
+        menuBtn.setAttribute('aria-expanded', 'true');
+        history.pushState({ causelineMenu: true }, '');
+        closeBtn.focus();
+      }
+      function closeMenu(fromHistory, keepFocus) {
+        if (!isOpen) return;
+        isOpen = false;
+        menu.classList.remove('open');
+        document.body.classList.remove('menu-open');
+        menuBtn.setAttribute('aria-expanded', 'false');
+        setTimeout(function () { if (!isOpen) menu.hidden = true; }, reduce ? 0 : 230);
+        if (!fromHistory && history.state && history.state.causelineMenu) history.back();
+        if (!keepFocus) menuBtn.focus();
+      }
+      menuBtn.addEventListener('click', openMenu);
+      closeBtn.addEventListener('click', function () { closeMenu(false); });
+      window.addEventListener('popstate', function () { if (isOpen) closeMenu(true); });
+      menu.addEventListener('click', function (e) {
+        var a = e.target.closest('a[href]');
+        if (!a) return;
+        // Leave the menu's history entry behind without going back, then follow the link.
+        e.preventDefault();
+        var href = a.href;
+        if (history.state && history.state.causelineMenu) history.replaceState(null, '');
+        closeMenu(true, true);
+        location.href = href;
+      });
+      menu.addEventListener('keydown', function (e) {
+        if (e.key === 'Escape') { e.preventDefault(); closeMenu(false); return; }
+        if (e.key !== 'Tab') return;
+        var f = focusables(), first = f[0], last = f[f.length - 1];
+        if (e.shiftKey && document.activeElement === first) { e.preventDefault(); last.focus(); }
+        else if (!e.shiftKey && document.activeElement === last) { e.preventDefault(); first.focus(); }
+      });
+      window.matchMedia('(min-width: 721px)').addEventListener('change', function (m) { if (m.matches) closeMenu(false, true); });
+    }
+
     // Hero screenshots.
     document.querySelectorAll('[data-carousel]').forEach(function (box) {
       var track = box.querySelector('.shots-track');

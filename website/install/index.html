@@ -28,8 +28,8 @@
 <meta name="twitter:description" content="Add Causeline to a Spring Boot 4.1 and React app in five minutes: one Maven dependency, one setting in a dev profile, and the @causeline/react provider.">
 <meta name="twitter:image" content="https://causeline.dev/og.png">
 <link rel="preload" href="/fonts/hanken-grotesk.woff2" as="font" type="font/woff2" crossorigin>
-<link rel="stylesheet" href="/styles.css?v=20261023c">
-<script src="/main.js?v=20261023c"></script>
+<link rel="stylesheet" href="/styles.css?v=20261023d">
+<script src="/main.js?v=20261023d"></script>
 <script type="application/ld+json">
 {
   "@context": "https://schema.org",
@@ -128,10 +128,32 @@
       <a class="opt" href="/install/" aria-current="page">Install</a>
       <a class="opt" href="/faq/">FAQ</a>
       <a class="opt" href="/#developer">Developer</a>
-      <a class="btn" href="https://github.com/causeline/causeline" rel="noopener">GitHub</a>
+      <button class="menu-btn" type="button" aria-expanded="false" aria-controls="site-menu">Menu</button>
+      <a class="btn nav-gh" href="https://github.com/causeline/causeline" rel="noopener">GitHub</a>
     </nav>
   </div>
 </header>
+
+<div class="site-menu" id="site-menu" role="dialog" aria-modal="true" aria-label="Menu" hidden>
+  <div class="site-menu-top">
+    <a class="brand" href="/" aria-label="Causeline home">
+      <svg width="26" height="26" viewBox="0 0 32 32" aria-hidden="true"><rect x="3" y="7" width="16" height="5" rx="2" fill="#5b86ff"/><rect x="9" y="14" width="20" height="5" rx="2" fill="#9b7bff"/><rect x="3" y="21" width="12" height="5" rx="2" fill="#5b86ff"/></svg>
+      Causeline
+    </a>
+    <button class="menu-btn menu-close" type="button" data-menu-close>Close</button>
+  </div>
+  <nav class="site-menu-links" aria-label="Menu">
+    <a href="/#features" style="--i:0">Features</a>
+    <a href="/how-it-works/" style="--i:1">How it works</a>
+    <a href="/install/" style="--i:2">Install</a>
+    <a href="/faq/" style="--i:3">FAQ</a>
+    <a href="/#developer" style="--i:4">Developer</a>
+  </nav>
+  <div class="site-menu-foot">
+    <a class="btn" href="/install/">Install in 5 minutes</a>
+    <a class="btn btn-ghost" href="https://github.com/causeline/causeline" rel="noopener">GitHub</a>
+  </div>
+</div>
 
 <main id="main">
   <section class="page-head" aria-labelledby="page-title">

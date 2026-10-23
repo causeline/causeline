@@ -5,7 +5,7 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <title>How it works · Causeline</title>
-<meta name="description" content="How Causeline follows a React click through Spring Boot: the traceparent header, Micrometer and OpenTelemetry spans, the in-memory store at /causeline, and the insights that name the slow call.">
+<meta name="description" content="How Causeline debugs a React click through Spring Boot: the traceparent header, Micrometer and OpenTelemetry spans, the in-memory store at /causeline, and the insights that name the slow call.">
 <meta name="keywords" content="Causeline, how distributed tracing works, how request tracing works, traceparent header, W3C trace context, OpenTelemetry Spring Boot, Micrometer Observation, Micrometer Tracing, span, self time, trace waterfall, debugging, debugger, debugging tool, web debugging, API debugging, full stack debugging, Java debugging, Spring Boot debugger, React debugger, tracing, request tracing, application tracing, trace viewer, observability, APM, application performance monitoring, performance monitoring, performance profiling, profiler, latency, slow API, slow requests, slow SQL queries, SQL query analysis, database performance, Hibernate performance, JPA debugging, root cause analysis, error tracking, exception tracking, logging, log correlation, network requests, HTTP request inspector, microservices debugging, developer productivity, open source developer tools, free developer tools, local development tools, Postman alternative, Zipkin alternative, Jaeger alternative">
 <meta name="author" content="Sudharma BG">
 <meta name="robots" content="index, follow, max-snippet:-1, max-image-preview:large">
@@ -28,8 +28,8 @@
 <meta name="twitter:description" content="How Causeline follows a React click through Spring Boot: the traceparent header, Micrometer and OpenTelemetry spans, the in-memory store at /causeline, and the insights that name the slow call.">
 <meta name="twitter:image" content="https://causeline.dev/og.png">
 <link rel="preload" href="/fonts/hanken-grotesk.woff2" as="font" type="font/woff2" crossorigin>
-<link rel="stylesheet" href="/styles.css?v=20261023c">
-<script src="/main.js?v=20261023c"></script>
+<link rel="stylesheet" href="/styles.css?v=20261023d">
+<script src="/main.js?v=20261023d"></script>
 <script type="application/ld+json">
 {
   "@context": "https://schema.org",
@@ -83,10 +83,32 @@
       <a class="opt" href="/install/">Install</a>
       <a class="opt" href="/faq/">FAQ</a>
       <a class="opt" href="/#developer">Developer</a>
-      <a class="btn" href="https://github.com/causeline/causeline" rel="noopener">GitHub</a>
+      <button class="menu-btn" type="button" aria-expanded="false" aria-controls="site-menu">Menu</button>
+      <a class="btn nav-gh" href="https://github.com/causeline/causeline" rel="noopener">GitHub</a>
     </nav>
   </div>
 </header>
+
+<div class="site-menu" id="site-menu" role="dialog" aria-modal="true" aria-label="Menu" hidden>
+  <div class="site-menu-top">
+    <a class="brand" href="/" aria-label="Causeline home">
+      <svg width="26" height="26" viewBox="0 0 32 32" aria-hidden="true"><rect x="3" y="7" width="16" height="5" rx="2" fill="#5b86ff"/><rect x="9" y="14" width="20" height="5" rx="2" fill="#9b7bff"/><rect x="3" y="21" width="12" height="5" rx="2" fill="#5b86ff"/></svg>
+      Causeline
+    </a>
+    <button class="menu-btn menu-close" type="button" data-menu-close>Close</button>
+  </div>
+  <nav class="site-menu-links" aria-label="Menu">
+    <a href="/#features" style="--i:0">Features</a>
+    <a href="/how-it-works/" style="--i:1">How it works</a>
+    <a href="/install/" style="--i:2">Install</a>
+    <a href="/faq/" style="--i:3">FAQ</a>
+    <a href="/#developer" style="--i:4">Developer</a>
+  </nav>
+  <div class="site-menu-foot">
+    <a class="btn" href="/install/">Install in 5 minutes</a>
+    <a class="btn btn-ghost" href="https://github.com/causeline/causeline" rel="noopener">GitHub</a>
+  </div>
+</div>
 
 <main id="main">
   <section class="page-head" aria-labelledby="page-title">
@@ -95,19 +117,20 @@
         <span class="line"><span data-line style="--i:0">How a click</span></span>
         <span class="line"><span data-line style="--i:1">becomes a trace</span></span>
       </h1>
-      <p class="rise" style="--i:0">Six steps, from the button your user presses to the insight that names the slow call. Standard headers, Micrometer and OpenTelemetry, nothing proprietary.</p>
+      <p class="rise" style="--i:0">Seven steps, from the button your user presses to the insight that names the slow call, and the security and load checks before you ship. Standard headers, Micrometer and OpenTelemetry, nothing proprietary.</p>
     </div>
   </section>
 
   <section class="stepper" data-stepper data-interval="7000" aria-label="How Causeline works, step by step">
     <div class="wrap grid">
-      <div class="step-nav" role="tablist" aria-label="Steps" style="--steps:6">
+      <div class="step-nav" role="tablist" aria-label="Steps" style="--steps:7">
         <button role="tab" id="s1-tab" aria-controls="s1" aria-selected="true"><small>Step 1</small>The click gets a name<span class="bar"><i></i></span></button>
         <button role="tab" id="s2-tab" aria-controls="s2" aria-selected="false" tabindex="-1"><small>Step 2</small>The header carries it<span class="bar"><i></i></span></button>
         <button role="tab" id="s3-tab" aria-controls="s3" aria-selected="false" tabindex="-1"><small>Step 3</small>Spring Boot joins in<span class="bar"><i></i></span></button>
         <button role="tab" id="s4-tab" aria-controls="s4" aria-selected="false" tabindex="-1"><small>Step 4</small>It lands at /causeline<span class="bar"><i></i></span></button>
         <button role="tab" id="s5-tab" aria-controls="s5" aria-selected="false" tabindex="-1"><small>Step 5</small>Rules read the tree<span class="bar"><i></i></span></button>
         <button role="tab" id="s6-tab" aria-controls="s6" aria-selected="false" tabindex="-1"><small>Step 6</small>Replay, compare, keep<span class="bar"><i></i></span></button>
+        <button role="tab" id="s7-tab" aria-controls="s7" aria-selected="false" tabindex="-1"><small>Step 7</small>Before you ship<span class="bar"><i></i></span></button>
       </div>
 
       <div class="step-view">
@@ -173,6 +196,14 @@
     .<span class="f">hasNoFailedSpans</span>()
     .<span class="f">hasQueryCountAtMost</span>(<span class="v">2</span>)
     .<span class="f">hasNoRepeatedQueries</span>();</pre></div>
+          </article>
+          <article class="step-panel" role="tabpanel" id="s7" aria-labelledby="s7-tab">
+            <span class="tag">Security and load</span>
+            <h2>Before you ship</h2>
+            <p>The same traces get two more checks. Security hints read every trace for OWASP Top 10 problems, and active probes (IDOR, mass assignment, open redirect, auth boundary) send one edited request each, by hand. Load replay sends a captured request or flow many times and shows which span grew.</p>
+            <p class="insight-box"><b>Secret in a log</b>OrderService logged a field named <code>password</code> while handling POST /api/orders.</p>
+            <p class="insight-box"><b>What grew under load</b>PaymentClient.charge, self time at p95, with 20 requests in flight.</p>
+            <p>Hints, not a scanner: nothing is sent unless you press the button, and load only goes to local or a target you mark <code>allow-load</code>.</p>
           </article>
         </div>
         <div class="step-arrows">

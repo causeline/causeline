@@ -461,3 +461,35 @@ footer:hover .wordmark { color: #111; }
   .code pre { font-size: 13.5px; padding: 16px; }
   .next-page svg { width: 32px; height: 32px; }
 }
+
+/* ---------- Phone menu: a full-screen panel opened by the Menu button ---------- */
+.menu-btn { display: none; align-items: center; justify-content: center; min-height: 44px; padding: 0 18px; border: 0; box-shadow: inset 0 0 0 1px #3a3a3a; background: var(--bg); color: var(--ink); font-size: 1.0625rem; font-weight: 600; cursor: pointer; transition: box-shadow var(--t-hover) ease, transform var(--t-press) var(--ease-out); }
+.menu-btn:active { transform: scale(0.96); }
+.site-menu[hidden] { display: none; }
+.site-menu {
+  position: fixed; inset: 0; z-index: 40; background: var(--bg); display: flex; flex-direction: column;
+  padding: 0 var(--m) calc(24px + env(safe-area-inset-bottom)); overflow-y: auto; overscroll-behavior: contain;
+  opacity: 0; transition: opacity 220ms var(--ease-out);
+}
+.site-menu.open { opacity: 1; }
+.site-menu-top { display: flex; align-items: center; justify-content: space-between; min-height: 60px; }
+.site-menu-links { display: flex; flex-direction: column; margin-top: 24px; }
+.site-menu-links a {
+  display: block; padding: 14px 0; border-bottom: 1px solid var(--line); text-decoration: none;
+  font-size: clamp(2rem, 9vw, 2.5rem); font-weight: 700; letter-spacing: -0.035em; line-height: 1.1; color: var(--ink);
+  transition: color var(--t-hover) ease;
+}
+.site-menu-links a[aria-current="page"] { color: var(--accent); }
+.site-menu-links a:active { color: var(--accent); }
+.site-menu-foot { margin-top: auto; padding-top: 32px; display: grid; gap: 10px; }
+.site-menu-foot .btn { width: 100%; }
+body.menu-open { overflow: hidden; }
+@media (prefers-reduced-motion: no-preference) {
+  .site-menu-links a { opacity: 0; transform: translateY(14px); transition: opacity 360ms var(--ease-out), transform 480ms var(--ease-expo), color var(--t-hover) ease; transition-delay: calc(var(--i) * 45ms + 60ms); }
+  .site-menu.open .site-menu-links a { opacity: 1; transform: none; }
+}
+@media (max-width: 720px) {
+  .menu-btn { display: inline-flex; }
+  .nav-links .nav-gh { display: none; }
+}
+@media (min-width: 721px) { .site-menu { display: none !important; } }

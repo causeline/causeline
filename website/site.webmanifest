@@ -1,7 +1,7 @@
 {
   "name": "Causeline",
   "short_name": "Causeline",
-  "description": "Trace a React click through Spring Boot and back, on one timeline.",
+  "description": "Debugging tool for React and Spring Boot: one click, traced to the SQL and back.",
   "start_url": "/",
   "display": "browser",
   "background_color": "#000000",

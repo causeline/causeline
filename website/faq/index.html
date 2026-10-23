@@ -6,7 +6,7 @@
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <title>FAQ · Causeline</title>
 <meta name="description" content="Answers about Causeline: tracing a request through Spring Boot, finding slow SQL and N+1 queries, performance, data and security, and how it compares with Zipkin, Jaeger and APM tools.">
-<meta name="keywords" content="Causeline, Causeline FAQ, Spring Boot tracing FAQ, how to trace a request in Spring Boot, find slow SQL queries, N+1 queries Spring Boot, Zipkin vs Jaeger vs Causeline, APM for development, Spring Security tracing, Kafka tracing, RabbitMQ tracing, microservices tracing, OpenTelemetry questions, debugging, tracing, observability, performance monitoring">
+<meta name="keywords" content="Causeline, Causeline FAQ, Spring Boot tracing FAQ, how to trace a request in Spring Boot, find slow SQL queries, N+1 queries Spring Boot, Zipkin vs Jaeger vs Causeline, APM for development, Spring Security tracing, Kafka tracing, RabbitMQ tracing, microservices tracing, OpenTelemetry questions, debugging, tracing, observability, performance monitoring, is Causeline a security scanner, OWASP Top 10, ZAP alternative, Burp alternative, k6, JMeter alternative, load testing Spring Boot, debugging tool FAQ">
 <meta name="author" content="Sudharma BG">
 <meta name="robots" content="index, follow, max-snippet:-1, max-image-preview:large">
 <link rel="canonical" href="https://causeline.dev/faq/">
@@ -28,8 +28,8 @@
 <meta name="twitter:description" content="Answers about Causeline: tracing a request through Spring Boot, finding slow SQL and N+1 queries, performance, data and security, and how it compares with Zipkin, Jaeger and APM tools.">
 <meta name="twitter:image" content="https://causeline.dev/og.png">
 <link rel="preload" href="/fonts/hanken-grotesk.woff2" as="font" type="font/woff2" crossorigin>
-<link rel="stylesheet" href="/styles.css?v=20261023c">
-<script src="/main.js?v=20261023c"></script>
+<link rel="stylesheet" href="/styles.css?v=20261023d">
+<script src="/main.js?v=20261023d"></script>
 <script type="application/ld+json">
 {
   "@context": "https://schema.org",
@@ -160,6 +160,30 @@
         },
         {
           "@type": "Question",
+          "name": "Is Causeline a security scanner?",
+          "acceptedAnswer": {
+            "@type": "Answer",
+            "text": "No. It reads the traffic you already send while developing and flags OWASP Top 10 hints on it: a secret in a log or a response, a request value in SQL or in an outbound URL, insecure response headers and cookies. The active probes (IDOR, mass assignment, open redirect, auth boundary) are one request each, sent by you. It never crawls your app or attacks on its own, so it complements a scanner like ZAP or Burp rather than replacing it."
+          }
+        },
+        {
+          "@type": "Question",
+          "name": "Can it replace k6 or JMeter?",
+          "acceptedAnswer": {
+            "@type": "Answer",
+            "text": "No. Load replay sends a captured request or flow many times from inside your app and tells you which span grew: the transaction, the connection pool, the one query. The load comes from the same machine, so the numbers are relative, not capacity figures. When you need real load, copy the request as a k6 script."
+          }
+        },
+        {
+          "@type": "Question",
+          "name": "Is it safe to send probes and load runs?",
+          "acceptedAnswer": {
+            "@type": "Answer",
+            "text": "They only go to local or to targets you configure, and load also needs allow-load: true on a target. Every probe is one request you send by hand, POST, PUT and DELETE ask for confirmation first, and the API enforces the load limits. Point it at your own dev or QA environment, never at production."
+          }
+        },
+        {
+          "@type": "Question",
           "name": "Is Causeline free?",
           "acceptedAnswer": {
             "@type": "Answer",
@@ -188,10 +212,32 @@
       <a class="opt" href="/install/">Install</a>
       <a class="opt" href="/faq/" aria-current="page">FAQ</a>
       <a class="opt" href="/#developer">Developer</a>
-      <a class="btn" href="https://github.com/causeline/causeline" rel="noopener">GitHub</a>
+      <button class="menu-btn" type="button" aria-expanded="false" aria-controls="site-menu">Menu</button>
+      <a class="btn nav-gh" href="https://github.com/causeline/causeline" rel="noopener">GitHub</a>
     </nav>
   </div>
 </header>
+
+<div class="site-menu" id="site-menu" role="dialog" aria-modal="true" aria-label="Menu" hidden>
+  <div class="site-menu-top">
+    <a class="brand" href="/" aria-label="Causeline home">
+      <svg width="26" height="26" viewBox="0 0 32 32" aria-hidden="true"><rect x="3" y="7" width="16" height="5" rx="2" fill="#5b86ff"/><rect x="9" y="14" width="20" height="5" rx="2" fill="#9b7bff"/><rect x="3" y="21" width="12" height="5" rx="2" fill="#5b86ff"/></svg>
+      Causeline
+    </a>
+    <button class="menu-btn menu-close" type="button" data-menu-close>Close</button>
+  </div>
+  <nav class="site-menu-links" aria-label="Menu">
+    <a href="/#features" style="--i:0">Features</a>
+    <a href="/how-it-works/" style="--i:1">How it works</a>
+    <a href="/install/" style="--i:2">Install</a>
+    <a href="/faq/" style="--i:3">FAQ</a>
+    <a href="/#developer" style="--i:4">Developer</a>
+  </nav>
+  <div class="site-menu-foot">
+    <a class="btn" href="/install/">Install in 5 minutes</a>
+    <a class="btn btn-ghost" href="https://github.com/causeline/causeline" rel="noopener">GitHub</a>
+  </div>
+</div>
 
 <main id="main">
   <section class="page-head" aria-labelledby="page-title">
@@ -200,7 +246,7 @@
         <span class="line"><span data-line style="--i:0">Questions,</span></span>
         <span class="line"><span data-line style="--i:1">answered</span></span>
       </h1>
-      <p class="rise" style="--i:0">Setup, performance, your data, and how Causeline compares with other tracing and debugging tools. Something missing? <a class="link" href="https://github.com/causeline/causeline/issues">Open an issue</a>.</p>
+      <p class="rise" style="--i:0">Setup, performance, security checks, load replay, your data, and how Causeline compares with other debugging, tracing and security tools. Something missing? <a class="link" href="https://github.com/causeline/causeline/issues">Open an issue</a>.</p>
     </div>
   </section>
 
@@ -258,6 +304,18 @@
         <details>
           <summary>Where are traces stored?<span class="pm" aria-hidden="true"></span></summary>
           <div class="answer"><div><p>In memory, inside your app: the latest 1,000 traces within 64&nbsp;MB, oldest first out. Nothing is sent anywhere unless you turn on OTLP export or <code>causeline.store.persist</code>, and both write redacted copies.</p></div></div>
+        </details>
+        <details>
+          <summary>Is Causeline a security scanner?<span class="pm" aria-hidden="true"></span></summary>
+          <div class="answer"><div><p>No. It reads the traffic you already send while developing and flags OWASP Top 10 hints on it: a secret in a log or a response, a request value in SQL or in an outbound URL, insecure response headers and cookies. The active probes (IDOR, mass assignment, open redirect, auth boundary) are one request each, sent by you. It never crawls your app or attacks on its own, so it complements a scanner like ZAP or Burp rather than replacing it.</p></div></div>
+        </details>
+        <details>
+          <summary>Can it replace k6 or JMeter?<span class="pm" aria-hidden="true"></span></summary>
+          <div class="answer"><div><p>No. Load replay sends a captured request or flow many times from inside your app and tells you which span grew: the transaction, the connection pool, the one query. The load comes from the same machine, so the numbers are relative, not capacity figures. When you need real load, copy the request as a k6 script.</p></div></div>
+        </details>
+        <details>
+          <summary>Is it safe to send probes and load runs?<span class="pm" aria-hidden="true"></span></summary>
+          <div class="answer"><div><p>They only go to local or to targets you configure, and load also needs <code>allow-load: true</code> on a target. Every probe is one request you send by hand, POST, PUT and DELETE ask for confirmation first, and the API enforces the load limits. Point it at your own dev or QA environment, never at production.</p></div></div>
         </details>
         <details>
           <summary>Is it free?<span class="pm" aria-hidden="true"></span></summary>

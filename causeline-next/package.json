@@ -21,7 +21,14 @@
     "opentelemetry",
     "traceparent",
     "debugging",
-    "devtools"
+    "devtools",
+    "debugger",
+    "debugging-tool",
+    "nextjs-debugging",
+    "spring-boot-debugging",
+    "performance",
+    "observability",
+    "full-stack"
   ],
   "type": "module",
   "sideEffects": false,
