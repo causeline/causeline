@@ -6,6 +6,8 @@ import dev.causeline.spring.autoconfigure.CauselineProperties;
 import dev.causeline.spring.internal.capture.SensitiveData;
 import dev.causeline.spring.internal.capture.SpanRedactor;
 import dev.causeline.spring.internal.export.SpanForwarder;
+import dev.causeline.spring.internal.contract.ContractService;
+import dev.causeline.spring.internal.explain.QueryExplainer;
 import dev.causeline.spring.internal.export.UpstreamForwarder;
 import dev.causeline.spring.internal.replay.BodyRedactor;
 import dev.causeline.spring.internal.replay.ReplayStore;
@@ -13,6 +15,7 @@ import dev.causeline.spring.internal.tracing.CauselineStats;
 import java.net.URI;
 import java.util.List;
 import java.util.Locale;
+import javax.sql.DataSource;
 import java.util.Optional;
 import java.util.Set;
 import java.util.stream.Collectors;
@@ -48,7 +51,8 @@ final class CauselineWebSupport {
 
     static CauselineApiController apiController(TraceStore store, ObjectProvider<ReplayStore> replays,
             CauselineStats stats, SpanForwarder forwarder, ObjectProvider<UpstreamForwarder> upstream,
-            CauselineProperties properties, Environment environment, SpanRedactor redactor) {
+            CauselineProperties properties, Environment environment, SpanRedactor redactor,
+            ObjectProvider<DataSource> dataSources) {
         CauselineApiController.Status.Otlp otlpStatus = properties.export().otlp().enabled()
                 ? new CauselineApiController.Status.Otlp(true,
                         URI.create(properties.export().otlp().endpoint()).getHost(), 0, 0, 0)
@@ -61,7 +65,28 @@ final class CauselineWebSupport {
         if (up != null) {
             controller.setUpstream(up.host());
         }
+        if (properties.contract().enabled()) {
+            controller.setContracts(new ContractService(store, () -> specUrl(properties, environment)));
+        }
+        if (properties.explain().enabled()) {
+            // Looked up per call: the primary data source when there are several, none in an R2DBC application.
+            controller.setExplainer(new QueryExplainer(dataSources::getIfUnique,
+                    environment.getProperty("spring.application.name", "spring"), properties.explain().timeout()));
+        }
         return controller;
+    }
+
+    /** The configured OpenAPI document, or this application's own springdoc endpoint. */
+    static String specUrl(CauselineProperties properties, Environment environment) {
+        String configured = properties.contract().specUrl();
+        if (configured != null && !configured.isBlank()) {
+            return configured;
+        }
+        String contextPath = environment.getProperty("server.servlet.context-path",
+                environment.getProperty("spring.webflux.base-path", ""));
+        return "http://localhost:" + environment.getProperty("local.server.port", "8080")
+                + (contextPath.equals("/") ? "" : contextPath)
+                + environment.getProperty("springdoc.api-docs.path", CauselinePaths.API_DOCS_PATH);
     }
 
     /** Hides only the user's redact-keys in captured bodies; null when there are none. */

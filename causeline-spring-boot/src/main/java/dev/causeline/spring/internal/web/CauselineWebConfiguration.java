@@ -60,9 +60,10 @@ public class CauselineWebConfiguration {
     CauselineApiController causelineApiController(TraceStore store, ObjectProvider<ReplayStore> replays,
             CauselineStats stats, @Qualifier("causelineForwarder") SpanForwarder causelineForwarder,
             ObjectProvider<UpstreamForwarder> upstream,
-            CauselineProperties properties, Environment environment, SpanRedactor redactor) {
+            CauselineProperties properties, Environment environment, SpanRedactor redactor,
+            ObjectProvider<javax.sql.DataSource> dataSources) {
         return CauselineWebSupport.apiController(store, replays, stats, causelineForwarder, upstream, properties,
-                environment, redactor);
+                environment, redactor, dataSources);
     }
 
     @Bean

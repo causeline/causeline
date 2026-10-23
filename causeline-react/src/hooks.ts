@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: Apache-2.0
-import { useCallback, useRef, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import type { Dispatch, SetStateAction } from 'react';
 import { currentAction, trace } from './actions.js';
 import { nowMs, toUnixNanoString } from './clock.js';
@@ -9,11 +9,22 @@ import { describeValue, getRecorder } from './runtime.js';
 /**
  * Drop-in replacement for `useState`. Updates made during a traced action are recorded as
  * STATE_UPDATE spans in that action, with the new value (unless `capture.stateValues` is false).
+ * An update that arrives after the component has unmounted is marked, so the timeline can point
+ * at the request or timer that outlived it.
  */
 export function useTracedState<S>(key: string, initial: S | (() => S)): [S, Dispatch<SetStateAction<S>>] {
   const [value, setValue] = useState(initial);
   const current = useRef(value);
   current.current = value;
+  // "Unmounted" rather than "mounted": a child's effect may set this state before this component's
+  // own effects have run, and that is not a leak.
+  const unmounted = useRef(false);
+  useEffect(() => {
+    unmounted.current = false;
+    return () => {
+      unmounted.current = true;
+    };
+  }, []);
   const setTraced = useCallback<Dispatch<SetStateAction<S>>>(
     (next) => {
       const context = currentAction();
@@ -25,6 +36,9 @@ export function useTracedState<S>(key: string, initial: S | (() => S)): [S, Disp
         const described = describeValue(nextValue);
         if (described !== undefined) {
           attributes['causeline.state.value'] = described;
+        }
+        if (unmounted.current) {
+          attributes['causeline.state.after_unmount'] = 'true';
         }
         recorder.record({
           traceId: context.action.traceId,

@@ -20,6 +20,8 @@ import org.springframework.boot.context.properties.bind.DefaultValue;
  * @param ingest                       limits for browser span uploads
  * @param replay                       where captured requests may be replayed
  * @param export                       optional forwarding of spans to other tools
+ * @param explain                      running EXPLAIN for a captured query, on request from the UI
+ * @param contract                     checking a response against the application's OpenAPI document
  */
 @ConfigurationProperties("causeline")
 public record CauselineProperties(
@@ -31,7 +33,25 @@ public record CauselineProperties(
         @DefaultValue Store store,
         @DefaultValue Ingest ingest,
         @DefaultValue Replay replay,
-        @DefaultValue Export export) {
+        @DefaultValue Export export,
+        @DefaultValue Explain explain,
+        @DefaultValue Contract contract) {
+
+    /**
+     * @param enabled  let the UI check a recorded response against the OpenAPI document
+     * @param specUrl  where the document is; by default this application's own springdoc endpoint,
+     *                 {@code /v3/api-docs} (or {@code springdoc.api-docs.path})
+     */
+    public record Contract(@DefaultValue("true") boolean enabled, String specUrl) {
+    }
+
+    /**
+     * @param enabled  let the UI ask the application's database to EXPLAIN a captured SELECT. The
+     *                 query is planned, never run, on a read-only connection
+     * @param timeout  how long the database may take
+     */
+    public record Explain(@DefaultValue("true") boolean enabled, @DefaultValue("5s") Duration timeout) {
+    }
 
     /**
      * @param otlp           forward spans to an OpenTelemetry (OTLP/HTTP) endpoint

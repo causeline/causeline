@@ -10,6 +10,8 @@ import dev.causeline.core.TraceStore;
 import dev.causeline.core.TraceSummary;
 import dev.causeline.core.TraceView;
 import dev.causeline.spring.internal.capture.SpanRedactor;
+import dev.causeline.spring.internal.contract.ContractService;
+import dev.causeline.spring.internal.explain.QueryExplainer;
 import dev.causeline.spring.internal.export.SpanForwarder;
 import dev.causeline.spring.internal.export.UpstreamForwarder;
 import dev.causeline.spring.internal.tracing.CauselineStats;
@@ -20,7 +22,10 @@ import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
+import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.Executor;
+import java.util.concurrent.Executors;
 import java.util.function.Function;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.HttpStatus;
@@ -56,6 +61,13 @@ public class CauselineApiController {
     private Status.Upstream upstream = Status.Upstream.disabled();
     private final SpanRedactor redactor;
     private final Set<String> imported = ConcurrentHashMap.newKeySet();
+    /**
+     * EXPLAIN waits on the database and the contract check on the network, so they run here rather than on a request thread (or, in
+     * WebFlux, on the event loop). It is started by hand from the UI, so a thread per call is fine.
+     */
+    private static final Executor BLOCKING = Executors.newVirtualThreadPerTaskExecutor();
+    private QueryExplainer explainer;
+    private ContractService contracts;
     private final SourceLocator sources = new SourceLocator(java.nio.file.Path.of(System.getProperty("user.dir", ".")));
 
     /**
@@ -195,6 +207,67 @@ public class CauselineApiController {
                         .body(new TraceFile(TraceFile.FORMAT, Span.SCHEMA_VERSION, Instant.now().toString(), appName,
                                 spans.stream().map(redactor::redact).toList())))
                 .orElseGet(() -> ResponseEntity.notFound().build());
+    }
+
+    /** Switches on {@code GET .../contract}; without it the endpoint answers that the check is off. */
+    public void setContracts(ContractService contracts) {
+        this.contracts = contracts;
+    }
+
+    /**
+     * One recorded response compared with the application's OpenAPI document and with the latest
+     * earlier run of the same request.
+     */
+    @GetMapping("/traces/{traceId}/spans/{spanId}/contract")
+    public CompletableFuture<ResponseEntity<Object>> contract(@PathVariable("traceId") String traceId,
+            @PathVariable("spanId") String spanId) {
+        if (contracts == null) {
+            return refused(HttpStatus.FORBIDDEN, "The contract check is switched off (causeline.contract.enabled=false).");
+        }
+        // Reading the document is a network call: not on a request thread or the event loop.
+        return CompletableFuture.supplyAsync(() -> {
+            try {
+                return ResponseEntity.ok((Object) contracts.check(traceId, spanId));
+            } catch (ContractService.ContractException e) {
+                return ResponseEntity.badRequest().body((Object) Map.of("error", e.getMessage()));
+            }
+        }, BLOCKING);
+    }
+
+    /** Switches on {@code POST .../explain}; without it the endpoint answers that EXPLAIN is off. */
+    public void setExplainer(QueryExplainer explainer) {
+        this.explainer = explainer;
+    }
+
+    /**
+     * The database's plan for one captured SELECT. Only queries this application recorded itself:
+     * an imported trace carries SQL that someone else wrote.
+     */
+    @PostMapping("/traces/{traceId}/spans/{spanId}/explain")
+    public CompletableFuture<ResponseEntity<Object>> explain(@PathVariable("traceId") String traceId,
+            @PathVariable("spanId") String spanId) {
+        if (explainer == null) {
+            return refused(HttpStatus.FORBIDDEN, "EXPLAIN is switched off (causeline.explain.enabled=false).");
+        }
+        if (imported.contains(traceId)) {
+            return refused(HttpStatus.BAD_REQUEST, "This trace was imported from a file; its queries didn't run here.");
+        }
+        Optional<Span> span = store.get(traceId).flatMap(spans -> spans.stream()
+                .filter(s -> s.spanId().equals(spanId)).findFirst());
+        if (span.isEmpty()) {
+            return refused(HttpStatus.NOT_FOUND, "That query is no longer in the trace store.");
+        }
+        return CompletableFuture.supplyAsync(() -> {
+            try {
+                return ResponseEntity.ok((Object) explainer.explain(span.get()));
+            } catch (QueryExplainer.ExplainException e) {
+                return ResponseEntity.badRequest().body((Object) Map.of("error", e.getMessage()));
+            }
+        }, BLOCKING);
+    }
+
+    private static CompletableFuture<ResponseEntity<Object>> refused(HttpStatus status, String message) {
+        return CompletableFuture.completedFuture(ResponseEntity.status(status).body(Map.of("error", message)));
     }
 
     /** Loads an exported trace. It is pinned, so it stays until the application restarts. */

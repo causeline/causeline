@@ -41,8 +41,10 @@ public final class ControllerObservationAspect implements Ordered {
             + " && !within(dev.causeline.spring..*)")
     public Object observe(ProceedingJoinPoint pjp) throws Throwable {
         // Only inside an HTTP request that is being traced. Error dispatches (/error after a 500)
-        // run after the request's span has closed and would otherwise start orphan traces.
-        if (registry.getCurrentObservation() == null) {
+        // run after the request's span has closed and would otherwise start orphan traces. So would
+        // a request Causeline ignores (the OpenAPI document): its observation is current, but a no-op.
+        Observation request = registry.getCurrentObservation();
+        if (request == null || request.isNoop()) {
             return pjp.proceed();
         }
         String name = pjp.getSignature().getDeclaringType().getSimpleName() + "." + pjp.getSignature().getName();

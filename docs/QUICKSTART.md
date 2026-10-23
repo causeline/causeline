@@ -116,6 +116,8 @@ Click the button, then open the newest trace in `/causeline`. You'll see the cli
 - **Replay** a captured request, with **Replay…** on a trace, and compare the two runs. Tick "Pause at steps" to stop at a controller or service method and change its arguments before it runs.
 - **Jump to the code:** click **Open in VS Code** (or IntelliJ, or Cursor) on a span or an exception.
 - **Turn a request into a test:** **Copy as MockMvc test** on a request span. With `causeline-test` in test scope, the test also checks the queries, failures and steps the trace had: see [Guard it in a test](../README.md#guard-it-in-a-test).
+- **Ask the database why:** **Explain query** on a SELECT shows its plan and points out full table scans.
+- **Check the API contract:** **Check contract** on a request compares the response with your OpenAPI document (springdoc) and with the run before.
 - **Block data** you don't want captured: see the configuration reference in the [README](../README.md#configuration-reference).
 - **Share a trace:** **Export** writes a file with secrets redacted.
 

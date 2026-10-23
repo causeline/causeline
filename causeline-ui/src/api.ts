@@ -81,7 +81,13 @@ export type InsightRule =
   | 'NOTABLE'
   | 'REPEATED_QUERY'
   | 'SLOW_CLIENT_HANDLING'
-  | 'HANDLED_EXCEPTION';
+  | 'HANDLED_EXCEPTION'
+  | 'WRITES_NOT_ATOMIC'
+  | 'QUERY_AFTER_TRANSACTION'
+  | 'TRANSACTION_ACROSS_CALL'
+  | 'REQUEST_WATERFALL'
+  | 'RENDER_STORM'
+  | 'STATE_UPDATE_AFTER_UNMOUNT';
 
 export interface Insight {
   rule: InsightRule;
@@ -208,6 +214,37 @@ async function send<T>(method: string, path: string, token: string | undefined, 
 }
 
 export const fetchStatus = (token: string | undefined) => send<Status>('GET', '/status', token);
+
+/** The database's plan for a captured SELECT, and what in it deserves attention. */
+export interface QueryPlan {
+  database: string;
+  plan: string[];
+  findings: string[];
+}
+
+export interface ContractFinding {
+  kind: string;
+  /** Where in the body, e.g. items[].price; empty for the body or the operation itself */
+  path: string;
+  message: string;
+}
+
+/** One response compared with the OpenAPI document and with the latest earlier run of the same request. */
+export interface ContractReport {
+  spec: string;
+  /** Why there is no comparison with the document; null when there is one */
+  specProblem: string | null;
+  findings: ContractFinding[];
+  baseline: { traceId: string; startTimeUnixNano: number } | null;
+  breaking: ContractFinding[];
+}
+
+export const checkContract = (traceId: string, spanId: string, token: string | undefined) =>
+  send<ContractReport>('GET', `/traces/${encodeURIComponent(traceId)}/spans/${encodeURIComponent(spanId)}/contract`, token);
+
+/** Asks the application's database to EXPLAIN a captured query. The query is planned, not run. */
+export const explainQuery = (traceId: string, spanId: string, token: string | undefined) =>
+  send<QueryPlan>('POST', `/traces/${encodeURIComponent(traceId)}/spans/${encodeURIComponent(spanId)}/explain`, token);
 
 /** Downloads a trace as a JSON file, using the access token (a plain link could not send it). */
 export async function downloadTrace(traceId: string, token: string | undefined): Promise<void> {

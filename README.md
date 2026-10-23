@@ -182,6 +182,12 @@ causeline:
   replay:
     send-original-credentials: true    # resend the user's Authorization and cookies
     pause-timeout: 5m                  # how long a paused replay waits for you before carrying on unchanged
+  explain:
+    enabled: true                      # "Explain query" may ask your database to EXPLAIN a captured SELECT
+    timeout: 5s
+  contract:
+    enabled: true                      # "Check contract" may read your OpenAPI document
+    spec-url:                          # default: this app's springdoc endpoint, /v3/api-docs
 ```
 
 In React, `<CauselineProvider capture={{ query: false, stateValues: false, bodies: false, errors: false }}>` stops recording query strings, state values, request and response bodies, and errors in the browser.
@@ -201,13 +207,28 @@ OTLP export sends Causeline's stored spans, never Spring's raw spans, with secre
 - **Browser errors:** uncaught errors and unhandled promise rejections in the page appear as exceptions, under the action they happened in. `console.error` calls made during an action appear as log lines.
 - **Transactions and caches:** each transaction appears from begin to commit or rollback, with the queries that ran in it. Each Spring Cache lookup is marked hit or miss, and writes and evictions are shown too.
 - **N+1 queries:** repeated SELECTs are named with the query whose rows they load, plus how to fetch them together.
+- **Transaction problems:** three more insights, each naming the spans involved and the fix.
+  - *Writes not in one transaction:* one request wrote to the database in separate transactions, so a failure halfway leaves the earlier writes behind.
+  - *Lazy loading after the transaction:* SELECTs ran in the controller or while the response was written, after the transaction had ended (open-session-in-view).
+  - *Transaction open during an HTTP call:* a transaction, and its database connection, was held for 100 ms or more while waiting for another service.
+- **Frontend problems:** *request waterfall* (GET requests of one action that ran one after another and could start together), *re-render storm* (a `CauselineProfiler` tree that rendered five or more times in one action) and *state update after unmount* (a `useTracedState` setter called after its component was gone).
 
 **Debugging tools:**
 
 - **Open in editor:** on a controller, service or repository span, or on an exception's location, open the code in VS Code, IntelliJ IDEA or Cursor, at the method or the line that threw. Causeline finds the source file under the application's working directory, and only ever shows its path.
-- **Copy as cURL, or as a test:** on any request span, copy a cURL command, a MockMvc test (Spring MVC) or a WebTestClient test (WebFlux) built from what was captured. Credentials, and the headers a browser adds by itself (`user-agent`, `sec-*`, `referer` and the like), are left out of the tests, so a test can be pasted as it is. The test also asserts what the trace did, using the guard below.
+- **Copy as cURL, HTTPie or fetch, or as a test:** on any request span, copy a cURL command, an HTTPie command, a JavaScript `fetch` call, a MockMvc test (Spring MVC) or a WebTestClient test (WebFlux) built from what was captured. Credentials, and the headers a browser adds by itself (`user-agent`, `sec-*`, `referer` and the like), are left out of the tests, so a test can be pasted as it is. The test also asserts what the trace did, using the guard below.
 - **Search inside traces:** the search box finds traces by an order ID in a body, a table in SQL, a header value or a log line, not just by name.
-- **Compare with…:** put any two runs side by side, span by span, such as yesterday's fast checkout and today's slow one.
+- **Compare with…:** put any two runs side by side, span by span, such as yesterday's fast checkout and today's slow one. Under the spans, the response bodies are compared field by field: what changed, what was added, what is gone. Replay comparisons show the same.
+- **Explain query:** on a SELECT, ask your database for its plan. Causeline points out full table scans (and, on MySQL, sorting or grouping without an index) and shows the plan.
+  - The query is planned, never run: no `EXPLAIN ANALYZE`, on a read-only connection, in a transaction that is rolled back.
+  - Only SELECTs this application recorded itself, with the captured values bound as parameters (needs `causeline.capture.sql=full`, the default).
+  - H2, PostgreSQL, MySQL and MariaDB, through the application's JDBC `DataSource`. R2DBC is not supported yet.
+  - Your local tables are small: a database may scan them even where it would use an index on real data, so treat a finding as a hint.
+- **Check contract:** on a server request, compare the response with your OpenAPI document and with the run before.
+  - Against the document (springdoc's `/v3/api-docs`, or `causeline.contract.spec-url`): fields the document doesn't list, wrong types, missing required fields, values outside an enum, and status codes or operations it doesn't describe.
+  - Against the latest earlier run of the same request: fields that are gone and types that changed, which is what breaks a client.
+  - It is lenient on purpose: `null` is accepted anywhere, and formats and number ranges are not checked.
+  - Requests for the OpenAPI document are not traced.
 - **Slower than usual:** a run is flagged when it's slower than the median of other runs of the same action. The trace list can also filter by errors, slow runs and replays.
 
 ### Guard it in a test

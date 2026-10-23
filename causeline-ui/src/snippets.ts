@@ -66,6 +66,38 @@ export function toCurl(request: CapturedRequest, origin: string): string {
   return lines.join(' \\\n');
 }
 
+/** The same request for HTTPie: `http METHOD url Header:value`, with the body sent as it was captured. */
+export function toHttpie(request: CapturedRequest, origin: string): string {
+  const url = request.url ?? origin.replace(/\/$/, '') + request.target;
+  const lines = [`http ${request.method} ${shellQuote(url)}`];
+  for (const [name, value] of request.headers) {
+    lines.push(`  ${shellQuote(`${name}:${value}`)}`);
+  }
+  if (request.body !== undefined) {
+    lines.push(`  --raw ${shellQuote(request.body)}`);
+  }
+  return lines.join(' \\\n');
+}
+
+/**
+ * The same request as a JavaScript `fetch` call, for the browser console or a script. Headers the
+ * browser sets by itself are left out: it would refuse or overwrite most of them.
+ */
+export function toFetch(request: CapturedRequest, origin: string): string {
+  const url = request.url ?? origin.replace(/\/$/, '') + request.target;
+  const headers = request.headers.filter(([name]) => !BROWSER_HEADERS.test(name) && name !== 'cookie');
+  const options = [`  method: ${JSON.stringify(request.method)},`];
+  if (headers.length > 0) {
+    options.push('  headers: {');
+    headers.forEach(([name, value]) => options.push(`    ${JSON.stringify(name)}: ${JSON.stringify(value)},`));
+    options.push('  },');
+  }
+  if (request.body !== undefined) {
+    options.push(`  body: ${JSON.stringify(request.body)},`);
+  }
+  return `await fetch(${JSON.stringify(url)}, {\n${options.join('\n')}\n});`;
+}
+
 const javaString = (value: string) =>
   `"${value.replace(/\\/g, '\\\\').replace(/"/g, '\\"').replace(/\n/g, '\\n').replace(/\r/g, '\\r')}"`;
 

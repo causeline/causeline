@@ -7,6 +7,7 @@ import {
   fetchReplaySession,
   fetchReplayable,
   fetchReplayTargets,
+  fetchTrace,
   replay,
   startReplaySession,
 } from './api';
@@ -21,6 +22,8 @@ import type {
   Replayable,
   SpanRow,
 } from './api';
+import { responseDiffs } from './bodyDiff';
+import type { ResponseDiff } from './bodyDiff';
 import { formatDuration } from './format';
 
 const COMPARE_TIMEOUT_MS = 10_000;
@@ -384,7 +387,7 @@ function ReplayForm({
               The replay's timings include the time it spent paused, so the steps from the pause onwards look slower.
             </p>
           )}
-          <ReplayResult outcome={phase.outcome} comparison={phase.comparison} />
+          <ReplayResult outcome={phase.outcome} comparison={phase.comparison} token={token} />
         </>
       )}
     </div>
@@ -460,7 +463,15 @@ const CHANGE_LABEL: Record<Change, string> = {
   ONLY_IN_REPLAY: 'only in replay',
 };
 
-export function ReplayResult({ outcome, comparison }: { outcome: ReplayOutcome; comparison: Comparison | undefined }) {
+export function ReplayResult({
+  outcome,
+  comparison,
+  token,
+}: {
+  outcome: ReplayOutcome;
+  comparison: Comparison | undefined;
+  token?: string;
+}) {
   const result = comparison?.result;
   return (
     <div aria-label="Comparison" className="space-y-2 rounded-lg border border-line-soft bg-paper-2 p-3">
@@ -477,6 +488,7 @@ export function ReplayResult({ outcome, comparison }: { outcome: ReplayOutcome; 
         </p>
       )}
       {result && <ComparisonTable result={result} left="Original" right="Replay" />}
+      {result && <ResponseChanges result={result} token={token} left="Original" right="Replay" />}
     </div>
   );
 }
@@ -518,6 +530,89 @@ export function ComparisonTable({ result, left, right }: { result: ComparisonRes
         ))}
       </tbody>
     </table>
+  );
+}
+
+const FIELD_STYLE = { added: 'text-ok', removed: 'text-error', changed: 'text-ink' } as const;
+
+/**
+ * What changed in the response bodies between the two runs, field by field. Shows nothing until
+ * both traces are loaded, and nothing at all when one of them isn't in this application's store
+ * (a replay on a remote target).
+ */
+export function ResponseChanges({
+  result,
+  token,
+  left,
+  right,
+}: {
+  result: ComparisonResult;
+  token: string | undefined;
+  left: string;
+  right: string;
+}) {
+  const [diffs, setDiffs] = useState<ResponseDiff[]>();
+  const before = result.original.traceId;
+  const after = result.replay.traceId;
+  useEffect(() => {
+    let cancelled = false;
+    setDiffs(undefined);
+    Promise.all([fetchTrace(before, token), fetchTrace(after, token)])
+      .then(([a, b]) => !cancelled && setDiffs(responseDiffs(a, b)))
+      .catch(() => undefined);
+    return () => {
+      cancelled = true;
+    };
+  }, [before, after, token]);
+  return diffs && diffs.length > 0 ? <ResponseDiffList diffs={diffs} left={left} right={right} /> : null;
+}
+
+export function ResponseDiffList({ diffs, left, right }: { diffs: ResponseDiff[]; left: string; right: string }) {
+  return (
+    <div className="mt-3 space-y-2 text-xs" aria-label="Response body changes">
+      {diffs.map((diff, i) => (
+        <div key={i}>
+          <p className="font-medium text-ink-2">
+            Response of {diff.request}:{' '}
+            {diff.note ? (
+              <span className="font-normal text-muted">{diff.note}</span>
+            ) : diff.changes.length === 0 ? (
+              <span className="font-normal text-muted">same body in both runs</span>
+            ) : (
+              <span className="font-normal text-muted">
+                {diff.changes.length} {diff.changes.length === 1 ? 'field differs' : 'fields differ'}
+              </span>
+            )}
+          </p>
+          {diff.changes.length > 0 && (
+            <table className="mt-1 w-full table-fixed">
+              <thead>
+                <tr className="text-left text-muted">
+                  <th className="w-1/3 py-1 font-medium">Field</th>
+                  <th className="py-1 font-medium">{left}</th>
+                  <th className="py-1 font-medium">{right}</th>
+                </tr>
+              </thead>
+              <tbody>
+                {diff.changes.map((change) => (
+                  <tr key={change.path} className={`border-t border-line-soft ${FIELD_STYLE[change.kind]}`}>
+                    <td className="truncate py-1 font-mono" title={change.path}>
+                      {change.path || '(whole body)'}
+                    </td>
+                    <td className="truncate py-1 font-mono" title={change.before}>
+                      {change.before ?? '—'}
+                    </td>
+                    <td className="truncate py-1 font-mono" title={change.after}>
+                      {change.after ?? '—'}
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          )}
+        </div>
+      ))}
+    </div>
   );
 }
 

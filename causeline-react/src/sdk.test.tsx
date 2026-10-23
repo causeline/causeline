@@ -416,6 +416,25 @@ describe('state value capture', () => {
   });
 });
 
+describe('state updates after unmount', () => {
+  it('marks an update that arrives once the component is gone, and no other', async () => {
+    const { result, unmount } = renderHook(() => useTracedState('status', 'idle'));
+    const setStatus = result.current[1];
+
+    await act(async () => {
+      await trace('Checkout', async () => {
+        setStatus('loading');
+        unmount();
+        // The response of a request nobody cancelled.
+        setStatus('paid');
+      });
+    });
+
+    const updates = (await uploaded()).filter((s) => s.kind === 'STATE_UPDATE');
+    expect(updates.map((s) => s.attributes['causeline.state.after_unmount'])).toEqual([undefined, 'true']);
+  });
+});
+
 describe('CauselineProfiler', () => {
   it('records renders caused by a traced action, not the initial mount', async () => {
     let setCount: (value: number) => void = () => {};

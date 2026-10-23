@@ -46,10 +46,10 @@ The provider does nothing in production builds (`import.meta.env.PROD`) or witho
 | --- | --- |
 | `CauselineProvider` | Starts capture. Props: `endpoint`, `propagateTo` (origins that get `traceparent`; default: same origin), `ignore` (paths or RegExps to leave untraced), `captureClicks`, `capture`. |
 | `trace(name, fn)` | Names a user action; requests and state updates inside it join its trace. Use `trace(name, (ctx) => ctx.fetch(...))` when actions can overlap. |
-| `useTracedState(key, initial)` | `useState` that records each update in the trace. |
+| `useTracedState(key, initial)` | `useState` that records each update in the trace. An update that arrives after the component unmounted is flagged in the UI. |
 | `useTracedCallback(name, fn)` | A callback wrapped in `trace()`. |
 | `causelineReduxMiddleware` | Records Redux actions dispatched during a traced action. |
-| `CauselineProfiler` | Records the React renders an action caused. |
+| `CauselineProfiler` | Records the React renders an action caused. Five or more renders of one tree in one action are flagged as a re-render storm. |
 
 ## What it records
 

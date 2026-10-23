@@ -1,13 +1,23 @@
 // SPDX-License-Identifier: Apache-2.0
 import { useCallback, useEffect, useState } from 'react';
 import type { ReactNode } from 'react';
-import { compareTraces, downloadReport, downloadTrace, fetchSource } from './api';
-import type { ComparisonResult, Insight, SpanKind, SpanRow, TraceSummary, TraceView } from './api';
+import { checkContract, compareTraces, downloadReport, downloadTrace, explainQuery, fetchSource } from './api';
+import type {
+  ComparisonResult,
+  ContractFinding,
+  ContractReport,
+  Insight,
+  QueryPlan,
+  SpanKind,
+  SpanRow,
+  TraceSummary,
+  TraceView,
+} from './api';
 import { EDITORS, openInEditor, useEditor } from './editor';
 import type { Editor } from './editor';
 import { formatClock, formatDuration, percent } from './format';
-import { ComparisonTable, ReplayPanel } from './ReplayPanel';
-import { capturedRequest, toCurl, toMockMvcTest, toWebTestClientTest, traceGuard } from './snippets';
+import { ComparisonTable, ReplayPanel, ResponseChanges } from './ReplayPanel';
+import { capturedRequest, toCurl, toFetch, toHttpie, toMockMvcTest, toWebTestClientTest, traceGuard } from './snippets';
 import { SLOW_FACTOR, slowdown } from './TraceList';
 
 const KIND_LABEL: Record<SpanKind, string> = {
@@ -33,6 +43,12 @@ const INSIGHT_STYLE: Record<Insight['rule'], { accent: string; tag: string }> = 
   REPEATED_QUERY: { accent: 'bg-warn', tag: 'Repeated query' },
   SLOW_CLIENT_HANDLING: { accent: 'bg-browser', tag: 'Browser' },
   HANDLED_EXCEPTION: { accent: 'bg-muted', tag: 'Handled' },
+  WRITES_NOT_ATOMIC: { accent: 'bg-warn', tag: 'Not atomic' },
+  QUERY_AFTER_TRANSACTION: { accent: 'bg-warn', tag: 'Lazy loading' },
+  TRANSACTION_ACROSS_CALL: { accent: 'bg-warn', tag: 'Long transaction' },
+  REQUEST_WATERFALL: { accent: 'bg-browser', tag: 'Waterfall' },
+  RENDER_STORM: { accent: 'bg-browser', tag: 'Re-renders' },
+  STATE_UPDATE_AFTER_UNMOUNT: { accent: 'bg-browser', tag: 'After unmount' },
 };
 
 const isBrowser = (span: SpanRow) => span.source === 'browser';
@@ -556,6 +572,10 @@ export function SpanDetail({
         </h3>
       </div>
       <SpanActions span={span} token={token} editor={editor} onEditor={onEditor} trace={trace} />
+      {trace && canExplain(span) && <ExplainQuery key={span.spanId} traceId={trace.traceId} span={span} token={token} />}
+      {trace && canCheckContract(span) && (
+        <ContractCheck key={span.spanId} traceId={trace.traceId} span={span} token={token} />
+      )}
       <div className={`mt-4 grid grid-cols-2 gap-2 ${narrow ? '' : 'sm:grid-cols-4'}`}>
         <Stat label="Status" value={span.status} tone={span.status === 'ERROR' ? 'text-error' : 'text-ink'} />
         <Stat label="Starts at" value={formatDuration(span.offsetNanos)} />
@@ -891,6 +911,142 @@ function OpenSource({
   );
 }
 
+/** A request the server answered: what an OpenAPI document describes. */
+export const canCheckContract = (span: SpanRow) =>
+  span.kind === 'REQUEST' && span.source !== 'browser' && Boolean(span.attributes['http.response.status_code']);
+
+/** Compares the response with the application's OpenAPI document and with the run before. */
+export function ContractCheck({ traceId, span, token }: { traceId: string; span: SpanRow; token?: string }) {
+  const [state, setState] = useState<{ loading?: boolean; report?: ContractReport; error?: string }>({});
+  const run = () => {
+    setState({ loading: true });
+    checkContract(traceId, span.spanId, token)
+      .then((report) => setState({ report }))
+      .catch((e: unknown) => setState({ error: e instanceof Error ? e.message : String(e) }));
+  };
+  return (
+    <div className="mt-3">
+      <button
+        type="button"
+        className="btn"
+        disabled={state.loading}
+        title="Compares this response with the application's OpenAPI document (springdoc) and with the run before"
+        onClick={run}
+      >
+        {state.loading ? 'Checking…' : 'Check contract'}
+      </button>
+      {state.error && (
+        <p role="alert" className="mt-2 text-xs text-error">
+          {state.error}
+        </p>
+      )}
+      {state.report && <ContractReportView report={state.report} />}
+    </div>
+  );
+}
+
+export function ContractReportView({ report }: { report: ContractReport }) {
+  const list = (findings: ContractFinding[]) => (
+    <ul className="mt-1.5 space-y-1.5">
+      {findings.map((finding) => (
+        <li key={finding.kind + finding.path + finding.message} className="rounded-lg border border-line-soft bg-paper-2 px-3 py-2 text-ink">
+          <span className="mr-2 inline-block h-1.5 w-1.5 rounded-full bg-warn align-middle" />
+          {finding.message}
+        </li>
+      ))}
+    </ul>
+  );
+  return (
+    <div className="mt-3 space-y-3 text-xs" aria-label="Contract check">
+      <div>
+        <span className="eyebrow">OpenAPI document</span>
+        {report.specProblem ? (
+          <p className="mt-1.5 text-muted">{report.specProblem}</p>
+        ) : report.findings.length === 0 ? (
+          <p className="mt-1.5 text-muted">The response matches the document at {report.spec}.</p>
+        ) : (
+          list(report.findings)
+        )}
+      </div>
+      <div>
+        <span className="eyebrow">Earlier run</span>
+        {!report.baseline ? (
+          <p className="mt-1.5 text-muted">No earlier run of this request with a JSON response to compare with.</p>
+        ) : report.breaking.length === 0 ? (
+          <p className="mt-1.5 text-muted">
+            Nothing a client would break on: every field of the run at {formatClock(report.baseline.startTimeUnixNano)} is
+            still there, with the same type.
+          </p>
+        ) : (
+          <>
+            <p className="mt-1.5 text-muted">
+              Breaking changes since the run at {formatClock(report.baseline.startTimeUnixNano)}:
+            </p>
+            {list(report.breaking)}
+          </>
+        )}
+      </div>
+    </div>
+  );
+}
+
+/** A SELECT the server recorded: the only kind of query the database is asked to explain. */
+export const canExplain = (span: SpanRow) => span.kind === 'DATABASE' && span.source !== 'browser' && /^(SELECT|WITH)\b/i.test(span.name);
+
+/** Asks the database how it runs a query, and shows the plan with what stands out in it. */
+export function ExplainQuery({ traceId, span, token }: { traceId: string; span: SpanRow; token?: string }) {
+  const [state, setState] = useState<{ loading?: boolean; plan?: QueryPlan; error?: string }>({});
+  const run = () => {
+    setState({ loading: true });
+    explainQuery(traceId, span.spanId, token)
+      .then((plan) => setState({ plan }))
+      .catch((e: unknown) => setState({ error: e instanceof Error ? e.message : String(e) }));
+  };
+  return (
+    <div className="mt-3">
+      <button
+        type="button"
+        className="btn"
+        disabled={state.loading}
+        title="Asks this application's database for the query plan. The query is planned, not run."
+        onClick={run}
+      >
+        {state.loading ? 'Explaining…' : 'Explain query'}
+      </button>
+      {state.error && (
+        <p role="alert" className="mt-2 text-xs text-error">
+          {state.error}
+        </p>
+      )}
+      {state.plan && <QueryPlanView plan={state.plan} />}
+    </div>
+  );
+}
+
+export function QueryPlanView({ plan }: { plan: QueryPlan }) {
+  return (
+    <div className="mt-3" aria-label="Query plan">
+      {plan.findings.length === 0 ? (
+        <p className="text-xs text-muted">No full table scans in this plan.</p>
+      ) : (
+        <ul className="space-y-1.5 text-xs">
+          {plan.findings.map((finding) => (
+            <li key={finding} className="rounded-lg border border-line-soft bg-paper-2 px-3 py-2 text-ink">
+              <span className="mr-2 inline-block h-1.5 w-1.5 rounded-full bg-warn align-middle" />
+              {finding}
+            </li>
+          ))}
+        </ul>
+      )}
+      <p className="mt-2 text-[11px] text-muted">
+        Planned by {plan.database} on this machine's data. With few rows a database may scan a table even where it would
+        use an index on real data, so read this as a hint.
+      </p>
+      <Block title="Query plan" value={plan.plan.join('\n')} />
+    </div>
+  );
+}
+
 /** Things to do with a span: open its code, copy its request as a command or a test. */
 function SpanActions({
   span,
@@ -942,6 +1098,17 @@ function SpanActions({
         <>
           <button type="button" className="btn" onClick={() => copy('curl', toCurl(request, window.location.origin))}>
             {copied === 'curl' ? 'Copied' : 'Copy as cURL'}
+          </button>
+          <button type="button" className="btn" onClick={() => copy('httpie', toHttpie(request, window.location.origin))}>
+            {copied === 'httpie' ? 'Copied' : 'Copy as HTTPie'}
+          </button>
+          <button
+            type="button"
+            className="btn"
+            title="A JavaScript fetch call, for the browser console or a script"
+            onClick={() => copy('fetch', toFetch(request, window.location.origin))}
+          >
+            {copied === 'fetch' ? 'Copied' : 'Copy as fetch'}
           </button>
           {span.source !== 'browser' && (
             <>
@@ -1030,6 +1197,12 @@ function ComparePanel({
         <div className="rounded-lg border border-line-soft bg-paper-2 p-3">
           <ComparisonTable
             result={result}
+            left={chosen ? `Then (${formatClock(chosen.startTimeUnixNano)})` : 'Then'}
+            right="This run"
+          />
+          <ResponseChanges
+            result={result}
+            token={token}
             left={chosen ? `Then (${formatClock(chosen.startTimeUnixNano)})` : 'Then'}
             right="This run"
           />

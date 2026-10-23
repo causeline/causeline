@@ -397,6 +397,79 @@ class CheckoutApplicationTest {
                 .containsPattern("\"lastBrowserSpanAt\":\\d{13}");
     }
 
+    @Test
+    void aCapturedSelectCanBeExplainedAndNothingElseCan() throws Exception {
+        String traceId = "e1f92f3577b34da6a3ce929d0e0e4736";
+        post("/api/orders", "{\"item\":\"atlas\",\"quantity\":1}", "00-" + traceId + "-" + BROWSER_SPAN_ID + "-01");
+        String listed = "e2f92f3577b34da6a3ce929d0e0e4736";
+        assertThat(get("/api/orders?item=atlas", "00-" + listed + "-" + BROWSER_SPAN_ID + "-01").statusCode()).isEqualTo(200);
+
+        Span select = awaitSpans(listed, List.of(SpanKind.DATABASE, SpanKind.REQUEST)).stream()
+                .filter(s -> s.name().equals("SELECT orders")).findFirst().orElseThrow();
+        HttpResponse<String> plan = explain(listed, select.spanId());
+        assertThat(plan.statusCode()).isEqualTo(200);
+        // The demo's orders table has no index on item.
+        assertThat(plan.body()).contains("\"database\":\"H2 ").contains("Full table scan on ORDERS").contains("tableScan");
+
+        Span insert = awaitSpans(traceId, List.of(SpanKind.DATABASE, SpanKind.REQUEST)).stream()
+                .filter(s -> s.name().equals("INSERT orders")).findFirst().orElseThrow();
+        HttpResponse<String> refused = explain(traceId, insert.spanId());
+        assertThat(refused.statusCode()).isEqualTo(400);
+        assertThat(refused.body()).contains("Only SELECT statements are explained.");
+        assertThat(explain(listed, "0000000000000001").statusCode()).isEqualTo(404);
+
+        // Like the rest of the API, it needs the access token.
+        HttpRequest anonymous = HttpRequest.newBuilder(uri("/causeline/api/traces/" + listed + "/spans/" + select.spanId() + "/explain"))
+                .POST(HttpRequest.BodyPublishers.noBody()).build();
+        assertThat(HttpClient.newHttpClient().send(anonymous, HttpResponse.BodyHandlers.ofString()).statusCode()).isEqualTo(401);
+    }
+
+    @Test
+    void aResponseIsCheckedAgainstTheOpenApiDocumentAndTheEarlierRun() throws Exception {
+        String first = "f1f92f3577b34da6a3ce929d0e0e4736";
+        String second = "f2f92f3577b34da6a3ce929d0e0e4736";
+        post("/api/orders", "{\"item\":\"map\",\"quantity\":1}", "00-" + first + "-" + BROWSER_SPAN_ID + "-01");
+        awaitSpans(first, List.of(SpanKind.REQUEST, SpanKind.HTTP_CLIENT));
+        post("/api/orders", "{\"item\":\"map\",\"quantity\":2}", "00-" + second + "-" + BROWSER_SPAN_ID + "-01");
+        Span server = awaitSpans(second, List.of(SpanKind.REQUEST, SpanKind.HTTP_CLIENT)).stream()
+                .filter(s -> s.kind() == SpanKind.REQUEST && s.name().equals("POST /api/orders")).findFirst().orElseThrow();
+
+        HttpResponse<String> report = get("/causeline/api/traces/" + second + "/spans/" + server.spanId() + "/contract", null);
+
+        assertThat(report.statusCode()).isEqualTo(200);
+        // springdoc documents OrderResponse(orderId, status) for 201, and that is what came back,
+        // with the same fields as the run before.
+        assertThat(report.body())
+                .contains("/v3/api-docs\"")
+                .contains("\"specProblem\":null")
+                .contains("\"findings\":[]")
+                .contains("\"baseline\":{\"traceId\":\"")
+                .contains("\"breaking\":[]");
+
+        // A failed checkout answers 500 with Spring's error body, which the document doesn't describe.
+        String failed = "f3f92f3577b34da6a3ce929d0e0e4736";
+        settings.update(new DemoSettings.Snapshot(true, true, false));
+        try {
+            post("/api/orders", "{\"item\":\"map\",\"quantity\":1}", "00-" + failed + "-" + BROWSER_SPAN_ID + "-01");
+        } finally {
+            settings.update(new DemoSettings.Snapshot(true, false, false));
+        }
+        Span error = awaitSpans(failed, List.of(SpanKind.REQUEST, SpanKind.EXCEPTION)).stream()
+                .filter(s -> s.kind() == SpanKind.REQUEST && s.name().equals("POST /api/orders")).findFirst().orElseThrow();
+        assertThat(get("/causeline/api/traces/" + failed + "/spans/" + error.spanId() + "/contract", null).body())
+                .contains("UNDOCUMENTED_STATUS").contains("Status 500 is not documented for POST /api/orders");
+
+        // Reading the document is Causeline's own doing: it leaves no trace of its own.
+        Thread.sleep(500);
+        assertThat(get("/causeline/api/traces", null).body()).doesNotContain("api-docs").doesNotContain("OpenApi");
+    }
+
+    private HttpResponse<String> explain(String traceId, String spanId) throws Exception {
+        HttpRequest request = withToken("/causeline/api/traces/" + traceId + "/spans/" + spanId + "/explain")
+                .POST(HttpRequest.BodyPublishers.noBody()).build();
+        return HttpClient.newHttpClient().send(request, HttpResponse.BodyHandlers.ofString());
+    }
+
     private HttpRequest.Builder withToken(String path) {
         return HttpRequest.newBuilder(uri(path)).header("X-Causeline-Token", TOKEN).header("Content-Type", "application/json");
     }

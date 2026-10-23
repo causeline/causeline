@@ -2,6 +2,7 @@
 package dev.causeline.examples.checkout;
 
 import io.micrometer.observation.annotation.Observed;
+import java.util.List;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Service;
@@ -25,6 +26,12 @@ class OrderService {
         this.stock = stock;
         this.mailer = mailer;
         this.prices = prices;
+    }
+
+    @Observed
+    @Transactional(readOnly = true)
+    public List<Order> ordersFor(String item) {
+        return orders.findByItem(item);
     }
 
     /** {@code @Observed} is all it takes for this method to appear as a SERVICE span in Causeline. */

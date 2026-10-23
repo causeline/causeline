@@ -4,7 +4,7 @@ import { describe, expect, it } from 'vitest';
 import type { SpanRow, TraceView } from './api';
 import { App } from './App';
 import { pausableSteps } from './ReplayPanel';
-import { SpanDetail, Timeline } from './Timeline';
+import { ContractReportView, QueryPlanView, SpanDetail, Timeline, canCheckContract, canExplain } from './Timeline';
 import { TraceList } from './TraceList';
 
 describe('App', () => {
@@ -318,6 +318,56 @@ describe('debugging tools', () => {
     expect(requestHtml).toContain('Copy as cURL');
     expect(requestHtml).toContain('Copy as MockMvc test');
     expect(requestHtml).toContain('Copy as WebTestClient test');
+  });
+
+  it('offers to explain SELECTs the server ran, and shows a plan with its findings', () => {
+    const select = { ...service, kind: 'DATABASE' as const, name: 'SELECT orders' };
+    expect(canExplain(select)).toBe(true);
+    expect(canExplain({ ...select, name: 'INSERT orders' })).toBe(false);
+    expect(canExplain({ ...select, kind: 'SERVICE' })).toBe(false);
+
+    const html = renderToString(
+      <QueryPlanView
+        plan={{
+          database: 'H2 2.3',
+          plan: ['SELECT "O"."ID" FROM "PUBLIC"."ORDERS" "O"', '    /* PUBLIC.ORDERS.tableScan */'],
+          findings: ['Full table scan on ORDERS: the database reads every row'],
+        }}
+      />,
+    ).replaceAll('<!-- -->', '');
+    expect(html).toContain('Full table scan on ORDERS');
+    expect(html).toContain('PUBLIC.ORDERS.tableScan');
+    expect(html).toContain('Planned by H2 2.3');
+    expect(renderToString(<QueryPlanView plan={{ database: 'H2', plan: [], findings: [] }} />)).toContain('No full table scans');
+  });
+
+  it('offers the contract check on server requests and reports both comparisons', () => {
+    expect(canCheckContract({ ...request, attributes: { ...request.attributes, 'http.response.status_code': '201' } })).toBe(true);
+    expect(canCheckContract({ ...request, source: 'browser' })).toBe(false);
+    expect(canCheckContract(service)).toBe(false);
+
+    const html = renderToString(
+      <ContractReportView
+        report={{
+          spec: 'http://localhost:8080/v3/api-docs',
+          specProblem: null,
+          findings: [{ kind: 'UNDOCUMENTED_FIELD', path: 'debug', message: 'debug is in the response, but not in the document' }],
+          baseline: { traceId: 'a', startTimeUnixNano: 1790612345123456000 },
+          breaking: [{ kind: 'FIELD_REMOVED', path: 'total', message: "total was in the earlier run's response and is gone now" }],
+        }}
+      />,
+    ).replaceAll('<!-- -->', '');
+    expect(html).toContain('debug is in the response, but not in the document');
+    expect(html).toContain('Breaking changes since the run at');
+    expect(html).toContain('is gone now');
+
+    const clean = renderToString(
+      <ContractReportView
+        report={{ spec: 's', specProblem: 'No OpenAPI document at s (HTTP 404).', findings: [], baseline: null, breaking: [] }}
+      />,
+    );
+    expect(clean).toContain('No OpenAPI document at s');
+    expect(clean).toContain('No earlier run of this request');
   });
 
   it('offers only controller and service steps inside the replayed request as places to pause', () => {

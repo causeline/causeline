@@ -2,7 +2,7 @@
 import { describe, expect, it } from 'vitest';
 import type { SpanRow } from './api';
 import { editorUrl } from './editor';
-import { capturedRequest, toCurl, toMockMvcTest, toWebTestClientTest, traceGuard } from './snippets';
+import { capturedRequest, toCurl, toFetch, toHttpie, toMockMvcTest, toWebTestClientTest, traceGuard } from './snippets';
 
 const span = (attributes: Record<string, string>, kind: SpanRow['kind'] = 'REQUEST'): SpanRow => ({
   spanId: 'a',
@@ -53,6 +53,21 @@ describe('captured requests', () => {
     expect(curl).toContain("-H 'authorization: Bearer SECRET'");
     expect(curl).toContain(`--data-raw '{"item":"O'\\''Brien'\\''s book","quantity":1}'`);
     expect(curl).not.toContain('traceparent');
+  });
+
+  it('builds an HTTPie command and a fetch call for the same request', () => {
+    const httpie = toHttpie(capturedRequest(order)!, 'http://localhost:8080');
+    expect(httpie).toContain("http POST 'http://localhost:8080/api/orders?draft=true'");
+    expect(httpie).toContain("'content-type:application/json'");
+    expect(httpie).toContain(`--raw '{"item":"O'\\''Brien'\\''s book","quantity":1}'`);
+
+    const withBrowserHeaders = span({ ...order.attributes, 'http.request.header.user-agent': 'Mozilla/5.0' });
+    const call = toFetch(capturedRequest(withBrowserHeaders)!, 'http://localhost:8080');
+    expect(call).toContain('await fetch("http://localhost:8080/api/orders?draft=true", {');
+    expect(call).toContain('  method: "POST",');
+    expect(call).toContain('    "authorization": "Bearer SECRET",');
+    expect(call).toContain(`  body: "{\\"item\\":\\"O'Brien's book\\",\\"quantity\\":1}",`);
+    expect(call).not.toContain('user-agent');
   });
 
   it('leaves out of a test the headers a browser adds by itself, and keeps the ones the request chose', () => {
