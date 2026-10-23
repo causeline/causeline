@@ -54,7 +54,7 @@ public record Insight(Rule rule, String spanId, String label, int sharePercent) 
         SECRET_IN_URL,
         /** A10 Mishandling of Exceptional Conditions: a stack trace or SQL error in a response body. */
         ERROR_DETAILS_EXPOSED,
-        /** A09 Security Logging & Alerting Failures: a credential from the request appears in a log line. */
+        /** A09 Security Logging &amp; Alerting Failures: a credential from the request appears in a log line. */
         SECRET_IN_LOG,
         /** A04 Cryptographic Failures: a secret-looking field in a response body. */
         SENSITIVE_FIELD_IN_RESPONSE,
