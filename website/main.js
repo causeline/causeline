@@ -40,7 +40,12 @@
     }
     el.addEventListener('mouseenter', function () { hovered = true; schedule(); });
     el.addEventListener('mouseleave', function () { hovered = false; resume(); });
-    el.addEventListener('focusin', function () { focused = true; schedule(); });
+    // Only keyboard focus pauses: a mouse click leaves focus on the button, which would hold it forever.
+    el.addEventListener('focusin', function (e) {
+      var keyboard = true;
+      try { keyboard = e.target.matches(':focus-visible'); } catch (err) { /* no :focus-visible support */ }
+      if (keyboard) { focused = true; schedule(); }
+    });
     el.addEventListener('focusout', function (e) { if (!el.contains(e.relatedTarget)) { focused = false; resume(); } });
     document.addEventListener('visibilitychange', resume);
     if ('IntersectionObserver' in window) {

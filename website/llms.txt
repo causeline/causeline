@@ -1,0 +1,54 @@
+# Causeline
+
+> Causeline is an open-source (Apache 2.0), local-first debugging tool for React and Spring Boot apps. It traces one user action from a React click, through Spring Boot controllers, services, repositories, SQL and outbound calls, and back to the React state update, and shows it as one timeline. It names the bottleneck, flags OWASP Top 10 security hints on captured traffic, replays and compares requests, and shows which span grows under load. It runs inside the developer's Spring Boot app at `/causeline`, for development and QA only, never in production.
+
+Current version: `0.1.0-alpha.3` (alpha, released 2026-10-23). Requirements: Java 21+, Spring Boot 4.1 on Spring MVC or WebFlux, React 18 or 19 (or Next.js on the Node.js runtime).
+
+Key facts:
+
+- No account, agent, collector or extra process. Traces live in memory inside the app (latest 1,000 traces, within 64 MB).
+- Off by default (`causeline.enabled=false`) and refuses to start under a `prod*` or `production` profile.
+- Built on standards: W3C `traceparent`, Micrometer Observation and OpenTelemetry. Can export redacted spans over OTLP to Jaeger, Grafana Tempo or an OpenTelemetry Collector.
+- Captures headers, cookies, request and response bodies, SQL with bound values, method arguments and return values, and exceptions, and shows them in the local UI. Anything can be blocked with `causeline.capture.*`. Everything that leaves the app (OTLP, trace files, bug reports, forwarding, persistence) is redacted by default.
+- Overhead measured on the demo: about 2 ms added at p99 for a full checkout with everything captured. The React SDK is under 10 KB gzipped and does nothing in production builds.
+- Coverage: Spring MVC and WebFlux, JDBC and R2DBC, `RestClient`/`WebClient` calls, Kafka and RabbitMQ message spans, `@Async`, multiple Spring Boot services (`causeline.export.upstream`), React (fetch, XHR, state, Redux, renders) and Next.js server code.
+
+Install:
+
+- Maven: `dev.causeline:causeline-spring-boot:0.1.0-alpha.3`, then `causeline.enabled: true` in a dev profile. The app log prints a `Causeline UI:` link with an access token.
+- npm: `npm install @causeline/react@alpha`, wrap the app in `<CauselineProvider endpoint="/causeline/api/spans">`, and wrap a click handler in `trace('Checkout', async () => { ... })`.
+- Optional: `@causeline/next` for Next.js server spans, and `dev.causeline:causeline-test` (test scope) for JUnit 5 trace assertions.
+- With Spring Security, permit `/causeline/**`; Causeline protects those paths with its own access token.
+
+## Docs
+
+- [Install](https://causeline.dev/install/): first trace in five minutes, Spring Boot starter, dev profile, React SDK, Next.js and tests
+- [How it works](https://causeline.dev/how-it-works/): from the click to the insight; traceparent, Micrometer spans, the in-memory store, self-time rules, replay, security and load checks
+- [FAQ](https://causeline.dev/faq/): production safety, versions, OpenTelemetry, data capture and redaction, N+1 and slow SQL, Zipkin/Jaeger/APM comparison, Kafka and microservices, security scanners, k6 and JMeter
+- [Quick start](https://raw.githubusercontent.com/causeline/causeline/main/docs/QUICKSTART.md): step-by-step setup in Markdown
+- [README](https://raw.githubusercontent.com/causeline/causeline/main/README.md): full usage, configuration reference, Next.js, test guard, replay, security checks, active probes and load replay
+
+## Features
+
+- Timeline: one trace from the React click to the state update, with HTTP requests, controllers, `@Observed` services, repositories, transactions, SQL, outbound calls, messages, logs and renders, ordered by the span tree
+- Diagnosis: bottleneck by self time, N+1 query hints with fixes (JOIN FETCH, `@EntityGraph`, batch fetching), long-transaction hints, Explain query for captured SQL, exceptions with the file and line that threw (including caught-and-logged ones), open in editor, Check contract against the app's OpenAPI document
+- Replay: resend a captured request to local, dev or QA; edit the path, query, headers or body first; pause at controller or service methods and change their arguments like a debugger; compare any two traces span by span, including response-body diff
+- Security hints (OWASP Top 10:2025): read-only checks on captured traffic, such as a secret in a log, URL or response, a request value built into SQL or steering an outbound call (SSRF), insecure cookies and response headers, permissive CORS and stack traces in responses; a cross-trace security overview with dismiss
+- Active probes: one hand-sent request each, from the replay form: another ID (IDOR), extra field (mass assignment), redirect elsewhere (open redirect), without a header (auth boundary); verdicts read from the replay's own trace. Not a scanner and never automatic; complements ZAP or Burp
+- Load replay: send a captured request or a whole flow many times (fixed in flight, ramp, or rate), with p50/p95/p99, statuses and exceptions, and "what grew": which span's self time grew under load. Copy as k6 to run real load elsewhere. Goes only to local or to targets with `allow-load: true`
+- Copy as: cURL, HTTPie, fetch, k6, and MockMvc or WebTestClient tests with trace assertions filled in
+- JUnit guard (`causeline-test`): `@CauselineTest`, `RecordedTraces`, `TraceAssert` with `hasNoFailedSpans()`, `hasException(...)`, `hasQueryCountAtMost(n)`, `hasNoRepeatedQueries()`, `hasSpans(...)`, `hasNoSecurityFindings()`; never timing assertions
+- Sharing: redacted trace export and import, and an HTML bug report
+
+## Packages
+
+- [causeline-spring-boot on Maven Central](https://central.sonatype.com/artifact/dev.causeline/causeline-spring-boot): the Spring Boot starter, with the UI bundled
+- [causeline-test on Maven Central](https://central.sonatype.com/artifact/dev.causeline/causeline-test): JUnit 5 trace assertions
+- [@causeline/react on npm](https://www.npmjs.com/package/@causeline/react): browser SDK (`CauselineProvider`, `trace`, `useTracedCallback`, `useTracedState`, `causelineReduxMiddleware`, `CauselineProfiler`)
+- [@causeline/next on npm](https://www.npmjs.com/package/@causeline/next): Next.js server tracing (`registerCauseline`, `createCauselineSpanProcessor`, `propagateFetch`)
+
+## Optional
+
+- [Source code on GitHub](https://github.com/causeline/causeline): issues and pull requests welcome; report security problems privately via Security → Report a vulnerability
+- [Demo apps](https://github.com/causeline/causeline/tree/main/examples): Spring MVC checkout, WebFlux checkout, React page and Next.js page, with slow, failing, contended and deliberately insecure scenarios
+- [License](https://www.apache.org/licenses/LICENSE-2.0): Apache License 2.0, free to use

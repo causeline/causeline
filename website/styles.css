@@ -134,7 +134,8 @@ button { font: inherit; color: inherit; }
 .shots-dots button i { position: absolute; left: 0; right: 0; top: 50%; height: 3px; margin-top: -1.5px; background: var(--ink); transform: scaleX(0); transform-origin: left; }
 .shots-dots button[aria-current="true"] i { transform: scaleX(1); }
 .js .shots[data-playing] .shots-dots button[aria-current="true"] i { animation: fill var(--interval, 5s) linear both; }
-.js .shots[data-paused] .shots-dots button[aria-current="true"] i { animation-play-state: paused; }
+/* Held (hovered, or just picked by hand): show the current one full rather than frozen part-way or empty. */
+.js .shots[data-paused] .shots-dots button[aria-current="true"] i { animation: none; }
 @keyframes fill { from { transform: scaleX(0); } to { transform: scaleX(1); } }
 
 /* ---------- Sections ---------- */
@@ -324,7 +325,7 @@ footer:hover .wordmark { color: #111; }
 .step-nav button[aria-selected="true"] small { color: var(--accent); }
 .step-nav button[aria-selected="true"] .bar i { transform: scaleX(1); }
 .js .stepper[data-playing] .step-nav button[aria-selected="true"] .bar i { animation: fill var(--interval, 6s) linear both; }
-.js .stepper[data-paused] .step-nav button[aria-selected="true"] .bar i { animation-play-state: paused; }
+.js .stepper[data-paused] .step-nav button[aria-selected="true"] .bar i { animation: none; }
 @media (hover: hover) and (pointer: fine) { .step-nav button[aria-selected="false"]:hover { color: var(--ink-2); } }
 
 .step-view { grid-column: 6 / -1; position: relative; }
