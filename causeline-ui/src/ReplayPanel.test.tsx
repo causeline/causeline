@@ -2,8 +2,8 @@
 import type { ReactElement } from 'react';
 import { renderToString } from 'react-dom/server';
 import { describe, expect, it } from 'vitest';
-import type { Comparison, ReplayOutcome } from './api';
-import { ReplayResult, credentialsNote } from './ReplayPanel';
+import type { Comparison, ReplayOutcome, SpanRow } from './api';
+import { ReplayResult, credentialsNote, draftFrom, parseHeaders, requestEdits } from './ReplayPanel';
 
 /** Server-rendered HTML without React's `<!-- -->` text separators. */
 const text = (node: ReactElement) => renderToString(node).replaceAll('<!-- -->', '');
@@ -81,5 +81,66 @@ describe('ReplayResult', () => {
 
     expect(html).toContain('HTTP 201');
     expect(html).toContain('causeline.replay.targets.qa.causeline-token');
+  });
+});
+
+describe('editing a request before replaying it', () => {
+  const span: SpanRow = {
+    spanId: 'b000000000000001',
+    parentSpanId: null,
+    kind: 'REQUEST',
+    name: 'POST /api/orders',
+    source: 'checkout-demo',
+    status: 'OK',
+    depth: 0,
+    offsetNanos: 0,
+    durationNanos: 1,
+    selfNanos: 1,
+    clockSkew: false,
+    attributes: {
+      'url.path': '/api/orders',
+      'url.query': 'coupon=SAVE10',
+      'http.request.header.authorization': 'Bearer user-token',
+      'http.request.header.content-type': 'application/json',
+      'http.request.header.host': 'localhost:8080',
+      'http.request.header.traceparent': '00-abc-def-01',
+    },
+  };
+
+  it('starts from what was captured, without the headers every replay sets itself', () => {
+    expect(draftFrom(span)).toEqual({
+      path: '/api/orders',
+      query: 'coupon=SAVE10',
+      headers: 'authorization: Bearer user-token\ncontent-type: application/json',
+    });
+  });
+
+  it('sends only what was changed', () => {
+    const captured = draftFrom(span);
+
+    expect(requestEdits(captured, captured)).toEqual({ edits: {}, changed: [] });
+    expect(requestEdits(captured, { ...captured, query: '?access_token=abc' })).toEqual({
+      edits: { query: 'access_token=abc' },
+      changed: ['query'],
+    });
+  });
+
+  it('a deleted header line leaves that header out', () => {
+    const captured = draftFrom(span);
+    const result = requestEdits(captured, { ...captured, headers: 'content-type: application/json' });
+
+    expect(result).toEqual({ edits: { headers: { 'content-type': 'application/json' } }, changed: ['headers'] });
+  });
+
+  it('refuses lines that are not headers', () => {
+    expect(parseHeaders('X-Ok: 1\n\nnot a header')).toEqual({ error: 'Line 3 is not "Name: value".' });
+    expect(parseHeaders('Authorization: Bearer a:b')).toEqual({ headers: { Authorization: 'Bearer a:b' } });
+  });
+
+  it('leaves the path alone when only the route was captured', () => {
+    const draft = draftFrom({ ...span, attributes: { 'http.route': '/api/orders/{id}' } });
+
+    expect(draft.path).toBeUndefined();
+    expect(requestEdits(draft, draft)).toEqual({ edits: {}, changed: [] });
   });
 });

@@ -112,6 +112,10 @@ class ReactiveCheckoutTest {
         assertThat(server.attributes().get("http.request.body")).contains("SECRET-PASSWORD");
         // ...except what the user blocked, which is hidden even locally.
         assertThat(spans.toString()).doesNotContain("SECRET-PIN", "SECRET-BLOCKED-HEADER");
+        // Response headers feed the security rules on this stack too (SC-13).
+        assertThat(server.attributes()).containsKey("http.response.header.content-type");
+        assertThat(get("/causeline/api/traces/" + traceId, null, TOKEN).body())
+                .contains("\"rule\":\"SECRET_IN_URL\"", "\"rule\":\"MISSING_SECURITY_HEADERS\"");
 
         String exported = get("/causeline/api/traces/" + traceId + "/export", null, TOKEN).body();
         assertThat(exported).doesNotContain("SECRET-AUTH", "SECRET-TOKEN", "SECRET-PASSWORD", "SECRET-PIN");

@@ -19,12 +19,16 @@ import type {
   ReplayOutcome,
   ReplaySession,
   ReplayTarget,
+  Insight,
   Replayable,
+  RequestEdits,
   SpanRow,
 } from './api';
 import { responseDiffs } from './bodyDiff';
 import type { ResponseDiff } from './bodyDiff';
 import { formatDuration } from './format';
+import { PRESETS, SECURITY_RULES, SecurityGuide, SecurityGuideButton, isSecurityRule, replayVerdict as verdict } from './SecurityGuide';
+import type { PresetId } from './SecurityGuide';
 
 const COMPARE_TIMEOUT_MS = 10_000;
 
@@ -42,6 +46,7 @@ export function ReplayPanel({
   token,
   capturedBodies = {},
   spans = [],
+  onOpenTrace,
 }: {
   traceId: string;
   token: string | undefined;
@@ -49,11 +54,15 @@ export function ReplayPanel({
   capturedBodies?: Record<string, string>;
   /** The trace's spans, to offer the steps a replay can pause at. */
   spans?: SpanRow[];
+  onOpenTrace?: (traceId: string) => void;
 }) {
   const [replayable, setReplayable] = useState<Replayable[]>([]);
   const [targets, setTargets] = useState<ReplayTarget[]>([]);
   const [open, setOpen] = useState(false);
   const [chosenSpanId, setChosenSpanId] = useState<string>();
+  const [guideOpen, setGuideOpen] = useState(false);
+  // The count makes choosing the same case twice apply it again.
+  const [preset, setPreset] = useState<{ id: PresetId; count: number }>();
 
   useEffect(() => {
     let cancelled = false;
@@ -102,16 +111,25 @@ export function ReplayPanel({
             ))}
           </select>
         )}
-        {!open && (
-          <button
-            type="button"
-            onClick={() => setOpen(true)}
-            className="btn btn-primary ml-auto"
-          >
-            Replay…
-          </button>
-        )}
+        <span className="ml-auto flex items-center gap-2">
+          <SecurityGuideButton onClick={() => setGuideOpen(true)} label="Try security checks" prominent />
+          {!open && (
+            <button type="button" onClick={() => setOpen(true)} className="btn btn-primary">
+              Replay…
+            </button>
+          )}
+        </span>
       </div>
+      <SecurityGuide
+        open={guideOpen}
+        onClose={() => setGuideOpen(false)}
+        canEditBody={request.hasBody}
+        token={token}
+        onTry={(id) => {
+          setOpen(true);
+          setPreset((current) => ({ id, count: (current?.count ?? 0) + 1 }));
+        }}
+      />
       {open && (
         <ReplayForm
           key={request.spanId}
@@ -120,11 +138,96 @@ export function ReplayPanel({
           request={request}
           targets={targets}
           capturedBody={capturedBodies[request.spanId]}
+          captured={draftFrom(spans.find((s) => s.spanId === request.spanId))}
           steps={pausableSteps(spans, request.spanId)}
+          preset={preset}
+          onShowGuide={() => setGuideOpen(true)}
+          onOpenTrace={onOpenTrace}
         />
       )}
     </section>
   );
+}
+
+/** Headers HTTP or Causeline sets on every replay; the server ignores them in an edit as well. */
+const NOT_EDITABLE = new Set([
+  'host',
+  'content-length',
+  'connection',
+  'keep-alive',
+  'transfer-encoding',
+  'upgrade',
+  'te',
+  'trailer',
+  'expect',
+  'http2-settings',
+  'traceparent',
+  'tracestate',
+  'baggage',
+  'x-causeline-replay',
+]);
+
+/** A request as the edit form shows it: what the server span recorded. */
+export interface RequestDraft {
+  /** Undefined when the raw path wasn't captured (`capture.path-values=false`); it can't be edited then. */
+  path?: string;
+  query: string;
+  /** One "Name: value" per line. */
+  headers: string;
+}
+
+export function draftFrom(span: SpanRow | undefined): RequestDraft {
+  const a = span?.attributes ?? {};
+  const headers = Object.entries(a)
+    .filter(([key]) => key.startsWith('http.request.header.'))
+    .map(([key, value]) => [key.slice('http.request.header.'.length), value] as [string, string])
+    .filter(([name]) => !NOT_EDITABLE.has(name))
+    .map(([name, value]) => `${name}: ${value}`);
+  return { path: a['url.path'], query: a['url.query'] ?? '', headers: headers.join('\n') };
+}
+
+/** Reads "Name: value" lines; blank lines are skipped. */
+export function parseHeaders(text: string): { headers: Record<string, string> } | { error: string } {
+  const headers: Record<string, string> = {};
+  for (const [i, raw] of text.split(/\r?\n/).entries()) {
+    const line = raw.trim();
+    if (line === '') {
+      continue;
+    }
+    const colon = line.indexOf(':');
+    const name = colon > 0 ? line.slice(0, colon).trim() : '';
+    if (!/^[!#$%&'*+.^_`|~0-9A-Za-z-]+$/.test(name)) {
+      return { error: `Line ${i + 1} is not "Name: value".` };
+    }
+    headers[name] = line.slice(colon + 1).trim();
+  }
+  return { headers };
+}
+
+/** Only the parts that differ from what was captured are sent, so the rest replays exactly as it was. */
+export function requestEdits(
+  captured: RequestDraft,
+  draft: RequestDraft,
+): { edits: RequestEdits; changed: string[] } | { error: string } {
+  const edits: RequestEdits = {};
+  const changed: string[] = [];
+  if (draft.path !== undefined && draft.path !== captured.path) {
+    edits.path = draft.path.trim();
+    changed.push('path');
+  }
+  if (draft.query !== captured.query) {
+    edits.query = draft.query.trim().replace(/^\?/, '');
+    changed.push('query');
+  }
+  if (draft.headers !== captured.headers) {
+    const parsed = parseHeaders(draft.headers);
+    if ('error' in parsed) {
+      return parsed;
+    }
+    edits.headers = parsed.headers;
+    changed.push('headers');
+  }
+  return { edits, changed };
 }
 
 /** Controller and @Observed service spans inside the replayed request: where a replay can stop. */
@@ -149,14 +252,23 @@ function ReplayForm({
   request,
   targets,
   capturedBody,
+  captured,
   steps,
+  preset,
+  onShowGuide,
+  onOpenTrace,
 }: {
   traceId: string;
   token: string | undefined;
   request: Replayable;
   targets: ReplayTarget[];
   capturedBody?: string;
+  captured: RequestDraft;
   steps: SpanRow[];
+  /** A security case chosen in the guide, to fill into the form. */
+  preset?: { id: PresetId; count: number };
+  onShowGuide: () => void;
+  onOpenTrace?: (traceId: string) => void;
 }) {
   const [pausing, setPausing] = useState(false);
   const [breakpoints, setBreakpoints] = useState<string[]>([]);
@@ -164,11 +276,33 @@ function ReplayForm({
   const [confirmed, setConfirmed] = useState(false);
   const [editing, setEditing] = useState(false);
   const [body, setBody] = useState(capturedBody ?? '');
-  const sendBody = request.bodyMissing || editing;
+  const [draft, setDraft] = useState<RequestDraft>(captured);
+  const [filledIn, setFilledIn] = useState<string>();
+
+  useEffect(() => {
+    if (!preset) {
+      return;
+    }
+    const next = PRESETS[preset.id].apply({ draft, body });
+    setEditing(true);
+    setDraft(next.draft);
+    setBody(next.body);
+    setFilledIn(PRESETS[preset.id].label);
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- applies each choice once, to the form as it is then
+  }, [preset?.count]);
+  const sendBody = request.bodyMissing || (editing && body !== (capturedBody ?? ''));
   const [phase, setPhase] = useState<Phase>({ kind: 'idle' });
   const chosen = targets.find((t) => t.name === target);
+  const edited = editing ? requestEdits(captured, draft) : { edits: {}, changed: [] };
+  const editError = 'error' in edited ? edited.error : undefined;
+  const edits = 'error' in edited ? {} : edited.edits;
+  const changedParts = [...('error' in edited ? [] : edited.changed), ...(editing && sendBody ? ['body'] : [])];
+  // Values hidden by redact-keys are shown, and would be sent, as the text [REDACTED].
+  const sendsRedacted =
+    editing && [draft.query, draft.headers, sendBody ? body : ''].some((value) => value.includes('[REDACTED]'));
   const blocked =
-    request.queryMissing ||
+    editError !== undefined ||
+    (request.queryMissing && edits.query === undefined) ||
     (sendBody && body.trim() === '') ||
     (request.unsafe && !confirmed) ||
     (pausing && breakpoints.length === 0);
@@ -219,7 +353,7 @@ function ReplayForm({
     if (pausing && canPause) {
       try {
         const session = await startReplaySession(
-          { traceId, spanId: request.spanId, confirm: confirmed, body: sendBody ? body : undefined, breakpoints },
+          { traceId, spanId: request.spanId, confirm: confirmed, body: sendBody ? body : undefined, breakpoints, ...edits },
           token,
         );
         setPhase({ kind: 'stepping', session });
@@ -230,7 +364,7 @@ function ReplayForm({
     }
     try {
       const outcome = await replay(
-        { traceId, spanId: request.spanId, target, confirm: confirmed, body: sendBody ? body : undefined },
+        { traceId, spanId: request.spanId, target, confirm: confirmed, body: sendBody ? body : undefined, ...edits },
         token,
       );
       await finish(outcome);
@@ -272,18 +406,78 @@ function ReplayForm({
         )}
       </ul>
 
-      {!request.bodyMissing && request.hasBody && (
-        <label className="flex items-center gap-2 text-xs text-ink-2">
-          <input
-            type="checkbox"
-            checked={editing}
-            onChange={(e) => setEditing(e.target.checked)}
-            className="accent-[var(--signal)]"
-          />
-          Edit the body before sending, e.g. to try a fix or a different value
-        </label>
+      <label className="flex items-center gap-2 text-xs text-ink-2">
+        <input
+          type="checkbox"
+          checked={editing}
+          onChange={(e) => setEditing(e.target.checked)}
+          className="accent-[var(--signal)]"
+        />
+        <span>
+          Edit the request before sending: path, query, headers{request.hasBody ? ', body' : ''}. Try a fix, a different
+          value, or a security case (
+          <button type="button" onClick={onShowGuide} className="text-ink underline decoration-line underline-offset-2 hover:decoration-ink">
+            see the security checks
+          </button>
+          )
+        </span>
+      </label>
+      {editing && filledIn && (
+        <p className="text-xs text-server">
+          Filled in: {filledIn}. Review the changes below, then replay to see what the security checks find.
+        </p>
       )}
-      {sendBody && (
+      {editing && (
+        <div aria-label="Edit request" className="space-y-2">
+          {draft.path !== undefined && (
+            <label className="flex items-center gap-2">
+              <span className="w-20 shrink-0 text-xs text-muted">Path</span>
+              <input
+                aria-label="Path to send"
+                value={draft.path}
+                onChange={(e) => setDraft({ ...draft, path: e.target.value })}
+                spellCheck={false}
+                className="w-full rounded-lg border border-line bg-paper-2 px-2 py-1 font-mono text-[12px] text-ink focus:border-ink/50 focus:outline-none"
+              />
+            </label>
+          )}
+          <label className="flex items-center gap-2">
+            <span className="w-20 shrink-0 text-xs text-muted">Query</span>
+            <input
+              aria-label="Query to send"
+              value={draft.query}
+              placeholder="none"
+              onChange={(e) => setDraft({ ...draft, query: e.target.value })}
+              spellCheck={false}
+              className="w-full rounded-lg border border-line bg-paper-2 px-2 py-1 font-mono text-[12px] text-ink focus:border-ink/50 focus:outline-none"
+            />
+          </label>
+          <label className="block">
+            <span className="text-xs text-muted">
+              Headers, one <code>Name: value</code> per line. Delete a line to leave that header out.
+            </span>
+            <textarea
+              aria-label="Headers to send"
+              value={draft.headers}
+              onChange={(e) => setDraft({ ...draft, headers: e.target.value })}
+              rows={Math.min(10, Math.max(3, draft.headers.split('\n').length + 1))}
+              spellCheck={false}
+              className="mt-1 w-full rounded-lg border border-line bg-paper-2 p-3 font-mono text-[12px] text-ink focus:border-ink/50 focus:outline-none"
+            />
+          </label>
+          {editError && (
+            <p role="alert" className="text-xs text-error">
+              {editError}
+            </p>
+          )}
+          {sendsRedacted && (
+            <p className="text-xs text-warn">
+              Values shown as [REDACTED] (<code>causeline.capture.redact-keys</code>) will be sent as that text.
+            </p>
+          )}
+        </div>
+      )}
+      {(request.bodyMissing || (editing && request.hasBody)) && (
         <label className="block">
           {request.bodyMissing && (
             <span className="text-xs text-muted">
@@ -379,6 +573,9 @@ function ReplayForm({
       )}
       {phase.kind === 'done' && (
         <>
+          {changedParts.length > 0 && (
+            <p className="text-xs text-server">Sent with your changes to the {changedParts.join(', ')}.</p>
+          )}
           {phase.edited && phase.edited.length > 0 && (
             <p className="text-xs text-server">Ran with changed arguments at {phase.edited.join(', ')}.</p>
           )}
@@ -387,8 +584,77 @@ function ReplayForm({
               The replay's timings include the time it spent paused, so the steps from the pause onwards look slower.
             </p>
           )}
+          {preset && verdict(preset.id, phase.outcome.httpStatus) && (
+            <p
+              className={`rounded-lg border p-2.5 text-xs ${
+                verdict(preset.id, phase.outcome.httpStatus)!.tone === 'bad'
+                  ? 'border-error/40 bg-error/10 text-ink'
+                  : 'border-ok/40 bg-ok/10 text-ink-2'
+              }`}
+            >
+              {verdict(preset.id, phase.outcome.httpStatus)!.text}
+            </p>
+          )}
           <ReplayResult outcome={phase.outcome} comparison={phase.comparison} token={token} />
+          {chosen?.comparable && (
+            <ReplayFindings replayTraceId={phase.outcome.replayTraceId} token={token} onOpenTrace={onOpenTrace} />
+          )}
         </>
+      )}
+    </div>
+  );
+}
+
+/** What the security checks found on the replay's own trace, so the developer needn't go looking. */
+function ReplayFindings({
+  replayTraceId,
+  token,
+  onOpenTrace,
+}: {
+  replayTraceId: string;
+  token: string | undefined;
+  onOpenTrace?: (traceId: string) => void;
+}) {
+  const [findings, setFindings] = useState<Insight[]>();
+
+  useEffect(() => {
+    let cancelled = false;
+    fetchTrace(replayTraceId, token)
+      .then((view) => !cancelled && setFindings(view.insights.filter((i) => isSecurityRule(i.rule))))
+      .catch(() => !cancelled && setFindings(undefined));
+    return () => {
+      cancelled = true;
+    };
+  }, [replayTraceId, token]);
+
+  if (!findings) {
+    return null;
+  }
+  return <SecurityFindings findings={findings} onOpen={onOpenTrace ? () => onOpenTrace(replayTraceId) : undefined} />;
+}
+
+export function SecurityFindings({ findings, onOpen }: { findings: Insight[]; onOpen?: () => void }) {
+  return (
+    <div aria-label="Security checks on the replay" className="rounded-lg border border-line-soft p-3 text-xs">
+      <div className="flex items-center gap-2">
+        <span className="eyebrow">Security checks on the replay</span>
+        {onOpen && (
+          <button type="button" onClick={onOpen} className="ml-auto text-muted hover:text-ink">
+            Open the replay's trace →
+          </button>
+        )}
+      </div>
+      {findings.length === 0 ? (
+        <p className="mt-2 text-ink-2">Nothing found. That's a hint, not a guarantee.</p>
+      ) : (
+        <ul className="mt-2 space-y-1.5">
+          {findings.map((finding) => (
+            <li key={finding.rule + finding.spanId} className="flex items-start gap-2 text-ink-2">
+              <span className="chip shrink-0 border-error/40 font-mono text-error">{SECURITY_RULES[finding.rule]}</span>
+              <span>{finding.label}</span>
+            </li>
+          ))}
+        </ul>
       )}
     </div>
   );

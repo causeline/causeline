@@ -89,7 +89,7 @@ public class ReplayApiController {
     @PostMapping("/replays")
     public CompletableFuture<ReplayService.Outcome> replay(@RequestBody ReplayRequest request) {
         return CompletableFuture.supplyAsync(() -> replays.replay(request.traceId(), request.spanId(),
-                request.target(), request.confirm(), request.body()), NETWORK);
+                request.target(), request.confirm(), request.body(), request.edits()), NETWORK);
     }
 
     /**
@@ -137,14 +137,16 @@ public class ReplayApiController {
         }
         List<ReplaySessions.Breakpoint> breakpoints = breakpoints(request.traceId(), request.spanId(),
                 request.breakpoints() == null ? List.of() : request.breakpoints());
-        replays.check(request.traceId(), request.spanId(), ReplayService.LOCAL_TARGET, request.confirmed(), request.body());
+        replays.check(request.traceId(), request.spanId(), ReplayService.LOCAL_TARGET, request.confirmed(), request.body(),
+                request.edits());
         ReplaySessions.Session session = sessions.create(request.traceId(), request.spanId(), breakpoints);
         java.time.Duration timeout = sessions.pauseTimeout().multipliedBy(Math.max(1, breakpoints.size()))
                 .plus(java.time.Duration.ofSeconds(30));
         CompletableFuture.runAsync(() -> {
             try {
                 session.finished(replays.replay(request.traceId(), request.spanId(), ReplayService.LOCAL_TARGET,
-                        request.confirmed(), request.body(), Map.of(ReplaySessions.HEADER, session.id()), timeout,
+                        request.confirmed(), request.body(), request.edits(), Map.of(ReplaySessions.HEADER, session.id()),
+                        timeout,
                         session::started));
             } catch (RuntimeException e) {
                 session.failed(e.getMessage());
@@ -253,12 +255,17 @@ public class ReplayApiController {
 
     /**
      * @param breakpoints span IDs of the original trace to stop at
+     * @param path        like {@link ReplayRequest}
      */
     public record SessionRequest(String traceId, String spanId, String target, Boolean confirm, String body,
-            List<String> breakpoints) {
+            List<String> breakpoints, String path, String query, Map<String, String> headers) {
 
         boolean confirmed() {
             return Boolean.TRUE.equals(confirm);
+        }
+
+        ReplayService.Edits edits() {
+            return new ReplayService.Edits(path, query, headers);
         }
     }
 
@@ -316,8 +323,18 @@ public class ReplayApiController {
             int bodyBytes, boolean bodyMissing, boolean queryMissing) {
     }
 
-    /** @param body optional body typed by the developer when none was captured */
-    public record ReplayRequest(String traceId, String spanId, String target, boolean confirm, String body) {
+    /**
+     * @param body    a body typed by the developer, sent instead of the captured one; may be null
+     * @param path    an edited path within the target, or null for the captured one
+     * @param query   an edited query string ("" for none), or null for the captured one
+     * @param headers the headers to send instead of the captured ones, or null to keep those
+     */
+    public record ReplayRequest(String traceId, String spanId, String target, boolean confirm, String body,
+            String path, String query, Map<String, String> headers) {
+
+        ReplayService.Edits edits() {
+            return new ReplayService.Edits(path, query, headers);
+        }
     }
 
     /** @param instrumented false when the target has no Causeline token configured, so only status and time are known */

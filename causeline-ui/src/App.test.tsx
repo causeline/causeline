@@ -112,6 +112,27 @@ describe('Timeline', () => {
     expect(html).toContain('>bottleneck<');
   });
 
+  it('tags security findings with their OWASP category and says they are hints', () => {
+    const html = renderToString(
+      <Timeline
+        trace={{
+          ...trace,
+          insights: [
+            {
+              rule: 'SECRET_IN_URL',
+              spanId: 'b000000000000001',
+              label: 'Secret in URL (OWASP A04 Cryptographic Failures): access_token sent in the query string',
+              sharePercent: 0,
+            },
+          ],
+        }}
+      />,
+    );
+
+    expect(html).toContain('Security · A04');
+    expect(html).toContain('not a security scan');
+  });
+
   it('pins exceptions with their location and explains hidden details', () => {
     const html = renderToString(<Timeline trace={trace} />);
 

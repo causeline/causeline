@@ -156,6 +156,22 @@ class TraceAssertTest {
                 .hasMessageNotContaining("ann@example.com");
     }
 
+    @Test
+    void securityFindingsFailTheGuardWithoutRevealingValues() {
+        new TraceAssert(checkout()).hasNoSecurityFindings();
+
+        List<Span> spans = checkout();
+        spans.set(0, new Span(TRACE, spans.get(0).spanId(), null, SpanKind.REQUEST, "POST /api/orders", "app", 0, 100 * MS,
+                SpanStatus.OK, Map.of("url.query", "access_token=SECRET-TOKEN")));
+
+        assertThatThrownBy(() -> new TraceAssert(spans).hasNoSecurityFindings())
+                .isInstanceOf(AssertionError.class)
+                .hasMessageContaining("Expected no security findings but found 1:")
+                .hasMessageContaining("Secret in URL")
+                .hasMessageContaining("access_token")
+                .hasMessageNotContaining("SECRET-TOKEN");
+    }
+
     /** REQUEST → CONTROLLER → SERVICE → REPOSITORY → two INSERTs. */
     private List<Span> checkout() {
         List<Span> spans = new ArrayList<>();

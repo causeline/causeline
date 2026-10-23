@@ -154,8 +154,8 @@ causeline:
   enabled: true                        # in a dev profile only
   capture:
     headers:
-      enabled: true                    # false: record no headers
-      block: []                        # e.g. [Cookie, Authorization]: never recorded or replayed
+      enabled: true                    # false: record no request or response headers
+      block: []                        # e.g. [Cookie, Set-Cookie]: never recorded or replayed
     query:
       enabled: true
       block: []                        # e.g. [coupon]: values show as [REDACTED]
@@ -211,6 +211,18 @@ OTLP export sends Causeline's stored spans, never Spring's raw spans, with secre
   - *Writes not in one transaction:* one request wrote to the database in separate transactions, so a failure halfway leaves the earlier writes behind.
   - *Lazy loading after the transaction:* SELECTs ran in the controller or while the response was written, after the transaction had ended (open-session-in-view).
   - *Transaction open during an HTTP call:* a transaction, and its database connection, was held for 100 ms or more while waiting for another service.
+- **Security hints:** rules that read the traffic Causeline already captured, each tagged with its OWASP Top 10:2025 category. They send nothing and change nothing, and they are hints, not a security scan.
+  - *Request value written into SQL* (A05): a value from the query string, a path variable or the body appears as a literal in that request's prepared SQL, so it was concatenated instead of bound. Needs `capture.sql: full`, the default.
+  - *Missing security headers* (A02): no `X-Content-Type-Options: nosniff`; on HTML, no `Content-Security-Policy` or frame protection.
+  - *Server version disclosed* (A02) and *CORS allows any origin with credentials* (A02).
+  - *Session cookie without HttpOnly / SameSite* (A07) and *JWT without signature or expiry* (A07).
+  - *Secret in URL* (A04): a password, token or API key in a query string, in the browser or on the server.
+  - *Error details sent to the client* (A10): a stack trace or SQL error in a response body.
+  - *Secret written to a log* (A09): a credential from the request appears in a log line of the same trace.
+  - *Secret in the response* (A04): a response field named like a secret (password, passwordHash, ssn) with a real value.
+  - *Request value steers an outbound call* (A10, SSRF): a request value appears in the URL of an outbound call the server made.
+  - These last three use what only Causeline sees — the logs, outbound calls and response of one whole trace — so they catch things an outside scanner can't.
+  - Findings name the request, field, header or cookie, never the captured value. Response headers are captured for these rules under the same `capture.headers` settings as request headers; exports keep cookie flags but redact cookie values.
 - **Frontend problems:** *request waterfall* (GET requests of one action that ran one after another and could start together), *re-render storm* (a `CauselineProfiler` tree that rendered five or more times in one action) and *state update after unmount* (a `useTracedState` setter called after its component was gone).
 
 **Debugging tools:**
@@ -285,6 +297,14 @@ class CreateOrderTest {
 ### Replay
 
 Open a trace and use **Replay…** to send the captured request again, to this app (`local`) or to a target you configure. By default the original headers, credentials and cookies included, are resent; a target's auth profile replaces `Authorization`, and `causeline.replay.send-original-credentials: false` withholds the originals. Requests that change data (POST, PUT, PATCH, DELETE) need an explicit confirmation, because orders, payments and emails will happen again.
+
+**Try security checks.** The **Try security checks** button next to Replay opens a guide that explains each check, why it matters and how to fix it, and shows a **Security overview** across all your traces (grouped by rule, with per-rule dismiss). **Fill in** loads a case into the replay form: a token in the URL, an unsigned JWT, the request without credentials, or a malformed body. You review it and replay; the result lists what the checks found, and the "without credentials" and "unsigned JWT" cases give a plain verdict from the HTTP status (for example "answered 201 without credentials — this endpoint does not check who is calling"). Traces with findings also have an **About security checks** button.
+
+Guard a fix in a test with `TraceAssert.hasNoSecurityFindings()` (see below), so a finding you fixed fails the build if it comes back.
+
+The demo has a **Security test scenarios** panel: each button sends one deliberately-insecure request (dev profile only) so a check fires on its trace — a value built into SQL (A05), a secret returned in the response (A04), a credential written to a log (A09), an insecure session cookie (A07), a server version and permissive CORS (A02), a request value steering an outbound call (SSRF, A10), a stack trace in the response (A10), and a secret in the URL (A04). Click a few, then open the guide to see them grouped in the overview.
+
+**Edit the request first.** Tick "Edit the request before sending" to change the path, query string, headers or body. The form starts from what was captured; only what you change differs from the original. Use it to try a fix or a different value, or to see how your app handles a request without `Authorization` or with a token in the URL. The replay gets its own trace, with the usual insights and security hints. The edited request still goes only to the chosen target: the host can't be changed, and `Host`, `traceparent` and Causeline's replay header are always set by Causeline.
 
 **Pause and change values, like a debugger.** Tick "Pause at steps" and choose controller or `@Observed` service methods.
 1. The replay stops at each one, and the UI shows the method's arguments.

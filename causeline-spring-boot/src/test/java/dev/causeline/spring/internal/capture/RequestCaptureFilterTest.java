@@ -69,11 +69,39 @@ class RequestCaptureFilterTest {
         assertThat(captured).isEmpty();
     }
 
+    @Test
+    void recordsResponseHeadersForTheSecurityRules() {
+        MockHttpServletResponse response = new MockHttpServletResponse();
+        response.addHeader("Content-Type", "text/html");
+        response.addHeader("Set-Cookie", "JSESSIONID=abc; Path=/; Expires=Wed, 21 Oct 2026 07:28:00 GMT");
+        response.addHeader("Set-Cookie", "theme=dark");
+        response.addHeader("X-Internal", "hidden");
+
+        Map<String, String> captured = capture(Map.of("capture.headers.block", "x-internal"),
+                request("/api/orders", null), response);
+
+        assertThat(captured)
+                .containsEntry(RequestCaptureFilter.RESPONSE_HEADER + "content-type", "text/html")
+                // One cookie per line: the commas in Expires would make a comma-joined list ambiguous.
+                .containsEntry(RequestCaptureFilter.RESPONSE_HEADER + "set-cookie",
+                        "JSESSIONID=abc; Path=/; Expires=Wed, 21 Oct 2026 07:28:00 GMT\ntheme=dark")
+                .doesNotContainKey(RequestCaptureFilter.RESPONSE_HEADER + "x-internal");
+        MockHttpServletResponse off = new MockHttpServletResponse();
+        off.addHeader("Content-Type", "text/html");
+        assertThat(capture(Map.of("capture.headers.enabled", "false"), request("/api/orders", null), off).keySet())
+                .noneMatch(key -> key.startsWith(RequestCaptureFilter.RESPONSE_HEADER));
+    }
+
     private static Map<String, String> capture(Map<String, String> settings, MockHttpServletRequest request) {
+        return capture(settings, request, new MockHttpServletResponse());
+    }
+
+    private static Map<String, String> capture(Map<String, String> settings, MockHttpServletRequest request,
+            MockHttpServletResponse response) {
         CauselineProperties properties = TestProperties.bind(settings);
         RequestCaptureFilter filter = new RequestCaptureFilter(properties.capture(),
                 SensitiveData.userBlocked(properties.capture().redactKeys()));
-        ServerRequestObservationContext context = new ServerRequestObservationContext(request, new MockHttpServletResponse());
+        ServerRequestObservationContext context = new ServerRequestObservationContext(request, response);
         filter.map(context);
         return StreamSupport.stream(context.getHighCardinalityKeyValues().spliterator(), false)
                 .collect(Collectors.toMap(KeyValue::getKey, KeyValue::getValue));

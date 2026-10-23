@@ -163,6 +163,9 @@ public final class SpanMapper {
                 raw.forEach((key, value) -> {
                     if (key.startsWith(RequestCaptureFilter.HEADER)) {
                         attributes.put("http.request.header." + key.substring(RequestCaptureFilter.HEADER.length()), value);
+                    } else if (key.startsWith(RequestCaptureFilter.RESPONSE_HEADER)) {
+                        attributes.put("http.response.header." + key.substring(RequestCaptureFilter.RESPONSE_HEADER.length()),
+                                value);
                     }
                 });
                 yield join(raw.get("method"), raw.get("uri"), data.getName());

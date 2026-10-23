@@ -287,6 +287,106 @@ class CheckoutApplicationTest {
     }
 
     @Test
+    void securityRulesFlagWhatTheCapturedTrafficShows() throws Exception {
+        String traceId = "5af92f3577b34da6a3ce929d0e0e4736";
+        HttpRequest request = HttpRequest.newBuilder(uri("/api/orders?access_token=SECRET-TOKEN"))
+                .header("Content-Type", "application/json")
+                .header("traceparent", "00-" + traceId + "-" + BROWSER_SPAN_ID + "-01")
+                .POST(HttpRequest.BodyPublishers.ofString("{\"item\":\"book\",\"quantity\":1}"))
+                .build();
+        assertThat(HttpClient.newHttpClient().send(request, HttpResponse.BodyHandlers.ofString()).statusCode())
+                .isEqualTo(201);
+
+        // The server span ends last, after its database and payment children have arrived.
+        long deadline = System.nanoTime() + Duration.ofSeconds(10).toNanos();
+        Optional<Span> server = Optional.empty();
+        while (server.isEmpty() && System.nanoTime() < deadline) {
+            server = store.get(traceId).orElse(List.of()).stream()
+                    .filter(s -> s.kind() == SpanKind.REQUEST && s.name().equals("POST /api/orders"))
+                    .findFirst();
+            if (server.isEmpty()) {
+                Thread.sleep(100);
+            }
+        }
+        assertThat(server).isPresent();
+        assertThat(server.get().attributes()).containsKey("http.response.header.content-type");
+
+        // SC-13: the demo has no Spring Security, so its JSON answers lack nosniff.
+        String view = get("/causeline/api/traces/" + traceId, null).body();
+        assertThat(view).contains("\"rule\":\"MISSING_SECURITY_HEADERS\"", "\"rule\":\"SECRET_IN_URL\"");
+        java.util.regex.Matcher labels = java.util.regex.Pattern.compile("\"label\":\"([^\"]*)\"").matcher(view);
+        while (labels.find()) {
+            assertThat(labels.group(1)).doesNotContain("SECRET-TOKEN");
+        }
+        // The demo binds every value, so nothing is flagged as written into SQL.
+        assertThat(view).doesNotContain("REQUEST_VALUE_IN_SQL");
+
+        // The security overview groups the findings across every stored trace.
+        String overview = get("/causeline/api/security", null).body();
+        assertThat(overview).contains("\"rule\":\"SECRET_IN_URL\"", "\"tracesScanned\":");
+        assertThat(overview).doesNotContain("SECRET-TOKEN");
+
+        // Dismissing a rule moves it out of the active list; showing it again brings it back.
+        String dismissed = dismiss("{\"rule\":\"SECRET_IN_URL\",\"dismissed\":true}");
+        int rulesEnd = dismissed.indexOf("\"dismissed\":[");
+        assertThat(dismissed.substring(0, rulesEnd)).doesNotContain("SECRET_IN_URL");
+        assertThat(dismissed.substring(rulesEnd)).contains("SECRET_IN_URL");
+        dismiss("{\"rule\":\"SECRET_IN_URL\",\"dismissed\":false}");
+    }
+
+    @Test
+    void theInsecureScenarioEndpointsEachTripTheirCheck() throws Exception {
+        record Scenario(String traceId, String path, String authorization, String... rules) {
+        }
+        List<Scenario> scenarios = List.of(
+                new Scenario("5a000000000000000000000000000001", "/api/scenarios/search?item=limited-edition-DEMO", null,
+                        "REQUEST_VALUE_IN_SQL"),
+                new Scenario("5a000000000000000000000000000002", "/api/scenarios/user", null,
+                        "SENSITIVE_FIELD_IN_RESPONSE"),
+                new Scenario("5a000000000000000000000000000003", "/api/scenarios/login", "Bearer demo-secret-xyz",
+                        "SECRET_IN_LOG", "INSECURE_SESSION_COOKIE"),
+                new Scenario("5a000000000000000000000000000004", "/api/scenarios/legacy", null,
+                        "SERVER_VERSION_DISCLOSED", "PERMISSIVE_CORS"),
+                new Scenario("5a000000000000000000000000000005", "/api/scenarios/fetch?resource=internal-metadata-service",
+                        null, "REQUEST_VALUE_IN_OUTBOUND_URL"),
+                new Scenario("5a000000000000000000000000000006", "/api/scenarios/boom", null, "ERROR_DETAILS_EXPOSED"),
+                new Scenario("5a000000000000000000000000000007", "/api/scenarios/user?access_token=sk_demo_123", null,
+                        "SECRET_IN_URL"));
+
+        for (Scenario scenario : scenarios) {
+            HttpRequest.Builder request = HttpRequest.newBuilder(uri(scenario.path()))
+                    .header("traceparent", "00-" + scenario.traceId() + "-" + BROWSER_SPAN_ID + "-01");
+            if (scenario.authorization() != null) {
+                request.header("Authorization", scenario.authorization());
+            }
+            HttpClient.newHttpClient().send(request.GET().build(), HttpResponse.BodyHandlers.ofString());
+
+            // Wait for the server request span of this scenario's trace.
+            long deadline = System.nanoTime() + Duration.ofSeconds(10).toNanos();
+            while (store.get(scenario.traceId()).orElse(List.of()).stream().noneMatch(s -> s.kind() == SpanKind.REQUEST)
+                    && System.nanoTime() < deadline) {
+                Thread.sleep(100);
+            }
+            Thread.sleep(300); // let child spans (SQL, outbound call) arrive
+            String view = get("/causeline/api/traces/" + scenario.traceId(), null).body();
+            for (String rule : scenario.rules()) {
+                assertThat(view).as(scenario.path() + " should flag " + rule).contains("\"rule\":\"" + rule + "\"");
+            }
+            // The credential value itself is never in a finding label.
+            java.util.regex.Matcher labels = java.util.regex.Pattern.compile("\"label\":\"([^\"]*)\"").matcher(view);
+            while (labels.find()) {
+                assertThat(labels.group(1)).doesNotContain("demo-secret-xyz", "sk_demo_123", "hunter2");
+            }
+        }
+    }
+
+    private String dismiss(String json) throws Exception {
+        HttpRequest request = withToken("/causeline/api/security/dismiss")
+                .POST(HttpRequest.BodyPublishers.ofString(json)).build();
+        return HttpClient.newHttpClient().send(request, HttpResponse.BodyHandlers.ofString()).body();
+    }
+
+    @Test
     void secretsAreShownLocallyButRedactedInExports() throws Exception {
         String traceId = "9bf92f3577b34da6a3ce929d0e0e4736";
         HttpRequest request = HttpRequest.newBuilder(uri("/api/orders?coupon=SECRET-QUERY&token=SECRET-TOKEN"))

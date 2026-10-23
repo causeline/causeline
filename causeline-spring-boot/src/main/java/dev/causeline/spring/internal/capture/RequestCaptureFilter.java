@@ -5,6 +5,7 @@ import dev.causeline.spring.autoconfigure.CauselineProperties.Capture;
 import io.micrometer.observation.Observation;
 import io.micrometer.observation.ObservationFilter;
 import jakarta.servlet.http.HttpServletRequest;
+import jakarta.servlet.http.HttpServletResponse;
 import java.util.Collections;
 import java.util.LinkedHashMap;
 import java.util.List;
@@ -21,6 +22,7 @@ public final class RequestCaptureFilter implements ObservationFilter {
     public static final String QUERY = PREFIX + "url.query";
     public static final String PATH = PREFIX + "url.path";
     public static final String HEADER = PREFIX + "header.";
+    public static final String RESPONSE_HEADER = PREFIX + "response.header.";
     public static final String BODY = PREFIX + "request.body";
     public static final String RESPONSE_BODY = PREFIX + "response.body";
 
@@ -44,6 +46,15 @@ public final class RequestCaptureFilter implements ObservationFilter {
         }
         details.addTo(context, headers, request.getQueryString(),
                 request.getRequestURI().substring(request.getContextPath().length()));
+        // Filters run when the observation stops, so the response headers are final.
+        HttpServletResponse response = server.getResponse();
+        if (response != null) {
+            Map<String, List<String>> responseHeaders = new LinkedHashMap<>();
+            for (String name : response.getHeaderNames()) {
+                responseHeaders.putIfAbsent(name, List.copyOf(response.getHeaders(name)));
+            }
+            details.addResponseHeaders(context, responseHeaders);
+        }
         return context;
     }
 

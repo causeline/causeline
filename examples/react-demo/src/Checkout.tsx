@@ -96,6 +96,93 @@ export function Checkout() {
       <p style={{ color: '#666', fontSize: 14 }}>
         Then open the <code>Causeline UI:</code> link from the backend log to see the trace.
       </p>
+
+      <SecurityScenarios />
     </main>
+  );
+}
+
+/** Each button makes one deliberately-insecure request so a Causeline security check fires on it. */
+const SCENARIOS: { label: string; owasp: string; run: () => Promise<Response> }[] = [
+  {
+    label: 'Request value built into SQL',
+    owasp: 'A05',
+    run: () => fetch(`/api/scenarios/search?item=${encodeURIComponent('limited-edition-DEMO')}`),
+  },
+  {
+    label: 'Secret returned in the response',
+    owasp: 'A04',
+    run: () => fetch('/api/scenarios/user'),
+  },
+  {
+    label: 'Credential written to a log',
+    owasp: 'A09',
+    run: () => fetch('/api/scenarios/login', { headers: { Authorization: 'Bearer demo-secret-token-abc123' } }),
+  },
+  {
+    label: 'Insecure session cookie',
+    owasp: 'A07',
+    run: () => fetch('/api/scenarios/login'),
+  },
+  {
+    label: 'Server version + permissive CORS',
+    owasp: 'A02',
+    run: () => fetch('/api/scenarios/legacy'),
+  },
+  {
+    label: 'Request steers an outbound call (SSRF)',
+    owasp: 'A10',
+    run: () => fetch(`/api/scenarios/fetch?resource=${encodeURIComponent('internal-metadata-service')}`),
+  },
+  {
+    label: 'Stack trace in the response',
+    owasp: 'A10',
+    run: () => fetch('/api/scenarios/boom'),
+  },
+  {
+    label: 'Secret in the URL',
+    owasp: 'A04',
+    run: () => fetch(`/api/scenarios/user?access_token=${encodeURIComponent('sk_demo_123')}`),
+  },
+];
+
+function SecurityScenarios() {
+  const [ran, setRan] = useState<string>();
+
+  const fire = (scenario: (typeof SCENARIOS)[number]) =>
+    trace(`Security: ${scenario.label}`, async () => {
+      try {
+        await scenario.run();
+      } catch {
+        // The point is the captured trace, not the response.
+      }
+      setRan(scenario.label);
+    });
+
+  return (
+    <fieldset style={{ marginTop: 24, borderColor: '#d33' }}>
+      <legend style={{ color: '#d33' }}>Security test scenarios</legend>
+      <p style={{ color: '#666', fontSize: 14, marginTop: 0 }}>
+        Each button sends one deliberately-insecure request (dev only), so a Causeline security check fires on its trace.
+        Open the trace and the <strong>Try security checks</strong> guide to see them.
+      </p>
+      <div style={{ display: 'grid', gap: 6 }}>
+        {SCENARIOS.map((scenario) => (
+          <button
+            key={scenario.label}
+            onClick={() => void fire(scenario)}
+            style={{ textAlign: 'left', padding: '6px 10px' }}
+          >
+            <span style={{ fontFamily: 'monospace', color: '#d33', marginRight: 8 }}>{scenario.owasp}</span>
+            {scenario.label}
+          </button>
+        ))}
+      </div>
+      {ran && (
+        <p style={{ fontSize: 14 }}>
+          Ran “{ran}”. Open <code>/causeline/</code> and look at the newest trace.
+        </p>
+      )}
+    </fieldset>
   );
 }

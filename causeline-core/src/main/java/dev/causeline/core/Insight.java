@@ -36,6 +36,37 @@ public record Insight(Rule rule, String spanId, String label, int sharePercent) 
         /** One component rendered five or more times during one action. */
         RENDER_STORM,
         /** State was set after its component had unmounted: a request or timer outlived it. */
-        STATE_UPDATE_AFTER_UNMOUNT
+        STATE_UPDATE_AFTER_UNMOUNT,
+        // Security rules (PRD section 7), named after their OWASP Top 10:2025 category in the label.
+        /** A05 Injection: a request value appears as a literal in the prepared SQL of the same request. */
+        REQUEST_VALUE_IN_SQL,
+        /** A02 Security Misconfiguration: nosniff, CSP or frame protection missing from a response. */
+        MISSING_SECURITY_HEADERS,
+        /** A02: X-Powered-By, or a Server header with a version number. */
+        SERVER_VERSION_DISCLOSED,
+        /** A02: any origin (or "null") allowed together with credentials. */
+        PERMISSIVE_CORS,
+        /** A07 Authentication Failures: a session-like cookie without HttpOnly or SameSite. */
+        INSECURE_SESSION_COOKIE,
+        /** A07: a bearer JWT that is unsigned or never expires. */
+        WEAK_JWT,
+        /** A04 Cryptographic Failures: a password, token or key in a URL's query string. */
+        SECRET_IN_URL,
+        /** A10 Mishandling of Exceptional Conditions: a stack trace or SQL error in a response body. */
+        ERROR_DETAILS_EXPOSED,
+        /** A09 Logging & Monitoring Failures: a credential from the request appears in a log line. */
+        SECRET_IN_LOG,
+        /** A04 Cryptographic Failures: a secret-looking field in a response body. */
+        SENSITIVE_FIELD_IN_RESPONSE,
+        /** SSRF (A10): a request value appears in the URL of an outbound call the server made. */
+        REQUEST_VALUE_IN_OUTBOUND_URL;
+
+        private static final java.util.Set<Rule> SECURITY = java.util.EnumSet.range(REQUEST_VALUE_IN_SQL,
+                REQUEST_VALUE_IN_OUTBOUND_URL);
+
+        /** True for the rules that are security checks (PRD section 7), named after their OWASP category. */
+        public boolean isSecurity() {
+            return SECURITY.contains(this);
+        }
     }
 }

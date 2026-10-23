@@ -2,12 +2,14 @@
 package dev.causeline.spring.internal.replay;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 import com.sun.net.httpserver.Headers;
 import com.sun.net.httpserver.HttpServer;
 import dev.causeline.core.TraceStore;
 import dev.causeline.spring.autoconfigure.TestProperties;
 import java.net.InetSocketAddress;
+import java.net.URI;
 import java.nio.charset.StandardCharsets;
 import java.util.HashMap;
 import java.util.Map;
@@ -24,6 +26,7 @@ class ReplayServiceTest {
 
     private final AtomicReference<Headers> received = new AtomicReference<>();
     private final AtomicReference<String> body = new AtomicReference<>();
+    private final AtomicReference<URI> uri = new AtomicReference<>();
     private HttpServer target;
     private final ReplayStore records = new ReplayStore(10);
 
@@ -32,6 +35,7 @@ class ReplayServiceTest {
         target = HttpServer.create(new InetSocketAddress("localhost", 0), 0);
         target.createContext("/", exchange -> {
             received.set(exchange.getRequestHeaders());
+            uri.set(exchange.getRequestURI());
             body.set(new String(exchange.getRequestBody().readAllBytes(), StandardCharsets.UTF_8));
             exchange.sendResponseHeaders(201, -1);
             exchange.close();
@@ -74,6 +78,83 @@ class ReplayServiceTest {
         assertThat(received.get().containsKey("Authorization")).isFalse();
         assertThat(received.get().containsKey("Cookie")).isFalse();
         assertThat(received.get().getFirst("X-Tenant-Id")).isEqualTo("acme");
+    }
+
+    @Test
+    void sendsTheEditedPathQueryHeadersAndBody() {
+        Map<String, String> headers = new java.util.LinkedHashMap<>();
+        headers.put("Authorization", "Bearer eyJhbGciOiJub25lIn0.eyJzdWIiOiJhZGEifQ.");
+        headers.put("Content-Type", "application/json");
+        // Causeline and HTTP control these; an edit can't set them.
+        headers.put("Host", "evil.example");
+        headers.put("traceparent", "00-11111111111111111111111111111111-2222222222222222-01");
+        headers.put("X-Causeline-Replay", "forged");
+
+        replay(Map.of()).replay(TRACE, SPAN, "qa", true, "{\"item\":\"book\"}",
+                new ReplayService.Edits("/api/orders/42", "access_token=abc", headers));
+
+        assertThat(uri.get().getPath()).isEqualTo("/api/orders/42");
+        assertThat(uri.get().getQuery()).isEqualTo("access_token=abc");
+        assertThat(received.get().getFirst("Authorization")).startsWith("Bearer eyJhbGciOiJub25l");
+        // Edited headers replace the captured set as a whole.
+        assertThat(received.get().containsKey("Cookie")).isFalse();
+        assertThat(received.get().containsKey("X-Tenant-Id")).isFalse();
+        assertThat(received.get().getFirst("Host")).startsWith("localhost:");
+        assertThat(received.get().getFirst("traceparent")).doesNotContain("1111111111");
+        assertThat(received.get().getFirst("X-Causeline-Replay")).isEqualTo(TRACE);
+        assertThat(body.get()).isEqualTo("{\"item\":\"book\"}");
+    }
+
+    @Test
+    void anEmptyQueryRemovesTheQueryString() {
+        replay(Map.of()).replay(TRACE, SPAN, "qa", true, null, new ReplayService.Edits(null, "", null));
+
+        assertThat(uri.get().getQuery()).isNull();
+        assertThat(received.get().getFirst("X-Tenant-Id")).isEqualTo("acme");
+    }
+
+    @Test
+    void editsCanNeverLeaveTheTargetsBaseUrl() {
+        ReplayService service = replay(Map.of());
+        for (String path : java.util.List.of("@evil.example/x", "//evil.example/x", "/x?y=1", "/x#y", "/a b",
+                "/x\\y", "evil")) {
+            assertThatThrownBy(() -> service.replay(TRACE, SPAN, "qa", true, null,
+                    new ReplayService.Edits(path, null, null)))
+                    .as(path).isInstanceOf(ReplayService.ReplayException.class);
+        }
+        assertThatThrownBy(() -> service.replay(TRACE, SPAN, "qa", true, null,
+                new ReplayService.Edits(null, "a=1#frag", null))).isInstanceOf(ReplayService.ReplayException.class);
+        assertThat(uri.get()).isNull();
+    }
+
+    @Test
+    void headerEditsMustBeValidSingleLines() {
+        ReplayService service = replay(Map.of());
+        assertThatThrownBy(() -> service.replay(TRACE, SPAN, "qa", true, null,
+                new ReplayService.Edits(null, null, Map.of("Bad Name", "x"))))
+                .isInstanceOf(ReplayService.ReplayException.class).hasMessageContaining("header name");
+        assertThatThrownBy(() -> service.replay(TRACE, SPAN, "qa", true, null,
+                new ReplayService.Edits(null, null, Map.of("X-Ok", "a\r\nX-Injected: 1"))))
+                .isInstanceOf(ReplayService.ReplayException.class).hasMessageContaining("single line");
+        assertThat(received.get()).isNull();
+    }
+
+    @Test
+    void withheldCredentialsAreOnlyTheOriginalOnes() {
+        Map<String, String> headers = Map.of("Authorization", "Bearer typed-by-developer", "Cookie", "SESSION=abc");
+
+        replay(Map.of("replay.send-original-credentials", "false")).replay(TRACE, SPAN, "qa", true, null,
+                new ReplayService.Edits(null, null, headers));
+
+        assertThat(received.get().getFirst("Authorization")).isEqualTo("Bearer typed-by-developer");
+        assertThat(received.get().containsKey("Cookie")).isFalse();
+    }
+
+    @Test
+    void unsafeEditedRequestsStillNeedConfirmation() {
+        assertThatThrownBy(() -> replay(Map.of()).replay(TRACE, SPAN, "qa", false, null,
+                new ReplayService.Edits("/api/orders/42", null, null)))
+                .isInstanceOf(ReplayService.ReplayException.class).hasMessageContaining("Confirm");
     }
 
     private ReplayService replay(Map<String, String> settings) {

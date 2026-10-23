@@ -35,6 +35,10 @@ import java.util.function.IntSupplier;
  *       {@code Idempotency-Key} so the server treats it as a new request;</li>
  *   <li>refuses unsafe methods unless the caller confirmed the side effects.</li>
  * </ol>
+ *
+ * <p>The developer may change the path, query string, headers and body first ({@link Edits}). The
+ * request still goes only to the target's base URL: edits are checked so they can't change the
+ * host, and Causeline's own headers ({@code traceparent}, {@value #REPLAY_HEADER}) are always set.
  */
 public final class ReplayService {
 
@@ -97,7 +101,13 @@ public final class ReplayService {
      * @param bodyOverride a body typed by the developer, used when none was captured; may be null
      */
     public Outcome replay(String traceId, String spanId, String targetName, boolean confirmed, String bodyOverride) {
-        return replay(traceId, spanId, targetName, confirmed, bodyOverride, Map.of(), TIMEOUT, id -> { });
+        return replay(traceId, spanId, targetName, confirmed, bodyOverride, Edits.NONE);
+    }
+
+    /** @param edits the developer's changes to the path, query and headers */
+    public Outcome replay(String traceId, String spanId, String targetName, boolean confirmed, String bodyOverride,
+            Edits edits) {
+        return replay(traceId, spanId, targetName, confirmed, bodyOverride, edits, Map.of(), TIMEOUT, id -> { });
     }
 
     /**
@@ -105,8 +115,9 @@ public final class ReplayService {
      *
      * @throws ReplayException with the reason it can't
      */
-    public void check(String traceId, String spanId, String targetName, boolean confirmed, String bodyOverride) {
-        checked(traceId, spanId, targetName, confirmed, bodyOverride);
+    public void check(String traceId, String spanId, String targetName, boolean confirmed, String bodyOverride,
+            Edits edits) {
+        checked(traceId, spanId, targetName, confirmed, bodyOverride, edits);
     }
 
     /**
@@ -115,21 +126,22 @@ public final class ReplayService {
      * @param started      receives the replay's trace ID just before the request is sent
      */
     public Outcome replay(String traceId, String spanId, String targetName, boolean confirmed, String bodyOverride,
-            Map<String, String> extraHeaders, Duration timeout, java.util.function.Consumer<String> started) {
-        Checked checked = checked(traceId, spanId, targetName, confirmed, bodyOverride);
+            Edits edits, Map<String, String> extraHeaders, Duration timeout,
+            java.util.function.Consumer<String> started) {
+        Checked checked = checked(traceId, spanId, targetName, confirmed, bodyOverride, edits);
         ReplayRecord record = checked.record();
         Target target = checked.target();
         byte[] body = checked.body();
 
         String replayTraceId = randomHex(16);
-        HttpRequest.Builder request = HttpRequest.newBuilder(uri(target, record))
+        HttpRequest.Builder request = HttpRequest.newBuilder(checked.uri())
                 .timeout(timeout)
                 .method(record.method(), body == null
                         ? HttpRequest.BodyPublishers.noBody()
                         : HttpRequest.BodyPublishers.ofByteArray(body));
         Map<String, String> auth = authHeaders(targetName, target.auth());
-        record.headers().forEach((name, value) -> {
-            boolean credential = SensitiveData.isCredentialHeader(name);
+        headersToSend(record, edits).forEach((name, value) -> {
+            boolean credential = SensitiveData.isCredentialHeader(name) && isOriginal(record, name, value);
             boolean replacedByTarget = auth.keySet().stream().anyMatch(name::equalsIgnoreCase);
             boolean replacedHere = name.equalsIgnoreCase("Idempotency-Key");
             if ((sendOriginalCredentials || !credential) && !replacedByTarget && !replacedHere
@@ -162,7 +174,28 @@ public final class ReplayService {
         }
     }
 
-    private Checked checked(String traceId, String spanId, String targetName, boolean confirmed, String bodyOverride) {
+    /** The original headers, or the developer's edited set, without those Causeline or HTTP itself controls. */
+    private static Map<String, String> headersToSend(ReplayRecord record, Edits edits) {
+        Map<String, String> headers = new LinkedHashMap<>();
+        (edits.headers() == null ? record.headers() : edits.headers()).forEach((name, value) -> {
+            if (!CapturedBodies.NOT_REPLAYED.contains(name.toLowerCase(java.util.Locale.ROOT))) {
+                headers.put(name, value);
+            }
+        });
+        return headers;
+    }
+
+    /**
+     * With {@code send-original-credentials=false}, only the user's own credentials are withheld: a
+     * value the developer typed in an edit is theirs to send.
+     */
+    private static boolean isOriginal(ReplayRecord record, String name, String value) {
+        return record.headers().entrySet().stream()
+                .anyMatch(h -> h.getKey().equalsIgnoreCase(name) && h.getValue().equals(value));
+    }
+
+    private Checked checked(String traceId, String spanId, String targetName, boolean confirmed, String bodyOverride,
+            Edits edits) {
         ReplayRecord record = records.get(traceId, spanId).orElseThrow(() -> new ReplayException(404,
                 "Nothing captured to replay this request. It may be older than the replay buffer."));
         Target target = targets.get(targetName);
@@ -173,7 +206,8 @@ public final class ReplayService {
             throw new ReplayException(409, "Replaying " + record.method() + " " + record.path() + " on " + targetName
                     + " repeats its side effects. Confirm to continue.");
         }
-        if (record.queryMissing()) {
+        edits.validate();
+        if (record.queryMissing() && edits.query() == null) {
             throw new ReplayException(422, "The original query string was not captured. "
                     + "Set causeline.capture.request-body=replay-only to replay requests with query parameters.");
         }
@@ -182,10 +216,10 @@ public final class ReplayService {
             throw new ReplayException(422, "The original body was not captured. Paste a body to replay, "
                     + "or set causeline.capture.request-body=replay-only.");
         }
-        return new Checked(record, target, body);
+        return new Checked(record, target, body, uri(target, targetName, record, edits));
     }
 
-    private record Checked(ReplayRecord record, Target target, byte[] body) {
+    private record Checked(ReplayRecord record, Target target, byte[] body, URI uri) {
     }
 
     /** Reads a trace recorded by a remote target's Causeline, as raw JSON. */
@@ -211,9 +245,23 @@ public final class ReplayService {
         }
     }
 
-    private URI uri(Target target, ReplayRecord record) {
+    private URI uri(Target target, String targetName, ReplayRecord record, Edits edits) {
         String base = SELF.equals(target.baseUrl()) ? "http://localhost:" + localPort.getAsInt() : stripSlash(target.baseUrl());
-        return URI.create(base + record.path() + (record.query() == null ? "" : "?" + record.query()));
+        String path = edits.path() != null ? edits.path() : record.path();
+        String query = edits.query() != null ? (edits.query().isEmpty() ? null : edits.query()) : record.query();
+        URI uri;
+        try {
+            uri = URI.create(base + path + (query == null ? "" : "?" + query));
+        } catch (IllegalArgumentException e) {
+            throw new ReplayException(400, "That path or query string is not a valid URL: " + e.getMessage());
+        }
+        // Whatever was typed, the request must go to the target's own scheme, host and port.
+        URI baseUri = URI.create(base);
+        if (!java.util.Objects.equals(uri.getScheme(), baseUri.getScheme())
+                || !java.util.Objects.equals(uri.getHost(), baseUri.getHost()) || uri.getPort() != baseUri.getPort()) {
+            throw new ReplayException(400, "The edited request would leave " + targetName + "'s base URL.");
+        }
+        return uri;
     }
 
     private Map<String, String> authHeaders(String targetName, Auth auth) {
@@ -247,6 +295,57 @@ public final class ReplayService {
             random.nextBytes(buffer);
         } while (HexFormat.of().formatHex(buffer).matches("0+"));
         return HexFormat.of().formatHex(buffer);
+    }
+
+    /**
+     * Changes the developer made to a request before replaying it. A null field leaves that part as
+     * captured; an empty query removes the query string. {@code headers} replaces the captured
+     * headers as a whole.
+     */
+    public record Edits(String path, String query, Map<String, String> headers) {
+
+        public static final Edits NONE = new Edits(null, null, null);
+
+        /** RFC 9110 token characters. */
+        private static final java.util.regex.Pattern HEADER_NAME =
+                java.util.regex.Pattern.compile("[!#$%&'*+.^_`|~0-9A-Za-z-]+");
+        private static final int MAX_HEADERS = 100;
+        private static final int MAX_CHARS = 8_192;
+
+        public Edits {
+            headers = headers == null ? null : java.util.Collections.unmodifiableMap(new LinkedHashMap<>(headers));
+        }
+
+        void validate() {
+            if (path != null && (!path.startsWith("/") || path.startsWith("//") || path.length() > 2_048
+                    || hasAny(path, " ?#\\") || hasControl(path))) {
+                throw new ReplayException(400, "The path must start with a single / and contain no spaces, ?, # or \\.");
+            }
+            if (query != null && (query.length() > MAX_CHARS || hasAny(query, " #") || hasControl(query))) {
+                throw new ReplayException(400, "The query string must contain no spaces or #; encode them (%20, %23).");
+            }
+            if (headers != null) {
+                if (headers.size() > MAX_HEADERS) {
+                    throw new ReplayException(400, "At most " + MAX_HEADERS + " headers can be sent.");
+                }
+                headers.forEach((name, value) -> {
+                    if (name == null || !HEADER_NAME.matcher(name).matches()) {
+                        throw new ReplayException(400, "'" + name + "' is not a valid header name.");
+                    }
+                    if (value == null || value.length() > MAX_CHARS || hasControl(value)) {
+                        throw new ReplayException(400, "The value of " + name + " must be a single line.");
+                    }
+                });
+            }
+        }
+
+        private static boolean hasAny(String value, String characters) {
+            return value.chars().anyMatch(c -> characters.indexOf(c) >= 0);
+        }
+
+        private static boolean hasControl(String value) {
+            return value.chars().anyMatch(c -> c < 0x20 || c == 0x7f);
+        }
     }
 
     /**

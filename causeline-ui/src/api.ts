@@ -87,7 +87,18 @@ export type InsightRule =
   | 'TRANSACTION_ACROSS_CALL'
   | 'REQUEST_WATERFALL'
   | 'RENDER_STORM'
-  | 'STATE_UPDATE_AFTER_UNMOUNT';
+  | 'STATE_UPDATE_AFTER_UNMOUNT'
+  | 'REQUEST_VALUE_IN_SQL'
+  | 'MISSING_SECURITY_HEADERS'
+  | 'SERVER_VERSION_DISCLOSED'
+  | 'PERMISSIVE_CORS'
+  | 'INSECURE_SESSION_COOKIE'
+  | 'WEAK_JWT'
+  | 'SECRET_IN_URL'
+  | 'ERROR_DETAILS_EXPOSED'
+  | 'SECRET_IN_LOG'
+  | 'SENSITIVE_FIELD_IN_RESPONSE'
+  | 'REQUEST_VALUE_IN_OUTBOUND_URL';
 
 export interface Insight {
   rule: InsightRule;
@@ -303,8 +314,17 @@ export const fetchReplayTargets =(token: string | undefined) => send<ReplayTarge
 export const fetchReplayable = (traceId: string, token: string | undefined) =>
   send<Replayable[]>('GET', `/traces/${encodeURIComponent(traceId)}/replayable`, token);
 
+/** Changes to a captured request before it is replayed; a missing field keeps what was captured. */
+export interface RequestEdits {
+  path?: string;
+  /** "" removes the query string. */
+  query?: string;
+  /** Replaces the captured headers as a whole. */
+  headers?: Record<string, string>;
+}
+
 export const replay = (
-  request: { traceId: string; spanId: string; target: string; confirm: boolean; body?: string },
+  request: { traceId: string; spanId: string; target: string; confirm: boolean; body?: string } & RequestEdits,
   token: string | undefined,
 ) => send<ReplayOutcome>('POST', '/replays', token, request);
 
@@ -314,6 +334,30 @@ export const fetchComparison = (
 ) => send<Comparison>('GET', `/replays/compare?${new URLSearchParams(query).toString()}`, token);
 
 export const fetchTraces = (token: string | undefined): Promise<TraceSummary[]> => getJson('/traces', token);
+
+/** One security rule's reach across all stored traces. */
+export interface SecurityRuleGroup {
+  rule: InsightRule;
+  traces: number;
+  endpoints: number;
+  example: string;
+  exampleTraceId: string;
+}
+
+export interface SecurityOverview {
+  tracesScanned: number;
+  rules: SecurityRuleGroup[];
+  dismissed: SecurityRuleGroup[];
+}
+
+export const fetchSecurityOverview = (token: string | undefined): Promise<SecurityOverview> =>
+  getJson('/security', token);
+
+export const dismissSecurityRule = (
+  rule: InsightRule,
+  dismissed: boolean,
+  token: string | undefined,
+): Promise<SecurityOverview> => send<SecurityOverview>('POST', '/security/dismiss', token, { rule, dismissed });
 
 export const fetchTrace = (traceId: string, token: string | undefined): Promise<TraceView> =>
   getJson(`/traces/${encodeURIComponent(traceId)}`, token);
@@ -390,7 +434,7 @@ export interface ReplaySession {
 
 /** Starts a replay of this application that stops at the chosen steps (span IDs of the original). */
 export const startReplaySession = (
-  request: { traceId: string; spanId: string; confirm: boolean; body?: string; breakpoints: string[] },
+  request: { traceId: string; spanId: string; confirm: boolean; body?: string; breakpoints: string[] } & RequestEdits,
   token: string | undefined,
 ) => send<ReplaySession>('POST', '/replay-sessions', token, { ...request, target: 'local' });
 

@@ -93,6 +93,23 @@ public final class TraceAssert {
         return this;
     }
 
+    /**
+     * No security check fired on this trace (PRD section 7): no secret in a URL or log, no missing
+     * security header, no unsigned JWT, and so on. Once a finding is fixed, this keeps it from
+     * coming back. The labels name the request and field, never a captured value, so they are safe
+     * in a build log.
+     */
+    public TraceAssert hasNoSecurityFindings() {
+        List<String> findings = trace.insights().stream()
+                .filter(insight -> insight.rule().isSecurity())
+                .map(Insight::label)
+                .toList();
+        if (!findings.isEmpty()) {
+            throw failure("Expected no security findings but found " + findings.size() + ":", findings);
+        }
+        return this;
+    }
+
     /** A span with this name exists, for example {@code "OrderService.createOrder"}. */
     public TraceAssert hasSpan(String name) {
         return hasSpans(name);

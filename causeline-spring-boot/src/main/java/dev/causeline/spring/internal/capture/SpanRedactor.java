@@ -29,6 +29,7 @@ public class SpanRedactor {
     };
 
     private static final String HEADER_PREFIX = "http.request.header.";
+    private static final String RESPONSE_HEADER_PREFIX = "http.response.header.";
 
     private final SensitiveData sensitive;
 
@@ -47,6 +48,13 @@ public class SpanRedactor {
         if (key.startsWith(HEADER_PREFIX)) {
             return SensitiveData.isCredentialHeader(key.substring(HEADER_PREFIX.length())) ? SensitiveData.REDACTED : value;
         }
+        if (key.startsWith(RESPONSE_HEADER_PREFIX)) {
+            String name = key.substring(RESPONSE_HEADER_PREFIX.length());
+            if (name.equals("set-cookie")) {
+                return redactCookieValues(value);
+            }
+            return SensitiveData.isCredentialHeader(name) ? SensitiveData.REDACTED : value;
+        }
         return switch (key) {
             case "url.query" -> redactQuery(value);
             case "url.full" -> redactUrl(value);
@@ -59,6 +67,21 @@ public class SpanRedactor {
                     : value;
             default -> value;
         };
+    }
+
+    /** Keeps each cookie's name and attributes (HttpOnly, SameSite…), which the security rules read, but not its value. */
+    static String redactCookieValues(String setCookies) {
+        StringJoiner out = new StringJoiner("\n");
+        for (String cookie : setCookies.split("\n")) {
+            int eq = cookie.indexOf('=');
+            int semi = cookie.indexOf(';');
+            if (eq < 0 || (semi >= 0 && semi < eq)) {
+                out.add(SensitiveData.REDACTED);
+            } else {
+                out.add(cookie.substring(0, eq + 1) + SensitiveData.REDACTED + (semi < 0 ? "" : cookie.substring(semi)));
+            }
+        }
+        return out.toString();
     }
 
     private String redactUrl(String url) {

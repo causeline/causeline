@@ -61,6 +61,8 @@ public class CauselineApiController {
     private Status.Upstream upstream = Status.Upstream.disabled();
     private final SpanRedactor redactor;
     private final Set<String> imported = ConcurrentHashMap.newKeySet();
+    /** Security rules the developer has dismissed for this session; the overview leaves them out. */
+    private final Set<String> dismissedRules = ConcurrentHashMap.newKeySet();
     /**
      * EXPLAIN waits on the database and the contract check on the network, so they run here rather than on a request thread (or, in
      * WebFlux, on the event loop). It is started by hand from the UI, so a thread per call is fine.
@@ -162,6 +164,63 @@ public class CauselineApiController {
         }
         hits.sort(Comparator.comparingLong(SearchHit::startTimeUnixNano).reversed());
         return hits.size() > SearchHit.MAX_TRACES ? hits.subList(0, SearchHit.MAX_TRACES) : hits;
+    }
+
+    /**
+     * Security findings across every stored trace, grouped by rule (PRD section 7): how many traces
+     * and endpoints each rule fired on, with one example. Dismissed rules are listed apart. Labels
+     * carry no captured values, so this is safe to show.
+     */
+    @GetMapping("/security")
+    public SecurityOverview security() {
+        Map<String, List<SecurityFinding>> byRule = new java.util.LinkedHashMap<>();
+        for (List<Span> spans : store.snapshot()) {
+            TraceView view = TraceAssembler.assemble(spans.getFirst().traceId(), spans);
+            String endpoint = view.name();
+            view.insights().stream()
+                    .filter(insight -> insight.rule().isSecurity())
+                    .forEach(insight -> byRule.computeIfAbsent(insight.rule().name(), k -> new ArrayList<>())
+                            .add(new SecurityFinding(view.traceId(), endpoint, insight.label())));
+        }
+        List<SecurityRuleGroup> active = new ArrayList<>();
+        List<SecurityRuleGroup> dismissed = new ArrayList<>();
+        byRule.forEach((rule, findings) -> {
+            long endpoints = findings.stream().map(SecurityFinding::endpoint).distinct().count();
+            SecurityRuleGroup group = new SecurityRuleGroup(rule, findings.size(), (int) endpoints,
+                    findings.get(0).label(), findings.get(0).traceId());
+            (dismissedRules.contains(rule) ? dismissed : active).add(group);
+        });
+        Comparator<SecurityRuleGroup> byReach = Comparator.comparingInt(SecurityRuleGroup::traces).reversed();
+        active.sort(byReach);
+        dismissed.sort(byReach);
+        return new SecurityOverview(store.size(), active, dismissed);
+    }
+
+    /** Hides a rule from the overview (a dev-session choice), or shows it again. */
+    @PostMapping("/security/dismiss")
+    public SecurityOverview dismiss(@RequestBody DismissRequest request) {
+        if (request.rule() != null) {
+            if (request.dismissed()) {
+                dismissedRules.add(request.rule());
+            } else {
+                dismissedRules.remove(request.rule());
+            }
+        }
+        return security();
+    }
+
+    public record SecurityOverview(int tracesScanned, List<SecurityRuleGroup> rules, List<SecurityRuleGroup> dismissed) {
+    }
+
+    /** @param example one finding's label, as a sample of what this rule says */
+    public record SecurityRuleGroup(String rule, int traces, int endpoints, String example, String exampleTraceId) {
+    }
+
+    private record SecurityFinding(String traceId, String endpoint, String label) {
+    }
+
+    /** @param dismissed true to hide the rule, false to show it again */
+    public record DismissRequest(String rule, boolean dismissed) {
     }
 
     /** Where an application class's source file is, so the UI can open it in the editor. Paths only. */

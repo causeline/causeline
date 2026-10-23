@@ -4,6 +4,7 @@ package dev.causeline.examples.checkout;
 import java.util.Map;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
+import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RestController;
@@ -20,6 +21,12 @@ class FakePaymentController {
 
     FakePaymentController(DemoSettings settings) {
         this.settings = settings;
+    }
+
+    /** A harmless target for the SSRF scenario's outbound call (see SecurityScenariosController). */
+    @GetMapping("/fake-payment/ping/**")
+    Map<String, String> ping() {
+        return Map.of("status", "pong");
     }
 
     @PostMapping("/fake-payment/charge")

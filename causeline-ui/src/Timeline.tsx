@@ -17,6 +17,7 @@ import { EDITORS, openInEditor, useEditor } from './editor';
 import type { Editor } from './editor';
 import { formatClock, formatDuration, percent } from './format';
 import { ComparisonTable, ReplayPanel, ResponseChanges } from './ReplayPanel';
+import { SecurityGuide, SecurityGuideButton, isSecurityRule } from './SecurityGuide';
 import { capturedRequest, toCurl, toFetch, toHttpie, toMockMvcTest, toWebTestClientTest, traceGuard } from './snippets';
 import { SLOW_FACTOR, slowdown } from './TraceList';
 
@@ -37,7 +38,9 @@ const KIND_LABEL: Record<SpanKind, string> = {
   CACHE: 'Cache',
 };
 
-const INSIGHT_STYLE: Record<Insight['rule'], { accent: string; tag: string }> = {
+const SECURITY_HINT = 'A rule-based hint from the captured traffic, not a security scan';
+
+const INSIGHT_STYLE: Record<Insight['rule'], { accent: string; tag: string; security?: boolean }> = {
   PRIMARY_BOTTLENECK: { accent: 'bg-signal', tag: 'Bottleneck' },
   NOTABLE: { accent: 'bg-warn', tag: 'Notable' },
   REPEATED_QUERY: { accent: 'bg-warn', tag: 'Repeated query' },
@@ -49,6 +52,18 @@ const INSIGHT_STYLE: Record<Insight['rule'], { accent: string; tag: string }> = 
   REQUEST_WATERFALL: { accent: 'bg-browser', tag: 'Waterfall' },
   RENDER_STORM: { accent: 'bg-browser', tag: 'Re-renders' },
   STATE_UPDATE_AFTER_UNMOUNT: { accent: 'bg-browser', tag: 'After unmount' },
+  // Tagged with the OWASP Top 10:2025 category the label names.
+  REQUEST_VALUE_IN_SQL: { accent: 'bg-error', tag: 'Security · A05', security: true },
+  MISSING_SECURITY_HEADERS: { accent: 'bg-error', tag: 'Security · A02', security: true },
+  SERVER_VERSION_DISCLOSED: { accent: 'bg-error', tag: 'Security · A02', security: true },
+  PERMISSIVE_CORS: { accent: 'bg-error', tag: 'Security · A02', security: true },
+  INSECURE_SESSION_COOKIE: { accent: 'bg-error', tag: 'Security · A07', security: true },
+  WEAK_JWT: { accent: 'bg-error', tag: 'Security · A07', security: true },
+  SECRET_IN_URL: { accent: 'bg-error', tag: 'Security · A04', security: true },
+  ERROR_DETAILS_EXPOSED: { accent: 'bg-error', tag: 'Security · A10', security: true },
+  SECRET_IN_LOG: { accent: 'bg-error', tag: 'Security · A09', security: true },
+  SENSITIVE_FIELD_IN_RESPONSE: { accent: 'bg-error', tag: 'Security · A04', security: true },
+  REQUEST_VALUE_IN_OUTBOUND_URL: { accent: 'bg-error', tag: 'Security · A10', security: true },
 };
 
 const isBrowser = (span: SpanRow) => span.source === 'browser';
@@ -120,6 +135,7 @@ export function Timeline({
 }) {
   const total = Math.max(trace.durationNanos, 1);
   const [selectedId, setSelectedId] = useState<string>();
+  const [guideOpen, setGuideOpen] = useState(false);
   const [placement, setPlacement] = useDetailPlacement();
   const [editor, setEditor] = useEditor();
   const [comparing, setComparing] = useState(false);
@@ -273,6 +289,7 @@ export function Timeline({
         traceId={trace.traceId}
         token={token}
         spans={trace.spans}
+        onOpenTrace={onOpenTrace}
         capturedBodies={Object.fromEntries(
           trace.spans
             .filter((s) => s.attributes['http.request.body'] !== undefined && s.source !== 'browser')
@@ -290,12 +307,24 @@ export function Timeline({
                 className="panel group relative flex w-full items-start gap-3 overflow-hidden p-3 pl-4 text-left text-sm transition-colors hover:border-ink/40"
               >
                 <span aria-hidden className={`absolute top-0 bottom-0 left-0 w-1 ${INSIGHT_STYLE[insight.rule].accent}`} />
-                <span className="eyebrow shrink-0 pt-0.5">{INSIGHT_STYLE[insight.rule].tag}</span>
+                <span
+                  className="eyebrow shrink-0 pt-0.5"
+                  title={INSIGHT_STYLE[insight.rule].security ? SECURITY_HINT : undefined}
+                >
+                  {INSIGHT_STYLE[insight.rule].tag}
+                </span>
                 <span className="text-ink-2 group-hover:text-ink">{insight.label}</span>
               </button>
             </li>
           ))}
         </ul>
+      )}
+      {trace.insights.some((insight) => isSecurityRule(insight.rule)) && (
+        <div className="flex items-center gap-2 px-6 pt-2 text-xs text-muted">
+          <SecurityGuideButton onClick={() => setGuideOpen(true)} label="About security checks" />
+          <span>Try a case with Replay → Edit the request.</span>
+          <SecurityGuide open={guideOpen} onClose={() => setGuideOpen(false)} token={token} />
+        </div>
       )}
 
       <div className="panel mx-6 mt-5 overflow-hidden">

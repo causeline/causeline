@@ -59,6 +59,20 @@ class SpanRedactorTest {
     }
 
     @Test
+    void keepsCookieFlagsButNotCookieValuesOnTheWayOut() {
+        Span exported = redactor.redact(span(Map.of(
+                "http.response.header.set-cookie", "JSESSIONID=s3cr3t; Path=/; HttpOnly\nflag",
+                "http.response.header.x-auth-token", "t0k3n",
+                "http.response.header.content-type", "text/html")));
+
+        assertThat(exported.attributes())
+                .containsEntry("http.response.header.set-cookie", "JSESSIONID=[REDACTED]; Path=/; HttpOnly\n[REDACTED]")
+                .containsEntry("http.response.header.x-auth-token", "[REDACTED]")
+                .containsEntry("http.response.header.content-type", "text/html");
+        assertThat(exported.attributes().toString()).doesNotContain("s3cr3t", "t0k3n");
+    }
+
+    @Test
     void redactsResponseBodiesLikeRequestBodies() {
         Map<String, String> out = redactor.redact(span(Map.of(
                 "http.response.body", "{\"orderId\":1,\"accessToken\":\"eyJ-secret\"}"))).attributes();

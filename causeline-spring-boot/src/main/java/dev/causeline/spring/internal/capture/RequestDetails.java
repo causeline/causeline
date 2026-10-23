@@ -68,6 +68,25 @@ public final class RequestDetails {
         }
     }
 
+    /**
+     * Response headers, for the security rules (PRD section 7). The same settings as request
+     * headers apply: {@code headers.enabled} and {@code headers.block}.
+     */
+    public void addResponseHeaders(Observation.Context context, Map<String, List<String>> headerValues) {
+        if (!headers) {
+            return;
+        }
+        headerValues.forEach((name, values) -> {
+            String lower = name.toLowerCase(Locale.ROOT);
+            if (!blockedHeaders.contains(lower)) {
+                // Set-Cookie must not be folded with commas: cookie dates contain them.
+                String separator = lower.equals("set-cookie") ? "\n" : ", ";
+                context.addHighCardinalityKeyValue(KeyValue.of(RequestCaptureFilter.RESPONSE_HEADER + lower,
+                        truncate(String.join(separator, values))));
+            }
+        });
+    }
+
     /** Values of blocked keys, and of keys listed in redact-keys, become [REDACTED]. */
     String blockQueryValues(String queryString) {
         StringJoiner out = new StringJoiner("&");
