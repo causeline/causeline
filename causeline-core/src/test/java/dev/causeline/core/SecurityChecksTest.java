@@ -244,7 +244,7 @@ class SecurityChecksTest {
         assertThat(security(rows)).singleElement().satisfies(i -> {
             assertThat(i.rule()).isEqualTo(Rule.REQUEST_VALUE_IN_OUTBOUND_URL);
             assertThat(i.spanId()).isEqualTo("c");
-            assertThat(i.label()).contains("query callbackUrl", "A10");
+            assertThat(i.label()).contains("query callbackUrl", "A01");
         });
     }
 

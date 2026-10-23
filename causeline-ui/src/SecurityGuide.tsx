@@ -2,6 +2,8 @@
 import { useEffect, useRef, useState } from 'react';
 import { dismissSecurityRule, fetchSecurityOverview } from './api';
 import type { InsightRule, SecurityOverview } from './api';
+import { PROBES } from './probes';
+import type { ProbeId } from './probes';
 import type { RequestDraft } from './ReplayPanel';
 
 /** Insight rules that are security checks (PRD section 7), each with its OWASP Top 10:2025 category. */
@@ -16,12 +18,15 @@ export const SECURITY_RULES: Partial<Record<InsightRule, string>> = {
   ERROR_DETAILS_EXPOSED: 'A10',
   SECRET_IN_LOG: 'A09',
   SENSITIVE_FIELD_IN_RESPONSE: 'A04',
-  REQUEST_VALUE_IN_OUTBOUND_URL: 'A10',
+  REQUEST_VALUE_IN_OUTBOUND_URL: 'A01',
 };
 
 export const isSecurityRule = (rule: InsightRule) => rule in SECURITY_RULES;
 
 export type PresetId = 'token-in-url' | 'unsigned-jwt' | 'no-credentials' | 'malformed-body';
+
+/** What the guide can set up in the replay form: a ready-made change, or a probe that needs your input. */
+export type TryId = PresetId | ProbeId;
 
 /**
  * A plain verdict after a replay of a security case: what the HTTP status says about the app. For
@@ -111,7 +116,7 @@ interface Check {
   /** The fix. */
   fix: string;
   /** How to see it: a preset to fill in, or a note when every trace is checked anyway. */
-  tryIt: { preset: PresetId; note: string } | { note: string };
+  tryIt: { preset: TryId; note: string } | { note: string };
 }
 
 const CHECKS: Check[] = [
@@ -148,6 +153,42 @@ const CHECKS: Check[] = [
     tryIt: { preset: 'malformed-body', note: 'Sends a broken body, so you see what your error response gives away.' },
   },
   {
+    owasp: PROBES.idor.owasp,
+    title: 'Another ID (IDOR)',
+    looksFor:
+      'Active probe: replays the request with a different ID in the path, query or body. A 2xx with a different record means nothing checks who owns each object.',
+    why: 'Anyone who can guess or count up IDs can read, or change, other people’s data.',
+    fix: 'Check ownership on every object access: compare the record’s owner with the caller, not just that the caller is logged in.',
+    tryIt: { preset: 'idor', note: 'You type the other ID. Use one you know belongs to someone else.' },
+  },
+  {
+    owasp: PROBES['mass-assignment'].owasp,
+    title: 'Extra field (mass assignment)',
+    looksFor:
+      'Active probe: replays the request with a field you name added to the JSON body. If its value shows up bound in an INSERT or UPDATE, the client controls a field it should not.',
+    why: 'A caller can set role, isAdmin, price or status — fields never meant to be client-writable.',
+    fix: 'Bind requests to a DTO that lists only the allowed fields, or whitelist them. Never bind the raw request map or entity.',
+    tryIt: { preset: 'mass-assignment', note: 'You type the field name. Needs a JSON body, and causeline.capture.sql=full to see the SQL.' },
+  },
+  {
+    owasp: PROBES['open-redirect'].owasp,
+    title: 'Redirect elsewhere (open redirect)',
+    looksFor:
+      'Active probe: replays the request with a redirect parameter pointing at a test address. If the response redirects there, the app can send users to another site.',
+    why: 'Attackers put a trusted domain in front of a link that lands on a phishing page.',
+    fix: 'Allow only relative paths, or check the target against an allowlist of hosts.',
+    tryIt: { preset: 'open-redirect', note: 'You type the parameter name (next, returnUrl, redirect…). The test address is a reserved .invalid host.' },
+  },
+  {
+    owasp: PROBES['auth-boundary'].owasp,
+    title: 'Without a header (auth boundary)',
+    looksFor:
+      'Active probe: replays the request without a tenant, role or scope header you name. If the answer is the same, the server ignores it.',
+    why: 'A header the server doesn’t enforce gives a false sense of access control.',
+    fix: 'Derive tenant and role from the authenticated identity on the server, and reject requests that disagree with it.',
+    tryIt: { preset: 'auth-boundary', note: 'You type the header name (X-Tenant-Id, X-Role…).' },
+  },
+  {
     owasp: 'A05',
     title: 'Request value written into SQL',
     looksFor: 'A query, path or body value that appears in the prepared SQL text: concatenated, not bound.',
@@ -156,7 +197,7 @@ const CHECKS: Check[] = [
     tryIt: { note: 'Change a search term or filter value in the query or body, then replay and look for this finding.' },
   },
   {
-    owasp: 'A10',
+    owasp: 'A01',
     title: 'Request value steers an outbound call',
     looksFor: 'A request value that appears in the URL of an outbound HTTP call the server then made (SSRF).',
     why: 'A caller who controls that value can make your server fetch an address of their choosing, including internal ones.',
@@ -213,7 +254,7 @@ export function SecurityGuide({
   open: boolean;
   onClose: () => void;
   /** Set where a replay can be edited; without it the guide only explains. */
-  onTry?: (preset: PresetId) => void;
+  onTry?: (preset: TryId) => void;
   canEditBody?: boolean;
   /** When set, the guide loads the across-all-traces overview and lets rules be dismissed. */
   token?: string;
@@ -291,6 +332,8 @@ export function SecurityGuide({
           <p className="mt-2 text-sm text-ink-2">
             To try a case, pick <strong>Fill in</strong>: the replay form is filled with that change, you review it and
             click <strong>Replay now</strong>. The replay gets its own trace, and the result shows what the checks found.
+            The <strong>active probes</strong> need one thing from you (an ID, a field name, a header): <strong>Set up
+            probe</strong> opens them in the replay form. Each probe is one request that you send yourself, never a scan.
           </p>
         )}
 
@@ -300,7 +343,9 @@ export function SecurityGuide({
         <ul className="mt-2 space-y-2">
           {CHECKS.map((check) => {
             const preset = 'preset' in check.tryIt ? check.tryIt.preset : undefined;
-            const usable = preset !== undefined && onTry && (preset !== 'malformed-body' || canEditBody);
+            const needsBody = preset === 'malformed-body' || preset === 'mass-assignment';
+            const usable = preset !== undefined && onTry && (!needsBody || canEditBody);
+            const isProbe = preset !== undefined && preset in PROBES;
             return (
               <li key={check.title} className="rounded-xl border border-line-soft bg-paper-2/60 p-3">
                 <div className="flex items-start gap-3">
@@ -325,7 +370,7 @@ export function SecurityGuide({
                       }}
                       className="btn shrink-0"
                     >
-                      Fill in
+                      {isProbe ? 'Set up probe' : 'Fill in'}
                     </button>
                   )}
                 </div>

@@ -54,11 +54,11 @@ public record Insight(Rule rule, String spanId, String label, int sharePercent) 
         SECRET_IN_URL,
         /** A10 Mishandling of Exceptional Conditions: a stack trace or SQL error in a response body. */
         ERROR_DETAILS_EXPOSED,
-        /** A09 Logging & Monitoring Failures: a credential from the request appears in a log line. */
+        /** A09 Security Logging & Alerting Failures: a credential from the request appears in a log line. */
         SECRET_IN_LOG,
         /** A04 Cryptographic Failures: a secret-looking field in a response body. */
         SENSITIVE_FIELD_IN_RESPONSE,
-        /** SSRF (A10): a request value appears in the URL of an outbound call the server made. */
+        /** SSRF (A01 Broken Access Control): a request value appears in the URL of an outbound call the server made. */
         REQUEST_VALUE_IN_OUTBOUND_URL;
 
         private static final java.util.Set<Rule> SECURITY = java.util.EnumSet.range(REQUEST_VALUE_IN_SQL,

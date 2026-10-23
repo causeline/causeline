@@ -220,7 +220,7 @@ OTLP export sends Causeline's stored spans, never Spring's raw spans, with secre
   - *Error details sent to the client* (A10): a stack trace or SQL error in a response body.
   - *Secret written to a log* (A09): a credential from the request appears in a log line of the same trace.
   - *Secret in the response* (A04): a response field named like a secret (password, passwordHash, ssn) with a real value.
-  - *Request value steers an outbound call* (A10, SSRF): a request value appears in the URL of an outbound call the server made.
+  - *Request value steers an outbound call* (A01, SSRF): a request value appears in the URL of an outbound call the server made.
   - These last three use what only Causeline sees — the logs, outbound calls and response of one whole trace — so they catch things an outside scanner can't.
   - Findings name the request, field, header or cookie, never the captured value. Response headers are captured for these rules under the same `capture.headers` settings as request headers; exports keep cookie flags but redact cookie values.
 - **Frontend problems:** *request waterfall* (GET requests of one action that ran one after another and could start together), *re-render storm* (a `CauselineProfiler` tree that rendered five or more times in one action) and *state update after unmount* (a `useTracedState` setter called after its component was gone).
@@ -302,7 +302,15 @@ Open a trace and use **Replay…** to send the captured request again, to this a
 
 Guard a fix in a test with `TraceAssert.hasNoSecurityFindings()` (see below), so a finding you fixed fails the build if it comes back.
 
-The demo has a **Security test scenarios** panel: each button sends one deliberately-insecure request (dev profile only) so a check fires on its trace — a value built into SQL (A05), a secret returned in the response (A04), a credential written to a log (A09), an insecure session cookie (A07), a server version and permissive CORS (A02), a request value steering an outbound call (SSRF, A10), a stack trace in the response (A10), and a secret in the URL (A04). Click a few, then open the guide to see them grouped in the overview.
+The demo has a **Security test scenarios** panel with a **Probe targets** block for the active probes (a customer record, a profile update, a sign-in redirect and tenant data). Its scenario buttons: each button sends one deliberately-insecure request (dev profile only) so a check fires on its trace — a value built into SQL (A05), a secret returned in the response (A04), a credential written to a log (A09), an insecure session cookie (A07), a server version and permissive CORS (A02), a request value steering an outbound call (SSRF, A01), a stack trace in the response (A10), and a secret in the URL (A04). Click a few, then open the guide to see them grouped in the overview.
+
+**Active probes.** In the replay form, **Active probe** changes one thing in the request and tells you what the replay revealed. You type the input, and press **Replay now** yourself; each probe is one request, never a scan.
+- *Another ID (IDOR):* you type the other ID (and where it goes, if it isn't the first path variable). A 2xx with a different response means nothing checks who owns each object.
+- *Extra field (mass assignment):* you type a field name, such as `role` or `isAdmin`. If its value reaches an INSERT or UPDATE, the client controls a field it should not. Needs a JSON body and `causeline.capture.sql=full`.
+- *Redirect elsewhere (open redirect):* you type the redirect parameter, such as `next`. The target is a reserved `.invalid` address; a `Location` pointing at it is the finding.
+- *Without a header (auth boundary):* you type a header, such as `X-Tenant-Id`. The same answer without it means the server ignores it.
+
+A refusal (401, 403, 4xx) is reported as good news. The evidence is the replay's trace, so verdicts are for replays to this application (`local`); other targets show the HTTP status. The guide's **Set up probe** buttons open a probe in the form.
 
 **Edit the request first.** Tick "Edit the request before sending" to change the path, query string, headers or body. The form starts from what was captured; only what you change differs from the original. Use it to try a fix or a different value, or to see how your app handles a request without `Authorization` or with a token in the URL. The replay gets its own trace, with the usual insights and security hints. The edited request still goes only to the chosen target: the host can't be changed, and `Host`, `traceparent` and Causeline's replay header are always set by Causeline.
 

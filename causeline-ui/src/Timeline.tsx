@@ -63,7 +63,7 @@ const INSIGHT_STYLE: Record<Insight['rule'], { accent: string; tag: string; secu
   ERROR_DETAILS_EXPOSED: { accent: 'bg-error', tag: 'Security · A10', security: true },
   SECRET_IN_LOG: { accent: 'bg-error', tag: 'Security · A09', security: true },
   SENSITIVE_FIELD_IN_RESPONSE: { accent: 'bg-error', tag: 'Security · A04', security: true },
-  REQUEST_VALUE_IN_OUTBOUND_URL: { accent: 'bg-error', tag: 'Security · A10', security: true },
+  REQUEST_VALUE_IN_OUTBOUND_URL: { accent: 'bg-error', tag: 'Security · A01', security: true },
 };
 
 const isBrowser = (span: SpanRow) => span.source === 'browser';

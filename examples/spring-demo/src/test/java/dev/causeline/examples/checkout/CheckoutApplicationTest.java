@@ -380,6 +380,54 @@ class CheckoutApplicationTest {
         }
     }
 
+    @Test
+    void theProbeTargetsLeaveTheEvidenceTheVerdictsReadFrom() throws Exception {
+        String parent = "-" + BROWSER_SPAN_ID + "-01";
+
+        // IDOR: any ID is answered, and an edited replay with another ID returns another record.
+        String idor = "6a000000000000000000000000000001";
+        assertThat(get("/api/scenarios/customers/1001", "00-" + idor + parent).body()).contains("Ada Lovelace");
+        Span original = awaitSpans(idor, List.of(SpanKind.REQUEST)).stream()
+                .filter(s -> s.kind() == SpanKind.REQUEST).findFirst().orElseThrow();
+        assertThat(original.attributes().get("http.response.body")).contains("Ada Lovelace");
+
+        HttpRequest replay = withToken("/causeline/api/replays")
+                .POST(HttpRequest.BodyPublishers.ofString("{\"traceId\":\"" + idor + "\",\"spanId\":\"" + original.spanId()
+                        + "\",\"target\":\"local\",\"confirm\":false,\"path\":\"/api/scenarios/customers/1002\"}"))
+                .build();
+        String outcome = HttpClient.newHttpClient().send(replay, HttpResponse.BodyHandlers.ofString()).body();
+        assertThat(outcome).contains("\"httpStatus\":200");
+        String replayTrace = java.util.regex.Pattern.compile("\"replayTraceId\":\"([0-9a-f]{32})\"").matcher(outcome)
+                .results().findFirst().orElseThrow().group(1);
+        Span replayed = awaitSpans(replayTrace, List.of(SpanKind.REQUEST)).stream()
+                .filter(s -> s.kind() == SpanKind.REQUEST).findFirst().orElseThrow();
+        assertThat(replayed.attributes().get("http.response.body")).contains("Grace Hopper").doesNotContain("Ada Lovelace");
+
+        // Mass assignment: the client's value is bound in the UPDATE, which is what the verdict looks for.
+        String mass = "6a000000000000000000000000000002";
+        assertThat(post("/api/scenarios/customers/1001/update", "{\"role\":\"causeline-probe\"}", "00-" + mass + parent)
+                .statusCode()).isEqualTo(200);
+        List<Span> massSpans = awaitSpans(mass, List.of(SpanKind.REQUEST, SpanKind.DATABASE));
+        assertThat(massSpans).filteredOn(s -> s.kind() == SpanKind.DATABASE && s.name().startsWith("UPDATE"))
+                .anyMatch(s -> s.attributes().getOrDefault("db.query.parameters", "").contains("causeline-probe"));
+
+        // Open redirect: the response redirects where the request said, and Causeline records the header.
+        String redirect = "6a000000000000000000000000000003";
+        String target = "https://causeline-probe.invalid/landing";
+        HttpResponse<String> redirected = get("/api/scenarios/redirect?next=" + java.net.URLEncoder.encode(target,
+                java.nio.charset.StandardCharsets.UTF_8), "00-" + redirect + parent);
+        assertThat(redirected.statusCode()).isEqualTo(302);
+        assertThat(redirected.headers().firstValue("Location")).contains(target);
+        assertThat(awaitSpans(redirect, List.of(SpanKind.REQUEST)).stream().filter(s -> s.kind() == SpanKind.REQUEST)
+                .findFirst().orElseThrow().attributes()).containsEntry("http.response.header.location", target);
+
+        // Auth boundary: the answer is the same with and without the tenant header.
+        HttpRequest withHeader = HttpRequest.newBuilder(uri("/api/scenarios/tenant-data")).header("X-Tenant-Id", "acme").GET().build();
+        HttpRequest without = HttpRequest.newBuilder(uri("/api/scenarios/tenant-data")).GET().build();
+        assertThat(HttpClient.newHttpClient().send(without, HttpResponse.BodyHandlers.ofString()).body())
+                .isEqualTo(HttpClient.newHttpClient().send(withHeader, HttpResponse.BodyHandlers.ofString()).body());
+    }
+
     private String dismiss(String json) throws Exception {
         HttpRequest request = withToken("/causeline/api/security/dismiss")
                 .POST(HttpRequest.BodyPublishers.ofString(json)).build();

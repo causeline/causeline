@@ -131,7 +131,7 @@ const SCENARIOS: { label: string; owasp: string; run: () => Promise<Response> }[
   },
   {
     label: 'Request steers an outbound call (SSRF)',
-    owasp: 'A10',
+    owasp: 'A01',
     run: () => fetch(`/api/scenarios/fetch?resource=${encodeURIComponent('internal-metadata-service')}`),
   },
   {
@@ -146,10 +146,35 @@ const SCENARIOS: { label: string; owasp: string; run: () => Promise<Response> }[
   },
 ];
 
+/** Requests the active probes work on: open the trace, then Try security checks > Set up probe. */
+const PROBE_TARGETS: { label: string; probe: string; run: () => Promise<Response> }[] = [
+  { label: 'Customer record', probe: 'try another ID (IDOR)', run: () => fetch('/api/scenarios/customers/1001') },
+  {
+    label: 'Update profile',
+    probe: 'try an extra field such as role (mass assignment)',
+    run: () =>
+      fetch('/api/scenarios/customers/1001/update', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ name: 'Ada Lovelace' }),
+      }),
+  },
+  {
+    label: 'Sign-in redirect',
+    probe: 'try another site in next (open redirect)',
+    run: () => fetch('/api/scenarios/redirect?next=%2Fhome', { redirect: 'manual' }),
+  },
+  {
+    label: 'Tenant data',
+    probe: 'try without X-Tenant-Id (auth boundary)',
+    run: () => fetch('/api/scenarios/tenant-data', { headers: { 'X-Tenant-Id': 'acme' } }),
+  },
+];
+
 function SecurityScenarios() {
   const [ran, setRan] = useState<string>();
 
-  const fire = (scenario: (typeof SCENARIOS)[number]) =>
+  const fire = (scenario: { label: string; run: () => Promise<Response> }) =>
     trace(`Security: ${scenario.label}`, async () => {
       try {
         await scenario.run();
@@ -175,6 +200,21 @@ function SecurityScenarios() {
           >
             <span style={{ fontFamily: 'monospace', color: '#d33', marginRight: 8 }}>{scenario.owasp}</span>
             {scenario.label}
+          </button>
+        ))}
+      </div>
+      <p style={{ color: '#666', fontSize: 14, marginBottom: 6 }}>
+        <strong>Probe targets.</strong> Send one, open its trace, then use <strong>Try security checks → Set up probe</strong>.
+      </p>
+      <div style={{ display: 'grid', gap: 6 }}>
+        {PROBE_TARGETS.map((target) => (
+          <button
+            key={target.label}
+            onClick={() => void fire(target)}
+            style={{ textAlign: 'left', padding: '6px 10px' }}
+          >
+            <span style={{ fontFamily: 'monospace', color: '#d33', marginRight: 8 }}>probe</span>
+            {target.label} <span style={{ color: '#666' }}>— {target.probe}</span>
           </button>
         ))}
       </div>

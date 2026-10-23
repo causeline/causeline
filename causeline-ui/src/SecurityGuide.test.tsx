@@ -2,7 +2,7 @@
 import { renderToString } from 'react-dom/server';
 import { describe, expect, it } from 'vitest';
 import { SecurityFindings } from './ReplayPanel';
-import { PRESETS, SecurityGuide, isSecurityRule, replayVerdict } from './SecurityGuide';
+import { PRESETS, SECURITY_RULES, SecurityGuide, isSecurityRule, replayVerdict } from './SecurityGuide';
 
 const captured = {
   draft: {
@@ -55,6 +55,26 @@ describe('SecurityGuide', () => {
     expect(renderToString(<SecurityGuide open={false} onClose={() => {}} />)).not.toContain('Fill in');
     const noBody = renderToString(<SecurityGuide open={false} onClose={() => {}} onTry={() => {}} canEditBody={false} />);
     expect(noBody.match(/<button[^>]*>Fill in</g)).toHaveLength(3);
+  });
+
+  it('lists the active probes, which need your input, apart from the ready-made cases', () => {
+    const html = renderToString(<SecurityGuide open={false} onClose={() => {}} onTry={() => {}} />);
+
+    expect(html).toContain('Another ID (IDOR)');
+    expect(html).toContain('Extra field (mass assignment)');
+    expect(html).toContain('Redirect elsewhere (open redirect)');
+    expect(html).toContain('Without a header (auth boundary)');
+    expect(html).toContain('never a scan');
+    expect(html.match(/<button[^>]*>Set up probe</g)).toHaveLength(4);
+    // Mass assignment adds a field to a body, so it is not offered for a request without one.
+    const noBody = renderToString(<SecurityGuide open={false} onClose={() => {}} onTry={() => {}} canEditBody={false} />);
+    expect(noBody.match(/<button[^>]*>Set up probe</g)).toHaveLength(3);
+    expect(renderToString(<SecurityGuide open={false} onClose={() => {}} />)).not.toContain('Set up probe');
+  });
+
+  it('files server-side request forgery under broken access control, as OWASP 2025 does', () => {
+    expect(SECURITY_RULES.REQUEST_VALUE_IN_OUTBOUND_URL).toBe('A01');
+    expect(SECURITY_RULES.ERROR_DETAILS_EXPOSED).toBe('A10');
   });
 
   it('knows which insight rules are security checks, new ones included', () => {

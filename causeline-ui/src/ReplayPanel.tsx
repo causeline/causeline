@@ -28,7 +28,9 @@ import { responseDiffs } from './bodyDiff';
 import type { ResponseDiff } from './bodyDiff';
 import { formatDuration } from './format';
 import { PRESETS, SECURITY_RULES, SecurityGuide, SecurityGuideButton, isSecurityRule, replayVerdict as verdict } from './SecurityGuide';
-import type { PresetId } from './SecurityGuide';
+import type { TryId } from './SecurityGuide';
+import { PROBES, PROBE_IDS, applyProbe, defaultParams, isProbe, originalOf, paramsError, probeVerdict, summarizeReplay } from './probes';
+import type { OriginalResponse, ProbeId, ProbeParams, ProbeVerdict } from './probes';
 
 const COMPARE_TIMEOUT_MS = 10_000;
 
@@ -62,7 +64,7 @@ export function ReplayPanel({
   const [chosenSpanId, setChosenSpanId] = useState<string>();
   const [guideOpen, setGuideOpen] = useState(false);
   // The count makes choosing the same case twice apply it again.
-  const [preset, setPreset] = useState<{ id: PresetId; count: number }>();
+  const [preset, setPreset] = useState<{ id: TryId; count: number }>();
 
   useEffect(() => {
     let cancelled = false;
@@ -139,6 +141,7 @@ export function ReplayPanel({
           targets={targets}
           capturedBody={capturedBodies[request.spanId]}
           captured={draftFrom(spans.find((s) => s.spanId === request.spanId))}
+          original={originalOf(spans.find((s) => s.spanId === request.spanId))}
           steps={pausableSteps(spans, request.spanId)}
           preset={preset}
           onShowGuide={() => setGuideOpen(true)}
@@ -174,6 +177,8 @@ export interface RequestDraft {
   query: string;
   /** One "Name: value" per line. */
   headers: string;
+  /** The route template (`/api/orders/{id}`), which says where a path variable sits. */
+  route?: string;
 }
 
 export function draftFrom(span: SpanRow | undefined): RequestDraft {
@@ -183,7 +188,7 @@ export function draftFrom(span: SpanRow | undefined): RequestDraft {
     .map(([key, value]) => [key.slice('http.request.header.'.length), value] as [string, string])
     .filter(([name]) => !NOT_EDITABLE.has(name))
     .map(([name, value]) => `${name}: ${value}`);
-  return { path: a['url.path'], query: a['url.query'] ?? '', headers: headers.join('\n') };
+  return { path: a['url.path'], query: a['url.query'] ?? '', headers: headers.join('\n'), route: a['http.route'] };
 }
 
 /** Reads "Name: value" lines; blank lines are skipped. */
@@ -253,6 +258,7 @@ function ReplayForm({
   targets,
   capturedBody,
   captured,
+  original,
   steps,
   preset,
   onShowGuide,
@@ -264,9 +270,11 @@ function ReplayForm({
   targets: ReplayTarget[];
   capturedBody?: string;
   captured: RequestDraft;
+  /** What the original request answered, to compare a probe's replay with. */
+  original: OriginalResponse;
   steps: SpanRow[];
   /** A security case chosen in the guide, to fill into the form. */
-  preset?: { id: PresetId; count: number };
+  preset?: { id: TryId; count: number };
   onShowGuide: () => void;
   onOpenTrace?: (traceId: string) => void;
 }) {
@@ -278,18 +286,44 @@ function ReplayForm({
   const [body, setBody] = useState(capturedBody ?? '');
   const [draft, setDraft] = useState<RequestDraft>(captured);
   const [filledIn, setFilledIn] = useState<string>();
+  // The probe being set up, and the one last applied to the request: the verdict is about the latter.
+  const [probe, setProbe] = useState<{ id: ProbeId; params: ProbeParams }>();
+  const [applied, setApplied] = useState<{ id: ProbeId; params: ProbeParams }>();
+  const [probeError, setProbeError] = useState<string>();
 
   useEffect(() => {
     if (!preset) {
       return;
     }
-    const next = PRESETS[preset.id].apply({ draft, body });
     setEditing(true);
+    if (isProbe(preset.id)) {
+      // A probe needs input first (an ID, a field, a header), so it is set up here, not applied at once.
+      setProbe({ id: preset.id, params: defaultParams(preset.id) });
+      setProbeError(undefined);
+      return;
+    }
+    const next = PRESETS[preset.id].apply({ draft, body });
     setDraft(next.draft);
     setBody(next.body);
     setFilledIn(PRESETS[preset.id].label);
     // eslint-disable-next-line react-hooks/exhaustive-deps -- applies each choice once, to the form as it is then
   }, [preset?.count]);
+
+  const applyCurrentProbe = () => {
+    if (!probe) {
+      return;
+    }
+    const result = applyProbe(probe.id, probe.params, { draft, body });
+    if ('error' in result) {
+      setProbeError(result.error);
+      return;
+    }
+    setProbeError(undefined);
+    setDraft(result.draft);
+    setBody(result.body);
+    setApplied(probe);
+    setFilledIn(`Probe: ${PROBES[probe.id].label}`);
+  };
   const sendBody = request.bodyMissing || (editing && body !== (capturedBody ?? ''));
   const [phase, setPhase] = useState<Phase>({ kind: 'idle' });
   const chosen = targets.find((t) => t.name === target);
@@ -307,6 +341,8 @@ function ReplayForm({
     (request.unsafe && !confirmed) ||
     (pausing && breakpoints.length === 0);
   const canPause = target === 'local' && steps.length > 0;
+  const presetVerdict =
+    phase.kind === 'done' && preset && !isProbe(preset.id) ? verdict(preset.id, phase.outcome.httpStatus) : undefined;
 
   const finish = async (outcome: ReplayOutcome, edited?: string[], paused?: boolean) => {
     setPhase({ kind: 'comparing', outcome });
@@ -465,6 +501,68 @@ function ReplayForm({
               className="mt-1 w-full rounded-lg border border-line bg-paper-2 p-3 font-mono text-[12px] text-ink focus:border-ink/50 focus:outline-none"
             />
           </label>
+          <div aria-label="Security probe" className="space-y-2 rounded-lg border border-error/30 bg-error/5 p-3">
+            <div className="flex flex-wrap items-center gap-2">
+              <span className="eyebrow text-error">Active probe</span>
+              <select
+                aria-label="Probe"
+                value={probe?.id ?? ''}
+                onChange={(e) => {
+                  const id = e.target.value;
+                  setProbe(isProbe(id) ? { id, params: defaultParams(id) } : undefined);
+                  setProbeError(undefined);
+                }}
+                className="rounded-lg border border-line bg-paper-2 px-2 py-1 text-[12px] text-ink"
+              >
+                <option value="">None</option>
+                {PROBE_IDS.map((id) => (
+                  <option key={id} value={id}>
+                    {PROBES[id].label}
+                  </option>
+                ))}
+              </select>
+              <button type="button" onClick={onShowGuide} className="text-xs text-muted underline underline-offset-2 hover:text-ink">
+                what is this?
+              </button>
+            </div>
+            {probe && (
+              <>
+                <p className="text-xs text-ink-2">{PROBES[probe.id].summary}</p>
+                {PROBES[probe.id].fields.map((field) => (
+                  <label key={field.key} className="flex items-center gap-2">
+                    <span className="w-20 shrink-0 text-xs text-muted">{field.label}</span>
+                    <input
+                      aria-label={`Probe ${field.label}`}
+                      value={probe.params[field.key] ?? ''}
+                      placeholder={field.placeholder}
+                      onChange={(e) => setProbe({ ...probe, params: { ...probe.params, [field.key]: e.target.value } })}
+                      spellCheck={false}
+                      className="w-full rounded-lg border border-line bg-paper-2 px-2 py-1 font-mono text-[12px] text-ink focus:border-ink/50 focus:outline-none"
+                    />
+                  </label>
+                ))}
+                {PROBES[probe.id].needsBody && !request.hasBody && (
+                  <p className="text-xs text-warn">This request has no body, so there is nothing to add a field to.</p>
+                )}
+                <div className="flex flex-wrap items-center gap-2">
+                  <button
+                    type="button"
+                    onClick={applyCurrentProbe}
+                    disabled={paramsError(probe.id, probe.params) !== undefined}
+                    className="btn disabled:cursor-not-allowed disabled:opacity-40"
+                  >
+                    Apply to the request
+                  </button>
+                  <span className="text-xs text-muted">One request, sent only when you press Replay now.</span>
+                </div>
+                {probeError && (
+                  <p role="alert" className="text-xs text-error">
+                    {probeError}
+                  </p>
+                )}
+              </>
+            )}
+          </div>
           {editError && (
             <p role="alert" className="text-xs text-error">
               {editError}
@@ -584,16 +682,15 @@ function ReplayForm({
               The replay's timings include the time it spent paused, so the steps from the pause onwards look slower.
             </p>
           )}
-          {preset && verdict(preset.id, phase.outcome.httpStatus) && (
-            <p
-              className={`rounded-lg border p-2.5 text-xs ${
-                verdict(preset.id, phase.outcome.httpStatus)!.tone === 'bad'
-                  ? 'border-error/40 bg-error/10 text-ink'
-                  : 'border-ok/40 bg-ok/10 text-ink-2'
-              }`}
-            >
-              {verdict(preset.id, phase.outcome.httpStatus)!.text}
-            </p>
+          {presetVerdict && <VerdictLine verdict={presetVerdict} />}
+          {applied && (
+            <ProbeResult
+              applied={applied}
+              outcome={phase.outcome}
+              original={original}
+              token={token}
+              local={target === 'local'}
+            />
           )}
           <ReplayResult outcome={phase.outcome} comparison={phase.comparison} token={token} />
           {chosen?.comparable && (
@@ -603,6 +700,76 @@ function ReplayForm({
       )}
     </div>
   );
+}
+
+const VERDICT_STYLE: Record<ProbeVerdict['tone'], string> = {
+  bad: 'border-error/40 bg-error/10 text-ink',
+  good: 'border-ok/40 bg-ok/10 text-ink-2',
+  info: 'border-line bg-paper-2 text-ink-2',
+};
+
+function VerdictLine({ verdict: result }: { verdict: ProbeVerdict }) {
+  return (
+    <p role="status" className={`rounded-lg border p-2.5 text-xs ${VERDICT_STYLE[result.tone]}`}>
+      {result.text}
+    </p>
+  );
+}
+
+/**
+ * What an active probe revealed. The replay's own trace holds the evidence (its response and the
+ * SQL it ran), so this reads it from the local store: only a replay to this application has one.
+ */
+function ProbeResult({
+  applied,
+  outcome,
+  original,
+  token,
+  local,
+}: {
+  applied: { id: ProbeId; params: ProbeParams };
+  outcome: ReplayOutcome;
+  original: OriginalResponse;
+  token: string | undefined;
+  local: boolean;
+}) {
+  const [result, setResult] = useState<ProbeVerdict>();
+
+  useEffect(() => {
+    if (!local) {
+      return undefined;
+    }
+    let cancelled = false;
+    void (async () => {
+      // The replay's spans arrive a moment after its response does.
+      for (let attempt = 0; attempt < 6 && !cancelled; attempt++) {
+        try {
+          const view = await fetchTrace(outcome.replayTraceId, token);
+          if (!cancelled) {
+            setResult(probeVerdict(applied.id, applied.params, outcome.httpStatus, original, summarizeReplay(view)));
+          }
+          return;
+        } catch {
+          await new Promise((resolve) => setTimeout(resolve, 400));
+        }
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [applied, outcome, original, token, local]);
+
+  if (!local) {
+    return (
+      <VerdictLine
+        verdict={{
+          tone: 'info',
+          text: `Probe "${PROBES[applied.id].label}" answered HTTP ${outcome.httpStatus}. A verdict needs the replay's trace, which only a replay to this application (local) has.`,
+        }}
+      />
+    );
+  }
+  return result ? <VerdictLine verdict={result} /> : <p className="text-xs text-muted">Reading the probe's trace…</p>;
 }
 
 /** What the security checks found on the replay's own trace, so the developer needn't go looking. */

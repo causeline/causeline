@@ -463,7 +463,7 @@ final class SecurityChecks {
                     continue;
                 }
                 insights.add(new Insight(Rule.SECRET_IN_LOG, log.spanId(),
-                        "Secret written to a log (OWASP A09 Logging & Monitoring Failures): " + String.join(", ", found)
+                        "Secret written to a log (OWASP A09 Security Logging & Alerting Failures): " + String.join(", ", found)
                                 + " from " + request.name() + " appears in a " + logName(log)
                                 + ". Logs reach files, aggregators and support tickets; never log credentials",
                         0));
@@ -570,7 +570,7 @@ final class SecurityChecks {
                     continue;
                 }
                 insights.add(new Insight(Rule.REQUEST_VALUE_IN_OUTBOUND_URL, call.spanId(),
-                        "Request value steers an outbound call (OWASP A10 Server-Side Request Forgery): " + String.join(", ", fields)
+                        "Request value steers an outbound call (OWASP A01 Broken Access Control, SSRF): " + String.join(", ", fields)
                                 + " from " + request.name() + " is in the URL of " + call.name()
                                 + ". A caller may be able to make the server fetch an address of their choosing;"
                                 + " validate it against an allowlist of hosts",

@@ -1,10 +1,13 @@
 // SPDX-License-Identifier: Apache-2.0
 package dev.causeline.examples.checkout;
 
+import jakarta.annotation.PostConstruct;
 import java.io.PrintWriter;
 import java.io.StringWriter;
+import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
+import java.util.stream.Collectors;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.context.annotation.Profile;
@@ -13,6 +16,9 @@ import org.springframework.http.HttpHeaders;
 import org.springframework.http.ResponseEntity;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.PathVariable;
+import org.springframework.web.bind.annotation.PostMapping;
+import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestHeader;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
@@ -40,6 +46,15 @@ class SecurityScenariosController {
         this.jdbc = jdbc;
         this.http = http;
         this.environment = environment;
+    }
+
+    /** Customers the probe targets work on; the table is created here because the demo has no schema file for it. */
+    @PostConstruct
+    void seedCustomers() {
+        jdbc.execute("CREATE TABLE IF NOT EXISTS demo_customers (id BIGINT PRIMARY KEY, name VARCHAR(100), "
+                + "email VARCHAR(100), role VARCHAR(100))");
+        jdbc.update("MERGE INTO demo_customers (id, name, email, role) KEY (id) VALUES (1001, 'Ada Lovelace', 'ada@example.com', 'customer')");
+        jdbc.update("MERGE INTO demo_customers (id, name, email, role) KEY (id) VALUES (1002, 'Grace Hopper', 'grace@example.com', 'customer')");
     }
 
     /**
@@ -92,7 +107,7 @@ class SecurityScenariosController {
     }
 
     /**
-     * SSRF (A10). The caller's value decides part of the URL the server then fetches. This demo
+     * SSRF (A01 Broken Access Control). The caller's value decides part of the URL the server then fetches. This demo
      * keeps the call on localhost so it is safe to run, but a real version taking a full URL would
      * let a caller reach internal addresses; Causeline flags the request value in the outbound URL.
      */
@@ -120,5 +135,53 @@ class SecurityScenariosController {
             e.printStackTrace(new PrintWriter(trace));
             return ResponseEntity.status(500).body(Map.of("error", "Internal error", "trace", trace.toString()));
         }
+    }
+    // ---- Probe targets: what the active probes (IDOR, mass assignment, open redirect, auth boundary) find ----
+
+    /**
+     * Broken access control (A01), probed by "Another ID". The record is returned for any ID: there
+     * is no check that the caller owns it, so changing 1001 to 1002 reads someone else's data.
+     */
+    @GetMapping("/customers/{id}")
+    ResponseEntity<Map<String, Object>> customer(@PathVariable("id") long id) {
+        List<Map<String, Object>> rows = jdbc.queryForList("SELECT id, name, email, role FROM demo_customers WHERE id = ?", id);
+        return rows.isEmpty() ? ResponseEntity.notFound().build() : ResponseEntity.ok(rows.get(0));
+    }
+
+    private static final List<String> COLUMNS = List.of("name", "email", "role");
+
+    /**
+     * Mass assignment (A01), probed by "Extra field". Every column the client names is written,
+     * including {@code role}, which only an administrator should be able to change. The values are
+     * bound, so this is not SQL injection; the flaw is that the client chooses which columns change.
+     */
+    @PostMapping("/customers/{id}/update")
+    Map<String, Object> update(@PathVariable("id") long id, @RequestBody Map<String, Object> changes) {
+        List<String> columns = changes.keySet().stream().filter(COLUMNS::contains).toList();
+        if (!columns.isEmpty()) {
+            List<Object> arguments = new ArrayList<>(columns.stream().map(changes::get).toList());
+            arguments.add(id);
+            jdbc.update("UPDATE demo_customers SET " + columns.stream().map(c -> c + " = ?").collect(Collectors.joining(", "))
+                    + " WHERE id = ?", arguments.toArray());
+        }
+        return customer(id).getBody();
+    }
+
+    /**
+     * Open redirect (A01), probed by "Redirect elsewhere". The target comes straight from the
+     * request, so a link on this site can send people to any other.
+     */
+    @GetMapping("/redirect")
+    ResponseEntity<Void> redirect(@RequestParam(value = "next", defaultValue = "/") String next) {
+        return ResponseEntity.status(302).header(HttpHeaders.LOCATION, next).build();
+    }
+
+    /**
+     * An auth boundary that isn't one (A01), probed by "Without a header". The tenant header is
+     * accepted but never checked against the caller, and the answer is the same without it.
+     */
+    @GetMapping("/tenant-data")
+    Map<String, Object> tenantData(@RequestHeader(value = "X-Tenant-Id", required = false) String tenant) {
+        return Map.of("invoices", List.of("INV-1", "INV-2"), "note", "the same for every tenant");
     }
 }
