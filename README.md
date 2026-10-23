@@ -4,7 +4,7 @@
 
 Causeline is an open-source, local-first developer tool. It follows one user action from a React click, through your Spring Boot controllers, services, repositories and outbound calls, and back to the React state update, and shows it all as one timeline. You can then replay a captured request against Local, Dev or QA and compare the two runs.
 
-> **Status: alpha (`0.1.0-alpha.1`).** Milestones 0.1 (timeline), 0.2 (diagnosis) and 0.3 (replay) work locally, on Spring MVC and WebFlux, with React or Next.js in front: a React click and the Spring Boot work it causes appear as one trace, with bottleneck and exception insights, and any captured request can be replayed and compared with the original. To try it in your own app, start with the [quick start](docs/QUICKSTART.md).
+> **Status: alpha (`0.1.0-alpha.2`).** Milestones 0.1 (timeline), 0.2 (diagnosis) and 0.3 (replay) work locally, on Spring MVC and WebFlux, with React or Next.js in front: a React click and the Spring Boot work it causes appear as one trace, with bottleneck and exception insights, and any captured request can be replayed and compared with the original. To try it in your own app, start with the [quick start](docs/QUICKSTART.md).
 
 ## Why
 
@@ -69,7 +69,7 @@ The token protects your traces and changes on every restart, unless you set `cau
 <dependency>
   <groupId>dev.causeline</groupId>
   <artifactId>causeline-spring-boot</artifactId>
-  <version>0.1.0-alpha.1</version>
+  <version>0.1.0-alpha.2</version>
 </dependency>
 ```
 
@@ -233,13 +233,13 @@ OTLP export sends Causeline's stored spans, never Spring's raw spans, with secre
 
 ### Guard it in a test
 
-What you saw in a trace can be kept as a JUnit 5 test, so it stays true after you close the browser. Add `causeline-test` in test scope (it ships with the release after `0.1.0-alpha.1`):
+What you saw in a trace can be kept as a JUnit 5 test, so it stays true after you close the browser. Add `causeline-test` in test scope:
 
 ```xml
 <dependency>
   <groupId>dev.causeline</groupId>
   <artifactId>causeline-test</artifactId>
-  <version>…</version>
+  <version>0.1.0-alpha.2</version>
   <scope>test</scope>
 </dependency>
 ```
