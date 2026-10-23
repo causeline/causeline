@@ -1,6 +1,6 @@
 {
   "name": "@causeline/next",
-  "version": "0.1.0-alpha.0",
+  "version": "0.1.0-alpha.1",
   "description": "Causeline for Next.js: puts route handlers, server actions, rendering and server-side fetches in the same trace as the React click and the Spring Boot request.",
   "license": "Apache-2.0",
   "author": "BGSudharma",
