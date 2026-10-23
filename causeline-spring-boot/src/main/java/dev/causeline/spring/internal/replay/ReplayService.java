@@ -75,7 +75,7 @@ public final class ReplayService {
 
     private static Map<String, Target> withLocal(Map<String, Target> configured) {
         Map<String, Target> all = new LinkedHashMap<>();
-        all.put(LOCAL_TARGET, new Target(SELF, new Auth(AuthType.NONE, null, null, null, null, null), null));
+        all.put(LOCAL_TARGET, new Target(SELF, new Auth(AuthType.NONE, null, null, null, null, null), null, true));
         all.putAll(configured);
         return Map.copyOf(all);
     }
@@ -95,6 +95,22 @@ public final class ReplayService {
 
     public Optional<ReplayRecord> record(String traceId, String spanId) {
         return records.get(traceId, spanId);
+    }
+
+    /** Every replayable request of a trace, in no particular order. */
+    public java.util.List<ReplayRecord> records(String traceId) {
+        return records.forTrace(traceId);
+    }
+
+    /** Whether load replay may send many requests to this target: {@code local}, or {@code allow-load: true}. */
+    public boolean allowsLoad(String targetName) {
+        Target target = targets.get(targetName);
+        return target != null && (SELF.equals(target.baseUrl()) || target.allowLoad());
+    }
+
+    /** Forgets the replay material captured from a replay's own request. */
+    public void forget(String replayTraceId) {
+        records.forget(replayTraceId);
     }
 
     /**

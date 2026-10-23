@@ -8,13 +8,19 @@ interface Settings {
   slowPayment: boolean;
   failPayment: boolean;
   flakyStock: boolean;
+  contendedPayment: boolean;
 }
 
 export function Checkout() {
   // useTracedState records *that* these changed during a traced action, never their values.
   const [loading, setLoading] = useTracedState('checkoutLoading', false);
   const [result, setResult] = useTracedState<Result>('checkoutResult', { kind: 'idle' });
-  const [settings, setSettings] = useState<Settings>({ slowPayment: true, failPayment: false, flakyStock: false });
+  const [settings, setSettings] = useState<Settings>({
+    slowPayment: true,
+    failPayment: false,
+    flakyStock: false,
+    contendedPayment: false,
+  });
 
   useEffect(() => {
     void fetch('/api/demo/settings')
@@ -75,6 +81,14 @@ export function Checkout() {
             onChange={(e) => void changeSetting({ failPayment: e.target.checked })}
           />{' '}
           Times out (checkout fails)
+        </label>
+        <label style={{ display: 'block' }}>
+          <input
+            type="checkbox"
+            checked={settings.contendedPayment}
+            onChange={(e) => void changeSetting({ contendedPayment: e.target.checked })}
+          />{' '}
+          Contended (one charge at a time: fine alone, slow under load; try a load replay)
         </label>
       </fieldset>
       <fieldset style={{ marginBottom: 16 }}>

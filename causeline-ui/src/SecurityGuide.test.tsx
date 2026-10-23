@@ -51,6 +51,16 @@ describe('SecurityGuide', () => {
     expect(html.match(/<button[^>]*>Fill in</g)).toHaveLength(4);
   });
 
+  it('walks through the checks, pointing to the replay panel where nothing can be replayed', () => {
+    const here = renderToString(<SecurityGuide open={false} onClose={() => {}} onTry={() => {}} />);
+    expect(here).toContain('How to use the security checks');
+    expect(here).toContain('Set up probe');
+    expect(here).toContain('hasNoSecurityFindings()');
+    const elsewhere = renderToString(<SecurityGuide open={false} onClose={() => {}} />);
+    expect(elsewhere).toContain('How to use the security checks');
+    expect(elsewhere).toContain('in the Replay panel');
+  });
+
   it('only explains where nothing can be replayed, and skips the body case without a body', () => {
     expect(renderToString(<SecurityGuide open={false} onClose={() => {}} />)).not.toContain('Fill in');
     const noBody = renderToString(<SecurityGuide open={false} onClose={() => {}} onTry={() => {}} canEditBody={false} />);

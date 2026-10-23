@@ -49,6 +49,12 @@ public final class ReplayStore {
         return records.values().stream().filter(r -> r.traceId().equals(traceId)).toList();
     }
 
+    /** Drops everything kept for one trace: a load-replay hit whose trace was folded into the run's figures. */
+    public synchronized void forget(String traceId) {
+        records.values().removeIf(r -> r.traceId().equals(traceId));
+        replays.remove(traceId);
+    }
+
     private static String key(String traceId, String spanId) {
         return traceId + "|" + spanId;
     }

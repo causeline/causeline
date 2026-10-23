@@ -48,6 +48,21 @@ class TraceStoreTest {
     }
 
     @Test
+    void removingATraceFreesItsBytesAndItsPin() {
+        TraceStore store = new TraceStore(10);
+        store.add(span("00000000000000000000000000000001", "0000000000000001"));
+        store.pin("00000000000000000000000000000001");
+
+        store.remove("00000000000000000000000000000001");
+        store.remove("00000000000000000000000000000009");
+
+        assertThat(store.size()).isZero();
+        assertThat(store.estimatedBytes()).isZero();
+        assertThat(store.isPinned("00000000000000000000000000000001")).isFalse();
+        assertThat(store.evictedTraces()).isZero();
+    }
+
+    @Test
     void evictsOldestTracesWhenTheByteBudgetIsExceeded() {
         Span one = span("00000000000000000000000000000001", "0000000000000001");
         long perTrace = TraceStore.estimateBytes(one);

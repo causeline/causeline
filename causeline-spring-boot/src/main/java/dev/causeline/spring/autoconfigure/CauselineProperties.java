@@ -22,6 +22,7 @@ import org.springframework.boot.context.properties.bind.DefaultValue;
  * @param export                       optional forwarding of spans to other tools
  * @param explain                      running EXPLAIN for a captured query, on request from the UI
  * @param contract                     checking a response against the application's OpenAPI document
+ * @param load                         limits for load replay: one captured request or flow sent many times
  */
 @ConfigurationProperties("causeline")
 public record CauselineProperties(
@@ -35,7 +36,23 @@ public record CauselineProperties(
         @DefaultValue Replay replay,
         @DefaultValue Export export,
         @DefaultValue Explain explain,
-        @DefaultValue Contract contract) {
+        @DefaultValue Contract contract,
+        @DefaultValue Load load) {
+
+    /**
+     * Load replay sends a captured request (or flow) many times from this application, to see which
+     * span slows down under concurrency. The API refuses runs beyond these limits.
+     *
+     * @param maxRequests     HTTP requests per run, baseline and ramp steps included
+     * @param maxConcurrency  hits in flight at once
+     * @param maxDuration     a run still going after this is cancelled
+     * @param keepSlowest     full traces kept per request: the slowest hits
+     * @param keepFailed      full traces kept per run: failed hits
+     */
+    public record Load(@DefaultValue("1000") int maxRequests, @DefaultValue("20") int maxConcurrency,
+            @DefaultValue("60s") Duration maxDuration, @DefaultValue("5") int keepSlowest,
+            @DefaultValue("20") int keepFailed) {
+    }
 
     /**
      * @param enabled  let the UI check a recorded response against the OpenAPI document
@@ -113,8 +130,11 @@ public record CauselineProperties(
      * @param baseUrl         {@code self} for this application, otherwise e.g. {@code https://qa.example.internal}
      * @param auth            credentials for this target; replaces the original {@code Authorization} header
      * @param causelineToken  the target's Causeline access token, to fetch the replay's trace for comparison
+     * @param allowLoad       let load replay send many requests to this target. Off, so a shared
+     *                        environment is never loaded by accident; {@code local} always allows it
      */
-    public record Target(String baseUrl, @DefaultValue Auth auth, String causelineToken) {
+    public record Target(String baseUrl, @DefaultValue Auth auth, String causelineToken,
+            @DefaultValue("false") boolean allowLoad) {
     }
 
     /**

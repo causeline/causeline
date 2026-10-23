@@ -182,6 +182,12 @@ causeline:
   replay:
     send-original-credentials: true    # resend the user's Authorization and cookies
     pause-timeout: 5m                  # how long a paused replay waits for you before carrying on unchanged
+  load:                                # load replay: the API refuses runs beyond these
+    max-requests: 1000                 # per run, baseline included
+    max-concurrency: 20
+    max-duration: 60s
+    keep-slowest: 5                    # full traces kept per request; the rest are folded into the figures
+    keep-failed: 20
   explain:
     enabled: true                      # "Explain query" may ask your database to EXPLAIN a captured SELECT
     timeout: 5s
@@ -332,6 +338,35 @@ causeline:
         auth: { type: bearer, token: ${CAUSELINE_QA_TOKEN} }
         causeline-token: ${CAUSELINE_QA_API_TOKEN}   # to compare with the replay's trace on QA
 ```
+
+### Load replay
+
+**Load test…** (or the **Load** tab of the replay panel) sends the captured request many times at once, to find out what slows down when several people do the same thing. Every hit is an ordinary replay with its own trace, so the result says *which span* got slower, not only that the endpoint did.
+
+1. Choose **This request**, or **The whole flow**: every replayable request of the trace, in order, with the user's original pauses between them (at most 5 s each), as one virtual user.
+2. Choose the shape: a number of hits with a fixed number **in flight**, optionally ramping (1, 2, 4 … up to it), or a fixed rate per second for a number of seconds.
+3. Press **Start load**. It first sends 5 hits one at a time (the baseline), then the load. Requests that change data need a confirmation that names how many times they will run.
+
+The result shows, per request:
+- latency p50, p95, p99 and max for the baseline, the load and each ramp step, plus a p95-per-second strip;
+- hits by HTTP status, and exceptions by class and the line that threw them, marked when they happened only under concurrency;
+- **What grew**: each span's self time in the baseline and under load. A span is highlighted when its p95 grew by at least 20 ms and 25%, and the span that grew most comes first. Queries per hit are shown for both phases, so a count that rises with concurrency stands out;
+- links to the full traces of the 5 slowest hits and any failed ones. Every other hit's trace is folded into the figures and removed, so a run doesn't push your other traces out.
+
+The load comes from your application's own JVM, on your machine, so use the numbers to compare runs and spans, not to plan capacity. For that, **Copy as k6** gives a [k6](https://k6.io) script for the same request or flow and shape, without the captured credentials (it reads `CAUSELINE_AUTH` and `BASE_URL` from the environment), to run from another machine.
+
+Load replay goes to `local`, or to a target with `allow-load: true`; a shared environment is never loaded by default. On another target you get each hit's status and time, but no span analysis. It can't pause at steps, and active probes are not available in it. Only one run goes at a time, and **Cancel** stops it starting new hits.
+
+```yaml
+causeline:
+  replay:
+    targets:
+      qa:
+        base-url: https://qa.example.internal
+        allow-load: true                 # let load replay send many requests here
+```
+
+In the demo, tick **Contended** under the payment provider (and untick **Slow**), place one order, then load-test it with 20 in flight: `PaymentClient.charge` comes out on top of *What grew*, because it lets one charge through at a time.
 
 ## Contributing
 

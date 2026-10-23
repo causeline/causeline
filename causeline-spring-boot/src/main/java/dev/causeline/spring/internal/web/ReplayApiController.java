@@ -70,7 +70,7 @@ public class ReplayApiController {
                         replays.isLocal(e.getKey()) ? "this application" : e.getValue().baseUrl(),
                         e.getValue().auth().type().name().toLowerCase(),
                         replays.isLocal(e.getKey()) || e.getValue().causelineToken() != null,
-                        replays.sendsOriginalCredentials()))
+                        replays.sendsOriginalCredentials(), replays.allowsLoad(e.getKey())))
                 .sorted((a, b) -> a.name().equals(ReplayService.LOCAL_TARGET) ? -1
                         : b.name().equals(ReplayService.LOCAL_TARGET) ? 1 : a.name().compareTo(b.name()))
                 .toList();
@@ -311,9 +311,12 @@ public class ReplayApiController {
                 record.queryMissing());
     }
 
-    /** @param sendsOriginalCredentials whether the original request's credential headers are resent */
+    /**
+     * @param sendsOriginalCredentials whether the original request's credential headers are resent
+     * @param allowsLoad               whether load replay may send many requests to this target
+     */
     public record TargetInfo(String name, String location, String auth, boolean comparable,
-            boolean sendsOriginalCredentials) {
+            boolean sendsOriginalCredentials, boolean allowsLoad) {
     }
 
     /**

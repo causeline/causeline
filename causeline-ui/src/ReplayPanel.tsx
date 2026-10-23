@@ -24,6 +24,7 @@ import type {
   RequestEdits,
   SpanRow,
 } from './api';
+import { LoadPanel } from './LoadPanel';
 import { responseDiffs } from './bodyDiff';
 import type { ResponseDiff } from './bodyDiff';
 import { formatDuration } from './format';
@@ -60,7 +61,8 @@ export function ReplayPanel({
 }) {
   const [replayable, setReplayable] = useState<Replayable[]>([]);
   const [targets, setTargets] = useState<ReplayTarget[]>([]);
-  const [open, setOpen] = useState(false);
+  // Which tab is open: one replay, or many at once.
+  const [open, setOpen] = useState<'replay' | 'load'>();
   const [chosenSpanId, setChosenSpanId] = useState<string>();
   const [guideOpen, setGuideOpen] = useState(false);
   // The count makes choosing the same case twice apply it again.
@@ -116,9 +118,14 @@ export function ReplayPanel({
         <span className="ml-auto flex items-center gap-2">
           <SecurityGuideButton onClick={() => setGuideOpen(true)} label="Try security checks" prominent />
           {!open && (
-            <button type="button" onClick={() => setOpen(true)} className="btn btn-primary">
-              Replay…
-            </button>
+            <>
+              <button type="button" onClick={() => setOpen('load')} className="btn">
+                Load test…
+              </button>
+              <button type="button" onClick={() => setOpen('replay')} className="btn btn-primary">
+                Replay…
+              </button>
+            </>
           )}
         </span>
       </div>
@@ -128,11 +135,41 @@ export function ReplayPanel({
         canEditBody={request.hasBody}
         token={token}
         onTry={(id) => {
-          setOpen(true);
+          setOpen('replay');
           setPreset((current) => ({ id, count: (current?.count ?? 0) + 1 }));
         }}
       />
       {open && (
+        <div role="tablist" aria-label="Replay mode" className="mt-3 flex gap-1 text-xs">
+          {(['replay', 'load'] as const).map((tab) => (
+            <button
+              key={tab}
+              type="button"
+              role="tab"
+              aria-selected={open === tab}
+              onClick={() => setOpen(tab)}
+              className={`rounded-md px-2 py-1 ${open === tab ? 'bg-paper-2 text-ink' : 'text-muted hover:text-ink'}`}
+            >
+              {tab === 'replay' ? 'Replay once' : 'Load'}
+            </button>
+          ))}
+        </div>
+      )}
+      {open === 'load' && (
+        <LoadPanel
+          key={request.spanId}
+          traceId={traceId}
+          token={token}
+          request={request}
+          replayable={replayable}
+          targets={targets}
+          spans={spans}
+          captured={draftFrom(spans.find((s) => s.spanId === request.spanId))}
+          capturedBody={capturedBodies[request.spanId]}
+          onOpenTrace={onOpenTrace}
+        />
+      )}
+      {open === 'replay' && (
         <ReplayForm
           key={request.spanId}
           traceId={traceId}

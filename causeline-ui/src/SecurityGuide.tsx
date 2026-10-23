@@ -5,6 +5,7 @@ import type { InsightRule, SecurityOverview } from './api';
 import { PROBES } from './probes';
 import type { ProbeId } from './probes';
 import type { RequestDraft } from './ReplayPanel';
+import { UsageHints, securityHints } from './UsageHints';
 
 /** Insight rules that are security checks (PRD section 7), each with its OWASP Top 10:2025 category. */
 export const SECURITY_RULES: Partial<Record<InsightRule, string>> = {
@@ -336,6 +337,10 @@ export function SecurityGuide({
             probe</strong> opens them in the replay form. Each probe is one request that you send yourself, never a scan.
           </p>
         )}
+
+        <div className="mt-3">
+          <UsageHints label="How to use the security checks" hints={securityHints(onTry !== undefined)} />
+        </div>
 
         {overview && <Overview overview={overview} onDismiss={dismiss} />}
 

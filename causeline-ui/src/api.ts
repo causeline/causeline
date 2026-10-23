@@ -149,6 +149,8 @@ export interface ReplayTarget {
   comparable: boolean;
   /** Whether the original request's credential headers are resent. */
   sendsOriginalCredentials: boolean;
+  /** Whether load replay may send many requests to it (`local`, or `allow-load: true`). */
+  allowsLoad?: boolean;
 }
 
 export interface Replayable {
@@ -447,3 +449,132 @@ export const continueReplaySession = (
   request: { arguments: Record<string, string>; skipRest?: boolean },
   token: string | undefined,
 ) => send<ReplaySession>('POST', `/replay-sessions/${encodeURIComponent(id)}/continue`, token, request);
+
+/** Load replay (PRD section 8): one captured request, or the trace's flow, sent many times. */
+export type LoadMode = 'REQUEST' | 'FLOW';
+export type LoadShape = 'CONCURRENCY' | 'RATE';
+export type LoadState = 'RUNNING' | 'DONE' | 'CANCELLED';
+
+export interface LoadLimits {
+  maxRequests: number;
+  maxConcurrency: number;
+  maxDurationSeconds: number;
+  baselineHits: number;
+}
+
+export interface LoadSettings extends RequestEdits {
+  traceId: string;
+  spanId: string;
+  target: string;
+  mode: LoadMode;
+  shape: LoadShape;
+  hits?: number;
+  concurrency: number;
+  rate?: number;
+  durationSeconds?: number;
+  ramp?: boolean;
+  confirm?: boolean;
+  body?: string;
+}
+
+/** Client-side latencies, in nanoseconds. */
+export interface LoadStats {
+  count: number;
+  p50: number;
+  p95: number;
+  p99: number;
+  max: number;
+  perSecond: number;
+}
+
+export interface LoadRow {
+  depth: number;
+  kind: SpanKind;
+  name: string;
+  baselineP50: number | null;
+  baselineP95: number | null;
+  loadP50: number | null;
+  loadP95: number | null;
+  baselineHits: number;
+  loadHits: number;
+  grew: boolean;
+}
+
+export interface LoadFailure {
+  exceptionType: string;
+  codeLocation: string | null;
+  handled: boolean;
+  baselineHits: number;
+  loadHits: number;
+}
+
+export interface LoadReport {
+  baselineHits: number;
+  loadHits: number;
+  baselineDatabaseSpans: number | null;
+  loadDatabaseSpans: number | null;
+  rows: LoadRow[];
+  failures: LoadFailure[];
+}
+
+export interface LoadKept {
+  traceId: string;
+  step: number;
+  durationNanos: number;
+  httpStatus: number;
+  reason: 'SLOWEST' | 'FAILED';
+}
+
+export interface LoadStep {
+  spanId: string;
+  method: string;
+  route: string;
+  unsafe: boolean;
+  thinkMillis: number;
+  baseline: LoadStats | null;
+  load: LoadStats | null;
+  ramp: { concurrency: number; stats: LoadStats | null }[];
+  baselineStatuses: Record<string, number>;
+  loadStatuses: Record<string, number>;
+  errors: Record<string, number>;
+  timeline: { second: number; hits: number; p95: number }[];
+  /** Null when the target's traces aren't in this application. */
+  report: LoadReport | null;
+  kept: LoadKept[];
+}
+
+export interface LoadRun {
+  id: string;
+  state: LoadState;
+  stopReason: string | null;
+  traceId: string;
+  spanId: string;
+  target: string;
+  mode: LoadMode;
+  shape: LoadShape;
+  hits: number;
+  concurrency: number;
+  rate: number;
+  durationSeconds: number;
+  ramp: boolean;
+  analyzed: boolean;
+  startedAt: string;
+  elapsedMillis: number;
+  plannedRequests: number;
+  sent: number;
+  notSent: number;
+  tracesMissing: number;
+  tracesPending: number;
+  skipped: { spanId: string; name: string }[];
+  steps: LoadStep[];
+}
+
+export const fetchLoadLimits = (token: string | undefined) => send<LoadLimits>('GET', '/load/limits', token);
+
+export const startLoadRun = (settings: LoadSettings, token: string | undefined) =>
+  send<LoadRun>('POST', '/load', token, settings);
+
+export const fetchLoadRun = (id: string, token: string | undefined) => send<LoadRun>('GET', `/load/${id}`, token);
+
+export const cancelLoadRun = (id: string, token: string | undefined) =>
+  send<LoadRun>('POST', `/load/${id}/cancel`, token);

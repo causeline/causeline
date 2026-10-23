@@ -89,9 +89,8 @@ class PerformanceBudgetTest {
 
         int seconds = 10;
         int perSecond = 200;
-        // The demo's checkout calls its fake payment service on the same Tomcat, so more checkouts in
-        // flight than Tomcat has threads would deadlock the demo itself. 50 in flight still carries
-        // 200 requests/s as long as a checkout takes under 250 ms.
+        // At most 50 checkouts in flight, as in earlier measurements so the results compare. 50 still
+        // carries 200 requests/s as long as a checkout takes under 250 ms.
         Semaphore inFlight = new Semaphore(50);
         List<CompletableFuture<HttpResponse<String>>> sent = new ArrayList<>();
         long start = System.nanoTime();

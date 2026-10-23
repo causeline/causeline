@@ -115,6 +115,17 @@ public final class TraceStore {
         pinned.remove(traceId);
     }
 
+    /**
+     * Removes a trace at once, pinned or not: for example a load-replay hit whose spans were
+     * folded into the run's figures and are no longer needed.
+     */
+    public synchronized void remove(String traceId) {
+        if (traces.remove(traceId) != null) {
+            totalBytes -= traceBytes.remove(traceId);
+        }
+        pinned.remove(traceId);
+    }
+
     public synchronized boolean isPinned(String traceId) {
         return pinned.contains(traceId);
     }

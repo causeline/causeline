@@ -7,6 +7,7 @@ import dev.causeline.spring.internal.replay.BodyRedactor;
 import dev.causeline.spring.ReplayAuthProvider;
 import dev.causeline.spring.internal.capture.SensitiveData;
 import dev.causeline.spring.internal.capture.ValueRenderer;
+import dev.causeline.spring.internal.replay.LoadRunService;
 import dev.causeline.spring.internal.replay.ReplayCaptureFilter;
 import dev.causeline.spring.internal.replay.ReplayPauseAspect;
 import dev.causeline.spring.internal.replay.ReplaySessions;
@@ -86,5 +87,15 @@ public class CauselineReplayConfiguration {
     ReplayApiController causelineReplayApiController(ReplayService replays, TraceStore traces, ReplaySessions sessions,
             ObjectProvider<JsonMapper> mapper) {
         return new ReplayApiController(replays, traces, sessions, mapper.getIfAvailable(() -> JsonMapper.builder().build()));
+    }
+
+    @Bean
+    LoadRunService causelineLoadRunService(ReplayService replays, TraceStore traces, CauselineProperties properties) {
+        return new LoadRunService(replays, traces, properties.load());
+    }
+
+    @Bean
+    LoadApiController causelineLoadApiController(LoadRunService runs) {
+        return new LoadApiController(runs);
     }
 }

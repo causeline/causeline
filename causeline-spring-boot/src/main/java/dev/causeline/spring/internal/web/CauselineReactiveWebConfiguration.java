@@ -132,5 +132,16 @@ public class CauselineReactiveWebConfiguration {
         ReplayApiController causelineReplayApiController(ReplayService replays, TraceStore traces) {
             return new ReplayApiController(replays, traces);
         }
+
+        @Bean
+        dev.causeline.spring.internal.replay.LoadRunService causelineLoadRunService(ReplayService replays,
+                TraceStore traces, CauselineProperties properties) {
+            return new dev.causeline.spring.internal.replay.LoadRunService(replays, traces, properties.load());
+        }
+
+        @Bean
+        LoadApiController causelineLoadApiController(dev.causeline.spring.internal.replay.LoadRunService runs) {
+            return new LoadApiController(runs);
+        }
     }
 }
