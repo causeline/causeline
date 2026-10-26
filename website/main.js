@@ -110,6 +110,93 @@
       window.matchMedia('(min-width: 721px)').addEventListener('change', function (m) { if (m.matches) closeMenu(false, true); });
     }
 
+    // Hero: a dot field that bends towards the pointer, like a sheet under a weight. Canvas 2D, mouse only.
+    var field = document.querySelector('.hero-field');
+    if (field && field.getContext) {
+      var ctx = field.getContext('2d'), hero = field.parentElement;
+      var GAP = 26, SIGMA = 120, PULL = 26;
+      var w = 0, h = 0, dots = [], px = -1e4, py = -1e4, cx = -1e4, cy = -1e4, strength = 0, target = 0, raf = 0, onScreen = true;
+      function build() {
+        var r = field.getBoundingClientRect(), dpr = Math.min(2, window.devicePixelRatio || 1);
+        w = r.width; h = r.height;
+        field.width = Math.round(w * dpr); field.height = Math.round(h * dpr);
+        ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+        dots = [];
+        for (var y = GAP / 2; y < h; y += GAP) for (var x = GAP / 2; x < w; x += GAP) dots.push(x, y);
+        draw();
+      }
+      function draw() {
+        ctx.clearRect(0, 0, w, h);
+        var s2 = 2 * SIGMA * SIGMA;
+        for (var i = 0; i < dots.length; i += 2) {
+          var x = dots[i], y = dots[i + 1], dx = cx - x, dy = cy - y, d2 = dx * dx + dy * dy;
+          var f = strength > 0.001 ? strength * Math.exp(-d2 / s2) : 0;
+          if (f > 0.002) { var d = Math.sqrt(d2) + 1, m = Math.min(f * PULL, d * 0.6); x += dx / d * m; y += dy / d * m; }
+          var size = 1.3 + f * 1.8;
+          ctx.fillStyle = f > 0.25 ? 'rgba(255,106,47,' + (0.25 + f * 0.6).toFixed(3) + ')' : 'rgba(255,255,255,' + (0.09 + f * 0.5).toFixed(3) + ')';
+          ctx.fillRect(x - size / 2, y - size / 2, size, size);
+        }
+      }
+      function tick() {
+        raf = 0;
+        cx += (px - cx) * 0.16; cy += (py - cy) * 0.16; strength += (target - strength) * 0.08;
+        draw();
+        var settling = Math.abs(target - strength) > 0.004 || Math.abs(px - cx) > 0.5 || Math.abs(py - cy) > 0.5;
+        if (settling && onScreen) raf = requestAnimationFrame(tick);
+      }
+      function wake() { if (!raf && !reduce && onScreen) raf = requestAnimationFrame(tick); }
+      hero.addEventListener('pointermove', function (e) {
+        if (e.pointerType !== 'mouse') return;
+        var r = field.getBoundingClientRect();
+        px = e.clientX - r.left; py = e.clientY - r.top;
+        if (cx < -1e3) { cx = px; cy = py; }
+        target = 1; wake();
+      });
+      hero.addEventListener('pointerleave', function () { target = 0; wake(); });
+      if ('IntersectionObserver' in window) new IntersectionObserver(function (en) { onScreen = en[0].isIntersecting; if (onScreen) wake(); }).observe(field);
+      if ('ResizeObserver' in window) new ResizeObserver(build).observe(hero); else window.addEventListener('resize', build);
+      build();
+    }
+
+    // Why: the lead line comes into focus one word at a time.
+    var lead = document.querySelector('.why-lead');
+    if (lead && !reduce && 'IntersectionObserver' in window) {
+      var words = [];
+      (function split(node) {
+        Array.prototype.slice.call(node.childNodes).forEach(function (c) {
+          if (c.nodeType === 3) {
+            var frag = document.createDocumentFragment();
+            c.textContent.split(/(\s+)/).forEach(function (part) {
+              if (!part) return;
+              if (/^\s+$/.test(part)) { frag.appendChild(document.createTextNode(part)); return; }
+              var sp = document.createElement('span'); sp.className = 'fw'; sp.textContent = part; frag.appendChild(sp); words.push(sp);
+            });
+            node.replaceChild(frag, c);
+          } else if (c.nodeType === 1) split(c);
+        });
+      })(lead);
+      var frame = document.createElement('span');
+      frame.className = 'focus-frame'; frame.setAttribute('aria-hidden', 'true');
+      lead.appendChild(frame);
+      var focusIo = new IntersectionObserver(function (en) {
+        if (!en[0].isIntersecting) return;
+        focusIo.disconnect();
+        var n = 0;
+        setTimeout(function step() {
+          if (n >= words.length) { frame.style.opacity = '0'; return; }
+          var wd = words[n], base = lead.getBoundingClientRect(), r = wd.getBoundingClientRect(), pad = 4;
+          frame.style.opacity = '1';
+          frame.style.width = (r.width + pad * 2) + 'px';
+          frame.style.height = (r.height + pad) + 'px';
+          frame.style.transform = 'translate(' + (r.left - base.left - pad) + 'px,' + (r.top - base.top - pad / 2) + 'px)';
+          wd.classList.add('sharp');
+          n++;
+          setTimeout(step, 115);
+        }, 450);
+      }, { threshold: 0.6 });
+      focusIo.observe(lead);
+    }
+
     // Hero screenshots.
     document.querySelectorAll('[data-carousel]').forEach(function (box) {
       var track = box.querySelector('.shots-track');
@@ -117,11 +204,20 @@
       var dots = box.querySelectorAll('.shots-dots button');
       var caption = box.querySelector('[data-caption]');
       var index = 0, play;
+      var view = box.querySelector('.shots-view');
+      // Centre the active slide in the view; its neighbours show at the edges.
+      function place() {
+        var s = slides[index];
+        var offset = s.offsetLeft - (view.clientWidth - s.offsetWidth) / 2;
+        track.style.transform = 'translateX(' + (-offset) + 'px)';
+      }
+      window.addEventListener('resize', place);
+      slides.forEach(function (s, n) { s.addEventListener('click', function () { if (n !== index) go(n, true); }); });
       function go(i, user) {
         index = (i + slides.length) % slides.length;
-        track.style.transform = 'translateX(' + (-100 * index) + '%)';
+        place();
         dots.forEach(function (d, n) { d.setAttribute('aria-current', String(n === index)); });
-        slides.forEach(function (s, n) { s.setAttribute('aria-hidden', String(n !== index)); });
+        slides.forEach(function (s, n) { s.setAttribute('aria-hidden', String(n !== index)); s.classList.toggle('is-active', n === index); });
         caption.innerHTML = '<strong>' + dots[index].getAttribute('data-title') + '</strong><span>' + dots[index].getAttribute('data-text') + '</span>';
         if (play) play.restart();
       }
@@ -220,7 +316,13 @@
       var next = sec.querySelector('[data-feat="next"]');
       var all = sec.querySelector('[data-feat="all"]');
       var current = -1, queued = false;
-      cards.forEach(function (c, n) { c.style.setProperty('--n', n); });
+      cards.forEach(function (c, n) {
+        c.style.setProperty('--n', n);
+        function open() { if (!sec.classList.contains('is-all')) return; cards.forEach(function (o) { o.classList.toggle('is-open', o === c); }); }
+        c.addEventListener('mouseenter', open);
+        c.addEventListener('focus', open);
+        c.addEventListener('click', open);
+      });
       function pinned() { return !reduce && !sec.classList.contains('is-all'); }
       function show(i) {
         if (i === current) return;
@@ -259,7 +361,7 @@
         sec.classList.toggle('is-all', showAll);
         all.setAttribute('aria-pressed', String(showAll));
         all.textContent = showAll ? 'Show one at a time' : (sec.classList.contains('seen-all') ? 'Browse all six' : 'See all six');
-        cards.forEach(function (c) { c.setAttribute('aria-hidden', 'false'); });
+        cards.forEach(function (c, n) { c.setAttribute('aria-hidden', 'false'); c.tabIndex = showAll ? 0 : -1; c.classList.toggle('is-open', showAll && n === 0); });
         sec.querySelector('.features-ctrl').hidden = showAll;
         sec.scrollIntoView({ block: 'start', behavior: 'instant' });
         current = -1;

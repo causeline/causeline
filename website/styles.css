@@ -106,7 +106,10 @@ button { font: inherit; color: inherit; }
 }
 
 /* ---------- Hero ---------- */
-.hero { padding: clamp(40px, 6vw, 96px) 0 var(--section); }
+.hero { position: relative; padding: clamp(40px, 6vw, 96px) 0 var(--section); }
+.hero > .wrap { position: relative; z-index: 1; }
+.hero-field { position: absolute; inset: 0; width: 100%; height: 100%; z-index: 0; pointer-events: none;
+  -webkit-mask-image: linear-gradient(to bottom, #000 55%, transparent); mask-image: linear-gradient(to bottom, #000 55%, transparent); }
 .hero .grid { align-items: center; row-gap: clamp(32px, 4vw, 56px); }
 .hero h1 { grid-column: 1 / -1; }
 .hero-copy { grid-column: 1 / span 4; align-self: start; }
@@ -119,9 +122,11 @@ button { font: inherit; color: inherit; }
 
 /* Screenshot carousel */
 .shots { grid-column: 5 / -1; margin: 0; }
-.shots-view { position: relative; overflow: hidden; border-radius: 12px; box-shadow: inset 0 0 0 1px var(--line); aspect-ratio: 16 / 10; background: var(--panel); touch-action: pan-y; }
+.shots-view { position: relative; overflow: hidden; aspect-ratio: 16 / 10; touch-action: pan-y; }
 .shots-track { display: flex; height: 100%; transition: transform 900ms var(--ease-expo); }
-.shot { flex: 0 0 100%; height: 100%; margin: 0; }
+.shot { flex: 0 0 86%; height: 100%; margin: 0 14px 0 0; border-radius: 12px; overflow: hidden; box-shadow: inset 0 0 0 1px var(--line); background: var(--panel); opacity: 0.32; cursor: pointer; transition: opacity 700ms var(--ease-out); }
+.shot.is-active { opacity: 1; cursor: default; }
+@media (hover: hover) and (pointer: fine) { .shot:not(.is-active):hover { opacity: 0.55; } }
 .shot picture, .shot img { width: 100%; height: 100%; }
 .shot img { object-fit: cover; object-position: left top; }
 .shots-bar { display: flex; justify-content: space-between; align-items: flex-start; gap: 24px; margin-top: 18px; }
@@ -419,7 +424,8 @@ footer:hover .wordmark { color: #111; }
   .hero-actions { margin-top: 28px; }
   .hero-actions .btn, .hero-actions .chip-copy { width: 100%; justify-content: space-between; }
   .shots { margin-inline: calc(var(--m) * -1); }
-  .shots-view { border-radius: 0; box-shadow: none; aspect-ratio: 4 / 3; }
+  .shots-view { aspect-ratio: 4 / 3; }
+  .shot { flex-basis: 84%; margin-right: 10px; border-radius: 10px; }
   .shots-bar { padding-inline: var(--m); flex-direction: column; gap: 12px; }
   .shots-dots { padding-top: 0; }
 
@@ -494,3 +500,30 @@ body.menu-open { overflow: hidden; }
   .nav-links .nav-gh { display: none; }
 }
 @media (min-width: 721px) { .site-menu { display: none !important; } }
+
+/* Why: the lead line comes into focus one word at a time, a frame travelling to each word. */
+.why-lead { position: relative; }
+.why-lead .fw { color: inherit; }
+.focus-frame { position: absolute; left: 0; top: 0; border: 1.5px solid var(--accent); border-radius: 6px; pointer-events: none; opacity: 0;
+  transition: transform 170ms var(--ease-out), width 170ms var(--ease-out), height 170ms var(--ease-out), opacity 400ms ease; }
+@media (prefers-reduced-motion: no-preference) {
+  .js .why-lead .fw { filter: blur(7px); opacity: 0.3; transition: filter 320ms var(--ease-out), opacity 320ms var(--ease-out); }
+  .js .why-lead .fw.sharp { filter: none; opacity: 1; }
+}
+
+/* Features, "See all six" on desktop: a rail of slivers; the one under the pointer opens into a full card. */
+@media (min-width: 1081px) and (prefers-reduced-motion: no-preference) {
+  .js .features.is-all .features-head { grid-column: 1 / -1; }
+  .js .features.is-all .features-head .section-title { max-width: none; }
+  .js .features.is-all .feature-list { grid-column: 1 / -1; display: flex; gap: 10px; height: 440px; }
+  .js .features.is-all .feature-row {
+    flex: 1 1 0; min-width: 0; overflow: hidden; display: flex; flex-direction: column; justify-content: flex-end; cursor: pointer;
+    padding: 28px 26px; transition: flex-grow 650ms var(--ease-expo), border-color 400ms var(--ease-out);
+  }
+  .js .features.is-all .feature-row.is-open { flex-grow: 4.2; border-color: var(--accent); cursor: default; }
+  .js .features.is-all .feature-row h3 { font-size: clamp(1.375rem, 1rem + 0.8vw, 1.75rem); }
+  .js .features.is-all .feature-row.is-open h3 { color: var(--accent); }
+  /* The text is laid out once at the open width, so it never rewraps while the card grows. */
+  .js .features.is-all .feature-row p { width: 440px; max-width: none; opacity: 0; transition: opacity 250ms ease; }
+  .js .features.is-all .feature-row.is-open p { opacity: 1; transition: opacity 400ms ease 250ms; }
+}
