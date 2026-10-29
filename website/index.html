@@ -56,8 +56,8 @@
 <meta name="twitter:image" content="https://causeline.dev/og.png">
 
 <link rel="preload" href="/fonts/hanken-grotesk.woff2" as="font" type="font/woff2" crossorigin>
-<link rel="stylesheet" href="/styles.css?v=20261026a">
-<script src="/main.js?v=20261026a"></script>
+<link rel="stylesheet" href="/styles.css?v=20261029a">
+<script src="/main.js?v=20261029a"></script>
 
 <script type="application/ld+json">
 {
@@ -254,30 +254,48 @@
           <a class="btn" href="/install/">Install in 5 minutes</a>
           <button class="chip-copy" type="button" data-copy="npm install @causeline/react" aria-label="Copy the npm install command"><code>npm i @causeline/react</code><span class="state">Copy</span></button>
         </div>
+        <div class="hero-agent rise" style="--i:2">
+          <p>Let your coding agent read the traces too, over MCP.</p>
+          <button class="chip-copy chip-copy-sm" type="button" data-copy="claude mcp add --transport http causeline http://localhost:8080/causeline/mcp --header &quot;X-Causeline-Token: &lt;token&gt;&quot;" aria-label="Copy the command that connects Claude Code to Causeline over MCP"><code>claude mcp add causeline …</code><span class="state">Copy</span></button>
+        </div>
       </div>
 
       <figure class="shots rise" style="--i:2" data-carousel data-interval="5000" aria-roledescription="carousel" aria-label="Screenshots of the Causeline UI">
         <div class="shots-view">
           <div class="shots-track">
-            <div class="shot" role="group" aria-roledescription="slide" aria-label="1 of 3">
+            <div class="shot" role="group" aria-roledescription="slide" aria-label="1 of 5">
               <picture>
                 <source media="(max-width: 720px)" srcset="/img/trace-slow-phone.webp" type="image/webp" width="800" height="579">
                 <source srcset="/img/trace-slow.webp" type="image/webp">
                 <img src="/img/trace-slow.jpg" width="1920" height="1200" alt="Debugging a slow checkout in the Causeline UI: a 960 ms trace with a bottleneck insight on the payment call, a long-transaction insight, and the waterfall from the browser action down to the controller, transaction and services">
               </picture>
             </div>
-            <div class="shot" role="group" aria-roledescription="slide" aria-label="2 of 3">
+            <div class="shot" role="group" aria-roledescription="slide" aria-label="2 of 5">
               <picture>
                 <source media="(max-width: 720px)" srcset="/img/trace-failed-phone.webp" type="image/webp" width="800" height="427">
                 <source srcset="/img/trace-failed.webp" type="image/webp">
                 <img src="/img/trace-failed.jpg" width="1200" height="991" alt="Debugging a failed checkout in the Causeline UI: failed spans in red, the transaction rolled back, and two exceptions with their source lines, PaymentClient.java:36 and PaymentClient.java:38" loading="lazy">
               </picture>
             </div>
-            <div class="shot" role="group" aria-roledescription="slide" aria-label="3 of 3">
+            <div class="shot" role="group" aria-roledescription="slide" aria-label="3 of 5">
               <picture>
                 <source media="(max-width: 720px)" srcset="/img/compare-runs-phone.webp" type="image/webp" width="800" height="389">
                 <source srcset="/img/compare-runs.webp" type="image/webp">
                 <img src="/img/compare-runs.jpg" width="1200" height="746" alt="Debugging a regression by comparing two checkout runs span by span in the Causeline UI: the payment call took 55 ms in one and 844 ms in the other" loading="lazy">
+              </picture>
+            </div>
+            <div class="shot" role="group" aria-roledescription="slide" aria-label="4 of 5">
+              <picture>
+                <source media="(max-width: 720px)" srcset="/img/agent-replay-phone.webp" type="image/webp" width="800" height="858">
+                <source srcset="/img/agent-replay.webp" type="image/webp">
+                <img src="/img/agent-replay.jpg" width="1920" height="1200" alt="A coding agent connected to Causeline over MCP: the header says Agent connected, and the trace list shows the agent's replay of a failed checkout, tagged Replay and Agent, now succeeding in 194 ms" loading="lazy">
+              </picture>
+            </div>
+            <div class="shot" role="group" aria-roledescription="slide" aria-label="5 of 5">
+              <picture>
+                <source media="(max-width: 720px)" srcset="/img/agent-panel-phone.webp" type="image/webp" width="800" height="600">
+                <source srcset="/img/agent-panel.webp" type="image/webp">
+                <img src="/img/agent-panel.jpg" width="1200" height="1156" alt="The Connect agent panel in the Causeline UI: the claude mcp add command with the token masked, what the agent sees with secrets redacted, and what it may replay, set by the developer under causeline.mcp" loading="lazy">
               </picture>
             </div>
           </div>
@@ -288,6 +306,8 @@
             <button type="button" aria-current="true" aria-label="Find the slow call" data-title="Find the slow call" data-text="A 960 ms checkout. The payment call takes 88% of it."><i></i></button>
             <button type="button" aria-current="false" aria-label="See where it failed" data-title="See where it failed" data-text="Each exception names the file and line that threw it."><i></i></button>
             <button type="button" aria-current="false" aria-label="Compare two runs" data-title="Compare two runs" data-text="Span by span. Only the payment call got slower."><i></i></button>
+            <button type="button" aria-current="false" aria-label="Hand it to your agent" data-title="Hand it to your agent" data-text="Claude Code read the failed checkout, then replayed it: 500 became 201."><i></i></button>
+            <button type="button" aria-current="false" aria-label="You set the limits" data-title="You set the limits" data-text="Your agent sees redacted traces and replays only what you allow."><i></i></button>
           </span>
         </figcaption>
       </figure>
@@ -295,21 +315,21 @@
   </section>
 
   <!-- Features, in type alone -->
-  <section id="features" class="features" data-features style="--count:6" aria-labelledby="features-title">
+  <section id="features" class="features" data-features style="--count:7" aria-labelledby="features-title">
     <div class="features-pin">
       <div class="wrap grid">
         <div class="features-head">
           <h2 id="features-title" class="section-title">From click to&nbsp;database</h2>
           <p class="section-lede">Four questions every request raises, answered on one trace.</p>
           <div class="features-ctrl">
-            <span class="features-count" aria-hidden="true"><b data-count>1</b> / 6</span>
+            <span class="features-count" aria-hidden="true"><b data-count>1</b> / 7</span>
             <span class="features-bar" aria-hidden="true"><i data-bar></i></span>
             <span class="features-arrows">
               <button type="button" data-feat="prev" aria-label="Previous feature"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="M15 5l-7 7 7 7"/></svg></button>
               <button type="button" data-feat="next" aria-label="Next feature"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="M9 5l7 7-7 7"/></svg></button>
             </span>
           </div>
-          <button type="button" class="features-all" data-feat="all" aria-pressed="false">See all six</button>
+          <button type="button" class="features-all" data-feat="all" aria-pressed="false">See all seven</button>
         </div>
         <ul class="feature-list" aria-live="polite">
           <li class="feature-row"><h3>One timeline, any stack</h3><p>The click, fetch, controllers, services, repositories, <b>every SQL statement with its real values</b>, transactions, logs, messages and the re-render. Spring MVC or WebFlux, JDBC or R2DBC, React or Next.js.</p></li>
@@ -318,6 +338,7 @@
           <li class="feature-row"><h3>Check it’s safe</h3><p><b>OWASP Top 10 hints</b> on the traffic you already captured: a secret in a log or a response, a request value in SQL or steering an outbound call. Then try IDOR, mass assignment, open redirect or an auth boundary, <b>one request at a time</b>, with a verdict read from the trace.</p></li>
           <li class="feature-row"><h3>See what grows under load</h3><p>Send a captured request or a whole flow many times and see <b>which span grew</b>: the transaction, the connection pool, the one query. When you need real load, <b>copy it as a k6 script</b>.</p></li>
           <li class="feature-row"><h3>Prove the fix, keep it fixed</h3><p>Replay to local, dev or QA and <b>compare the runs span by span</b>. Copy the request as a MockMvc test, and <code>@CauselineTest</code> fails the build on extra queries, N+1, errors or security findings.</p></li>
+          <li class="feature-row"><h3>Ask your coding agent</h3><p>Claude Code, Cursor or Copilot read the real trace <b>over MCP</b>, fix the code, then replay the request to prove it. They see secrets redacted and <b>replay only what you allow</b>.</p></li>
         </ul>
       </div>
     </div>

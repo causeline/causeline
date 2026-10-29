@@ -119,6 +119,10 @@ button { font: inherit; color: inherit; }
 .tagline { margin-top: 0; font-size: var(--step-lead); line-height: 1.4; color: var(--ink-2); max-width: 26ch; }
 .hero-actions { display: flex; flex-wrap: wrap; gap: 12px; margin-top: 36px; }
 .hero-meta { margin-top: 20px; font-size: var(--step-small); color: var(--muted); }
+.hero-agent { margin-top: 24px; }
+.hero-agent p { margin: 0 0 10px; font-size: var(--step-small); color: var(--muted); }
+.chip-copy-sm { min-height: 44px; padding: 0 14px; }
+.chip-copy-sm code { font-size: 0.875rem; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 
 /* Screenshot carousel */
 .shots { grid-column: 5 / -1; margin: 0; }

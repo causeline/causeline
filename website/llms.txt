@@ -39,6 +39,7 @@ Install:
 - Copy as: cURL, HTTPie, fetch, k6, and MockMvc or WebTestClient tests with trace assertions filled in
 - JUnit guard (`causeline-test`): `@CauselineTest`, `RecordedTraces`, `TraceAssert` with `hasNoFailedSpans()`, `hasException(...)`, `hasQueryCountAtMost(n)`, `hasNoRepeatedQueries()`, `hasSpans(...)`, `hasNoSecurityFindings()`; never timing assertions
 - Sharing: redacted trace export and import, and an HTML bug report
+- Coding agents over MCP: `/causeline/mcp` lets Claude Code, Cursor, Copilot or Claude Desktop list traces, read a trace with its insights and security hints, compare runs, find source files and replay a request. Everything the agent sees is redacted like an export; it replays only GET and HEAD, or what `causeline.mcp.replay.allow` lists, and only to local or `allow-mcp` targets. Connect with `claude mcp add --transport http causeline http://localhost:8080/causeline/mcp --header "X-Causeline-Token: <token>"`
 
 ## Packages
 

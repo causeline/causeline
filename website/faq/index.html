@@ -5,7 +5,7 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <title>FAQ · Causeline</title>
-<meta name="description" content="Answers about Causeline: tracing a request through Spring Boot, finding slow SQL and N+1 queries, performance, data and security, and how it compares with Zipkin, Jaeger and APM tools.">
+<meta name="description" content="Answers about Causeline: tracing a request through Spring Boot, finding slow SQL and N+1 queries, performance, data and security, coding agents over MCP, and how it compares with Zipkin, Jaeger and APM tools.">
 <meta name="keywords" content="Causeline, Causeline FAQ, Spring Boot tracing FAQ, how to trace a request in Spring Boot, find slow SQL queries, N+1 queries Spring Boot, Zipkin vs Jaeger vs Causeline, APM for development, Spring Security tracing, Kafka tracing, RabbitMQ tracing, microservices tracing, OpenTelemetry questions, debugging, tracing, observability, performance monitoring, is Causeline a security scanner, OWASP Top 10, ZAP alternative, Burp alternative, k6, JMeter alternative, load testing Spring Boot, debugging tool FAQ">
 <meta name="author" content="Sudharma BG">
 <meta name="robots" content="index, follow, max-snippet:-1, max-image-preview:large">
@@ -28,8 +28,8 @@
 <meta name="twitter:description" content="Answers about Causeline: tracing a request through Spring Boot, finding slow SQL and N+1 queries, performance, data and security, and how it compares with Zipkin, Jaeger and APM tools.">
 <meta name="twitter:image" content="https://causeline.dev/og.png">
 <link rel="preload" href="/fonts/hanken-grotesk.woff2" as="font" type="font/woff2" crossorigin>
-<link rel="stylesheet" href="/styles.css?v=20261026a">
-<script src="/main.js?v=20261026a"></script>
+<link rel="stylesheet" href="/styles.css?v=20261029a">
+<script src="/main.js?v=20261029a"></script>
 <script type="application/ld+json">
 {
   "@context": "https://schema.org",
@@ -184,6 +184,22 @@
         },
         {
           "@type": "Question",
+          "name": "Can my coding agent use Causeline?",
+          "acceptedAnswer": {
+            "@type": "Answer",
+            "text": "Yes. Causeline serves its traces over MCP at /causeline/mcp, so Claude Code, Cursor, Copilot or Claude Desktop can list traces, read one with its insights and security hints, compare two runs, find the source file, and replay a request after a fix. Connect Claude Code with claude mcp add --transport http causeline http://localhost:8080/causeline/mcp --header \"X-Causeline-Token: <token>\". The Connect agent button in the Causeline UI shows the command with your token. Causeline itself runs no AI; it answers your agent."
+          }
+        },
+        {
+          "@type": "Question",
+          "name": "What can an AI agent see and do through MCP?",
+          "acceptedAnswer": {
+            "@type": "Answer",
+            "text": "It sees traces the way an export shows them: credentials, sensitive values and SQL literals are redacted, because an agent's context usually goes to a model provider, and causeline.mcp.hide keeps chosen paths away from it. It may replay only GET and HEAD, or what you list in causeline.mcp.replay.allow (deny wins), only to local or targets marked allow-mcp, at most 20 a minute. Requests with side effects need its confirmation, it can't change headers, and it can't run probes or load. Its replays are tagged Agent in the UI."
+          }
+        },
+        {
+          "@type": "Question",
           "name": "Is Causeline free?",
           "acceptedAnswer": {
             "@type": "Answer",
@@ -316,6 +332,14 @@
         <details>
           <summary>Is it safe to send probes and load runs?<span class="pm" aria-hidden="true"></span></summary>
           <div class="answer"><div><p>They only go to local or to targets you configure, and load also needs <code>allow-load: true</code> on a target. Every probe is one request you send by hand, POST, PUT and DELETE ask for confirmation first, and the API enforces the load limits. Point it at your own dev or QA environment, never at production.</p></div></div>
+        </details>
+        <details>
+          <summary>Can my coding agent use Causeline?<span class="pm" aria-hidden="true"></span></summary>
+          <div class="answer"><div><p>Yes. Causeline serves its traces over <b>MCP</b> at <code>/causeline/mcp</code>, so Claude Code, Cursor, Copilot or Claude Desktop can list traces, read one with its insights and security hints, compare two runs, find the source file, and replay a request after a fix. Connect Claude Code with:</p><p><code>claude mcp add --transport http causeline http://localhost:8080/causeline/mcp --header "X-Causeline-Token: &lt;token&gt;"</code></p><p>The <b>Connect agent</b> button in the Causeline UI shows the command with your token. Causeline itself runs no AI; it answers your agent.</p></div></div>
+        </details>
+        <details>
+          <summary>What can an AI agent see and do through MCP?<span class="pm" aria-hidden="true"></span></summary>
+          <div class="answer"><div><p>It sees traces the way an export shows them: credentials, sensitive values and SQL literals are redacted, because an agent’s context usually goes to a model provider, and <code>causeline.mcp.hide</code> keeps chosen paths away from it.</p><p>It may replay only <code>GET</code> and <code>HEAD</code>, or what you list in <code>causeline.mcp.replay.allow</code> (<code>deny</code> wins), only to local or targets marked <code>allow-mcp</code>, at most 20 a minute. Requests with side effects need its confirmation, it can’t change headers, and it can’t run probes or load. Its replays are tagged <b>Agent</b> in the UI.</p></div></div>
         </details>
         <details>
           <summary>Is it free?<span class="pm" aria-hidden="true"></span></summary>

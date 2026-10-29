@@ -306,7 +306,7 @@
       });
     });
 
-    // Features: pinned while you scroll, one card at a time; "See all six" shows every card in a grid.
+    // Features: pinned while you scroll, one card at a time; "See all seven" shows every card in a grid.
     document.querySelectorAll('[data-features]').forEach(function (sec) {
       var cards = sec.querySelectorAll('.feature-row');
       var count = cards.length;
@@ -338,7 +338,7 @@
         next.disabled = i === count - 1;
         if (i === count - 1 && !sec.classList.contains('seen-all')) {
           sec.classList.add('seen-all');
-          all.textContent = 'You’ve seen them all. Browse all six';
+          all.textContent = 'You’ve seen them all. Browse all seven';
         }
       }
       function travel() { return sec.offsetHeight - window.innerHeight; }
@@ -360,7 +360,7 @@
         var showAll = !sec.classList.contains('is-all');
         sec.classList.toggle('is-all', showAll);
         all.setAttribute('aria-pressed', String(showAll));
-        all.textContent = showAll ? 'Show one at a time' : (sec.classList.contains('seen-all') ? 'Browse all six' : 'See all six');
+        all.textContent = showAll ? 'Show one at a time' : (sec.classList.contains('seen-all') ? 'Browse all seven' : 'See all seven');
         cards.forEach(function (c, n) { c.setAttribute('aria-hidden', 'false'); c.tabIndex = showAll ? 0 : -1; c.classList.toggle('is-open', showAll && n === 0); });
         sec.querySelector('.features-ctrl').hidden = showAll;
         sec.scrollIntoView({ block: 'start', behavior: 'instant' });
