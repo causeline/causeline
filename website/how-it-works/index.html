@@ -28,8 +28,8 @@
 <meta name="twitter:description" content="How Causeline follows a React click through Spring Boot: the traceparent header, Micrometer and OpenTelemetry spans, the in-memory store at /causeline, and the insights that name the slow call.">
 <meta name="twitter:image" content="https://causeline.dev/og.png">
 <link rel="preload" href="/fonts/hanken-grotesk.woff2" as="font" type="font/woff2" crossorigin>
-<link rel="stylesheet" href="/styles.css?v=20261026a">
-<script src="/main.js?v=20261026a"></script>
+<link rel="stylesheet" href="/styles.css?v=20261029a">
+<script src="/main.js?v=20261029a"></script>
 <script type="application/ld+json">
 {
   "@context": "https://schema.org",
@@ -117,13 +117,13 @@
         <span class="line"><span data-line style="--i:0">How a click</span></span>
         <span class="line"><span data-line style="--i:1">becomes a trace</span></span>
       </h1>
-      <p class="rise" style="--i:0">Seven steps, from the button your user presses to the insight that names the slow call, and the security and load checks before you ship. Standard headers, Micrometer and OpenTelemetry, nothing proprietary.</p>
+      <p class="rise" style="--i:0">Eight steps, from the button your user presses to the insight that names the slow call, the security and load checks before you ship, and your coding agent reading the same trace. Standard headers, Micrometer and OpenTelemetry, nothing proprietary.</p>
     </div>
   </section>
 
   <section class="stepper" data-stepper data-interval="7000" aria-label="How Causeline works, step by step">
     <div class="wrap grid">
-      <div class="step-nav" role="tablist" aria-label="Steps" style="--steps:7">
+      <div class="step-nav" role="tablist" aria-label="Steps" style="--steps:8">
         <button role="tab" id="s1-tab" aria-controls="s1" aria-selected="true"><small>Step 1</small>The click gets a name<span class="bar"><i></i></span></button>
         <button role="tab" id="s2-tab" aria-controls="s2" aria-selected="false" tabindex="-1"><small>Step 2</small>The header carries it<span class="bar"><i></i></span></button>
         <button role="tab" id="s3-tab" aria-controls="s3" aria-selected="false" tabindex="-1"><small>Step 3</small>Spring Boot joins in<span class="bar"><i></i></span></button>
@@ -131,6 +131,7 @@
         <button role="tab" id="s5-tab" aria-controls="s5" aria-selected="false" tabindex="-1"><small>Step 5</small>Rules read the tree<span class="bar"><i></i></span></button>
         <button role="tab" id="s6-tab" aria-controls="s6" aria-selected="false" tabindex="-1"><small>Step 6</small>Replay, compare, keep<span class="bar"><i></i></span></button>
         <button role="tab" id="s7-tab" aria-controls="s7" aria-selected="false" tabindex="-1"><small>Step 7</small>Before you ship<span class="bar"><i></i></span></button>
+        <button role="tab" id="s8-tab" aria-controls="s8" aria-selected="false" tabindex="-1"><small>Step 8</small>Your agent reads it too<span class="bar"><i></i></span></button>
       </div>
 
       <div class="step-view">
@@ -204,6 +205,19 @@
             <p class="insight-box"><b>Secret in a log</b>OrderService logged a field named <code>password</code> while handling POST /api/orders.</p>
             <p class="insight-box"><b>What grew under load</b>PaymentClient.charge, self time at p95, with 20 requests in flight.</p>
             <p>Hints, not a scanner: nothing is sent unless you press the button, and load only goes to local or a target you mark <code>allow-load</code>.</p>
+          </article>
+          <article class="step-panel" role="tabpanel" id="s8" aria-labelledby="s8-tab">
+            <span class="tag">Coding agents</span>
+            <h2>Your agent reads it too</h2>
+            <p>The same traces are served over MCP at <code>/causeline/mcp</code>. Claude Code, Cursor or Copilot can find the failed request, read where it was thrown, fix the code, then replay the request and compare the runs. What the agent sees is redacted like an export; what it may replay is up to you.</p>
+            <div class="code"><div class="code-head"><span>application-dev.yml</span></div>
+<pre><span class="k">causeline</span>:
+  <span class="k">mcp</span>:
+    <span class="k">hide</span>: [<span class="s">"/api/admin/**"</span>]
+    <span class="k">replay</span>:
+      <span class="c"># default: GET and HEAD only</span>
+      <span class="k">allow</span>: [<span class="s">"POST /api/orders"</span>]</pre></div>
+            <p class="insight-box"><b>Agent</b>Replayed POST /api/orders after the fix: 500 became 201, PaymentTimeoutException gone.</p>
           </article>
         </div>
         <div class="step-arrows">

@@ -52,8 +52,9 @@ public class CauselineWebConfiguration {
 
     /** Prints where to open the UI once the port is known, the way Jupyter does. */
     @Bean
-    ApplicationListener<WebServerInitializedEvent> causelineStartupLink(AccessToken token) {
-        return CauselineWebSupport.startupLink(token);
+    ApplicationListener<WebServerInitializedEvent> causelineStartupLink(AccessToken token,
+            CauselineProperties properties) {
+        return CauselineWebSupport.startupLink(token, properties);
     }
 
     @Bean
@@ -61,9 +62,10 @@ public class CauselineWebConfiguration {
             CauselineStats stats, @Qualifier("causelineForwarder") SpanForwarder causelineForwarder,
             ObjectProvider<UpstreamForwarder> upstream,
             CauselineProperties properties, Environment environment, SpanRedactor redactor,
-            ObjectProvider<javax.sql.DataSource> dataSources) {
+            ObjectProvider<javax.sql.DataSource> dataSources,
+            ObjectProvider<dev.causeline.spring.internal.mcp.AgentReplays> agentReplays) {
         return CauselineWebSupport.apiController(store, replays, stats, causelineForwarder, upstream, properties,
-                environment, redactor, dataSources);
+                environment, redactor, dataSources, agentReplays);
     }
 
     @Bean

@@ -15,6 +15,8 @@ import java.util.function.LongSupplier;
  * <ul>
  *   <li>the Host header must be localhost or explicitly allowed (defeats DNS rebinding);</li>
  *   <li>the read API needs the access token in {@value #TOKEN_HEADER};</li>
+ *   <li>the MCP endpoint needs it too (or as {@code Authorization: Bearer}), and refuses pages on
+ *       other sites, which a browser marks with a non-local {@code Origin};</li>
  *   <li>span uploads need no token (they can only add spans) but are limited by origin, size and rate.</li>
  * </ul>
  * The UI's static files need no token: they contain no trace data.
@@ -77,11 +79,43 @@ public final class CauselineGuard {
             if (!tryAcquire(request.remoteAddress())) {
                 return new Rejection(429, "Too many span uploads.");
             }
+        } else if (path.equals(CauselinePaths.MCP_PATH)) {
+            if (request.origin() != null && !isAllowedOrigin(request.origin())) {
+                return new Rejection(403, "Origin not allowed to use the Causeline MCP endpoint.");
+            }
+            if (!token.matches(request.token())) {
+                return new Rejection(401, "Causeline access token missing or wrong. Send it as " + TOKEN_HEADER
+                        + " (the MCP command is printed in the application log).");
+            }
         } else if (path.startsWith(CauselinePaths.API_PREFIX) && !token.matches(request.token())) {
             return new Rejection(401,
                     "Causeline access token missing or wrong. Open the link printed in the application log.");
         }
         return null;
+    }
+
+    /**
+     * The token from {@value #TOKEN_HEADER}, or else from {@code Authorization: Bearer}, which is what
+     * MCP clients send most easily.
+     */
+    public static String tokenOf(String causelineHeader, String authorization) {
+        if (causelineHeader != null) {
+            return causelineHeader;
+        }
+        if (authorization != null && authorization.regionMatches(true, 0, "Bearer ", 0, 7)) {
+            return authorization.substring(7).strip();
+        }
+        return null;
+    }
+
+    /** A page served from this machine or an allowed host; never a site on the internet. */
+    private boolean isAllowedOrigin(String origin) {
+        try {
+            String host = URI.create(origin).getHost();
+            return host != null && allowedHosts.contains(host.toLowerCase(Locale.ROOT));
+        } catch (IllegalArgumentException e) {
+            return false;
+        }
     }
 
     /** Fixed one-minute window per client address. */

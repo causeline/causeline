@@ -176,6 +176,11 @@ export function TraceList({ traces, selected, onSelect, token }: Props) {
                   <span className="truncate text-[14px] font-medium text-ink">{trace.name}</span>
                   {trace.status === 'ERROR' && <span className="chip border-error/40 text-error">Error</span>}
                   {trace.replayOf && <span className="chip border-server/40 text-server">Replay</span>}
+                  {trace.byAgent && (
+                    <span className="chip border-signal/40 text-signal" title="Replayed by your coding agent over MCP">
+                      Agent
+                    </span>
+                  )}
                   {trace.imported && (
                     <span className="chip text-muted" title="Loaded from an exported file; kept until the application restarts">
                       Imported

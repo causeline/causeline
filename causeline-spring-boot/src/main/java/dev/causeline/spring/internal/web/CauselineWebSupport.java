@@ -9,6 +9,7 @@ import dev.causeline.spring.internal.export.SpanForwarder;
 import dev.causeline.spring.internal.contract.ContractService;
 import dev.causeline.spring.internal.explain.QueryExplainer;
 import dev.causeline.spring.internal.export.UpstreamForwarder;
+import dev.causeline.spring.internal.mcp.AgentReplays;
 import dev.causeline.spring.internal.replay.BodyRedactor;
 import dev.causeline.spring.internal.replay.ReplayStore;
 import dev.causeline.spring.internal.tracing.CauselineStats;
@@ -38,13 +39,20 @@ final class CauselineWebSupport {
     }
 
     /** Prints where to open the UI once the port is known, the way Jupyter does. */
-    static ApplicationListener<WebServerInitializedEvent> startupLink(AccessToken token) {
+    static ApplicationListener<WebServerInitializedEvent> startupLink(AccessToken token, CauselineProperties properties) {
         return event -> {
-            String base = "http://localhost:" + event.getWebServer().getPort() + CauselinePaths.BASE_PATH + "/";
+            String origin = "http://localhost:" + event.getWebServer().getPort();
+            String base = origin + CauselinePaths.BASE_PATH + "/";
             if (token.generated()) {
                 log.info("Causeline UI: {}?token={}  (token changes on every restart)", base, token.value());
             } else {
                 log.info("Causeline UI: {}  (use your configured causeline.access-token)", base);
+            }
+            if (properties.mcp().enabled()) {
+                log.info("Causeline MCP: claude mcp add --transport http causeline {}{} --header \"{}: {}\"{}", origin,
+                        CauselinePaths.MCP_PATH, CauselineGuard.TOKEN_HEADER,
+                        token.generated() ? token.value() : "<causeline.access-token>",
+                        token.generated() ? "  (set causeline.access-token to keep it across restarts)" : "");
             }
         };
     }
@@ -52,7 +60,7 @@ final class CauselineWebSupport {
     static CauselineApiController apiController(TraceStore store, ObjectProvider<ReplayStore> replays,
             CauselineStats stats, SpanForwarder forwarder, ObjectProvider<UpstreamForwarder> upstream,
             CauselineProperties properties, Environment environment, SpanRedactor redactor,
-            ObjectProvider<DataSource> dataSources) {
+            ObjectProvider<DataSource> dataSources, ObjectProvider<AgentReplays> agentReplays) {
         CauselineApiController.Status.Otlp otlpStatus = properties.export().otlp().enabled()
                 ? new CauselineApiController.Status.Otlp(true,
                         URI.create(properties.export().otlp().endpoint()).getHost(), 0, 0, 0)
@@ -61,6 +69,10 @@ final class CauselineWebSupport {
             ReplayStore replayStore = replays.getIfAvailable();
             return replayStore == null ? Optional.empty() : replayStore.replayOf(traceId);
         }, stats, forwarder, environment.getProperty("spring.application.name", "spring"), otlpStatus, redactor);
+        controller.setByAgent(traceId -> {
+            AgentReplays agents = agentReplays.getIfAvailable();
+            return agents != null && agents.contains(traceId);
+        });
         UpstreamForwarder up = upstream.getIfAvailable();
         if (up != null) {
             controller.setUpstream(up.host());

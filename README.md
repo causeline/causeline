@@ -2,7 +2,7 @@
 
 **See what happens between a React click and a Spring Boot response.**
 
-Causeline is an open-source, local-first developer tool. It follows one user action from a React click, through your Spring Boot controllers, services, repositories and outbound calls, and back to the React state update, and shows it all as one timeline. You can then replay a captured request against Local, Dev or QA and compare the two runs.
+Causeline is an open-source, local-first developer tool. It follows one user action from a React click, through your Spring Boot controllers, services, repositories and outbound calls, and back to the React state update, and shows it all as one timeline. You can then replay a captured request against Local, Dev or QA and compare the two runs. Your coding agent (Claude Code, Cursor, Copilot) can read the same traces and replay requests over MCP.
 
 > **Status: alpha (`0.1.0-alpha.3`).** Milestones 0.1 (timeline), 0.2 (diagnosis) and 0.3 (replay) work locally, on Spring MVC and WebFlux, with React or Next.js in front: a React click and the Spring Boot work it causes appear as one trace, with bottleneck and exception insights, and any captured request can be replayed and compared with the original. To try it in your own app, start with the [quick start](docs/QUICKSTART.md).
 
@@ -13,6 +13,7 @@ Debugging "Checkout is slow and sometimes fails" means switching between the bro
 - **Local-first.** Runs inside your Spring Boot app at `/causeline`. No account, no cloud, no extra process.
 - **See exactly what was sent.** Headers, cookies, bodies, SQL and exceptions are captured and shown by default, so nothing is hidden while you debug. Block anything you don't want captured. Exports (OTLP, trace files) redact secrets.
 - **Development and QA only.** Off by default, and refuses to run under a production profile.
+- **Works with your coding agent.** Claude Code, Cursor or Copilot can read the trace over MCP, fix the code and replay the request to prove it, with secrets redacted and only the replays you allow. See [Use it from your coding agent](#use-it-from-your-coding-agent-mcp).
 
 ## Repository layout
 
@@ -60,6 +61,15 @@ Causeline UI: http://localhost:8080/causeline/?token=…
 ```
 
 The token protects your traces and changes on every restart, unless you set `causeline.access-token`.
+
+To try MCP with the demo, start the backend with a fixed token and let the agent replay checkouts:
+
+```bash
+CAUSELINE_MCP_REPLAY_ALLOW="POST /api/orders" ./mvnw -pl examples/spring-demo spring-boot:run -Dspring-boot.run.profiles=dev -Dspring-boot.run.arguments=--causeline.access-token=dev
+claude mcp add --transport http causeline http://localhost:8080/causeline/mcp --header "X-Causeline-Token: dev"
+```
+
+In Windows Command Prompt, set the variable first with `set "CAUSELINE_MCP_REPLAY_ALLOW=POST /api/orders"` and run `mvnw.cmd`. Then tick "Times out", click **Checkout**, and ask your agent why it failed.
 
 ## Using it in your app
 
@@ -188,6 +198,13 @@ causeline:
     max-duration: 60s
     keep-slowest: 5                    # full traces kept per request; the rest are folded into the figures
     keep-failed: 20
+  mcp:
+    enabled: true                      # /causeline/mcp for your coding agent (see "Use it from your coding agent")
+    hide: []                           # path patterns no MCP tool shows or replays, e.g. /api/admin/**
+    replay:
+      allow: []                        # "METHOD /pattern" the agent may replay; empty = GET and HEAD only
+      deny: []                         # always wins over allow
+      max-per-minute: 20
   explain:
     enabled: true                      # "Explain query" may ask your database to EXPLAIN a captured SELECT
     timeout: 5s
@@ -367,6 +384,176 @@ causeline:
 ```
 
 In the demo, tick **Contended** under the payment provider (and untick **Slow**), place one order, then load-test it with 20 in flight: `PaymentClient.charge` comes out on top of *What grew*, because it lets one charge through at a time.
+
+### Use it from your coding agent (MCP)
+
+Causeline serves its traces to your coding agent over the [Model Context Protocol](https://modelcontextprotocol.io) at `/causeline/mcp`. Claude Code, Claude Desktop, Cursor, VS Code with Copilot, Windsurf or any other MCP client can then read what really happened in a failing or slow request, fix the code, replay the original request and compare the two runs. You don't have to retell it what the timeline shows. Causeline itself runs no AI: it answers your agent.
+
+#### 1. Enable it
+
+MCP is on whenever Causeline is enabled. Nothing else is needed for the agent to read traces. Set a fixed access token so your agent's configuration keeps working across restarts:
+
+```yaml
+# application-dev.yml
+causeline:
+  enabled: true
+  access-token: ${CAUSELINE_TOKEN:dev-only-token}   # without this, the token changes on every restart
+  mcp:
+    replay:
+      allow: ["POST /api/orders"]   # optional: let the agent replay this request (GET and HEAD are allowed by default)
+```
+
+Start the app. Its log prints the command to connect:
+
+```
+Causeline UI: http://localhost:8080/causeline/  (use your configured causeline.access-token)
+Causeline MCP: claude mcp add --transport http causeline http://localhost:8080/causeline/mcp --header "X-Causeline-Token: <causeline.access-token>"
+```
+
+In the Causeline UI, **Connect agent** in the header shows the same command with your token filled in. It masks the token on screen and copies it in full.
+
+#### 2. Connect your agent
+
+Every client needs the same two things: the URL `http://localhost:8080/causeline/mcp` and the header `X-Causeline-Token: <token>`. `Authorization: Bearer <token>` works too. Use your app's port if it isn't 8080, and keep the app running while the agent uses it.
+
+**Claude Code**
+
+```bash
+claude mcp add --transport http causeline http://localhost:8080/causeline/mcp --header "X-Causeline-Token: <token>"
+```
+
+Add `--scope project` to save it in the project's `.mcp.json` for your team. Leave the token out of that file and use an environment variable instead: `--header "X-Causeline-Token: ${CAUSELINE_TOKEN}"`.
+
+**Claude Desktop**
+
+Claude Desktop starts local MCP servers as programs, so it reaches Causeline through the `mcp-remote` bridge, which `npx` downloads the first time. Open **Settings → Developer → Edit Config** and add `mcpServers` at the top level of `claude_desktop_config.json`, next to whatever is already there:
+
+```json
+{
+  "mcpServers": {
+    "causeline": {
+      "command": "npx",
+      "args": ["-y", "mcp-remote", "http://localhost:8080/causeline/mcp", "--header", "X-Causeline-Token:<token>"]
+    }
+  }
+}
+```
+
+Write the header without a space after the colon; arguments with spaces get mangled on Windows. Quit Claude Desktop completely (from the system tray or menu bar) and start it again. **Settings → Connectors → Add custom connector** won't work here: those connections come from Anthropic's servers, which can't reach your `localhost`.
+
+**Cursor**
+
+In `.cursor/mcp.json` (this project) or `~/.cursor/mcp.json` (every project):
+
+```json
+{
+  "mcpServers": {
+    "causeline": {
+      "url": "http://localhost:8080/causeline/mcp",
+      "headers": { "X-Causeline-Token": "<token>" }
+    }
+  }
+}
+```
+
+**VS Code with GitHub Copilot**
+
+In `.vscode/mcp.json`:
+
+```json
+{
+  "servers": {
+    "causeline": {
+      "type": "http",
+      "url": "http://localhost:8080/causeline/mcp",
+      "headers": { "X-Causeline-Token": "<token>" }
+    }
+  }
+}
+```
+
+**Any other client:** use the Streamable HTTP transport with the URL and header above. To try the tools by hand, run `npx @modelcontextprotocol/inspector`. Choose **Streamable HTTP**, enter the URL, add the header under **Authentication** and switch it on, then **Connect** and **List Tools**.
+
+#### 3. Check it works
+
+- In Claude Code, `/mcp` lists **causeline** as connected, with 7 tools. Other clients show it in their MCP or tools settings.
+- Ask: *"Use causeline to list recent traces."*
+- In the Causeline UI, the header switches from **Connect agent** to **Agent connected** after the first tool call.
+
+#### 4. Ask it things
+
+- *"Use causeline: why did the last checkout fail?"* The agent reads the trace and names the exception and the file and line that threw it.
+- *"Which part of the last checkout is slowest, and why?"*
+- *"Are there N+1 queries or repeated SQL in recent traces?"*
+- *"What security issues has causeline found across all traces?"*
+- *"Fix the cause, then replay the failed checkout and compare it with the original."* After you restart the app with the fix, the agent replays the request and reports, for example, 500 → 201 with the exception gone.
+
+Replays the agent sent show in the trace list with an **Agent** tag, and **Connect agent** lists them under "Replayed by your agent".
+
+#### Tools
+
+Six tools only read; `replay_request` sends a request, so MCP clients ask you before each call.
+
+| Tool | What the agent gets |
+| --- | --- |
+| `list_traces` | Recent traces, newest first, optionally only failed ones or by name |
+| `get_trace` | The span tree with self time, captured values and insights, and which requests can be replayed |
+| `get_insights` | Bottleneck, N+1 queries, handled exceptions, transaction and frontend hints |
+| `security_findings` | Security hints for one trace, or grouped across all of them |
+| `compare_traces` | Two traces compared span by span |
+| `source_location` | The file and line of a class |
+| `replay_request` | Sends a captured request again, optionally with another path, query or body, and on `local` compares it with the original |
+
+#### What the agent sees
+
+Everything an agent receives is redacted like an exported trace: credential headers, sensitive values and SQL literals are hidden, because an agent's context usually goes to a model provider. Long values are cut. The local UI still shows everything. To keep some requests away from the agent entirely:
+
+```yaml
+causeline:
+  mcp:
+    hide: ["/api/admin/**", "/api/payroll/**"]   # no MCP tool shows or replays these
+```
+
+`causeline.export.redact-secrets=false` turns redaction off for MCP too, as it does for exports.
+
+#### What the agent may replay
+
+You decide, in configuration. The agent can't change these settings.
+
+```yaml
+causeline:
+  mcp:
+    replay:
+      allow: ["GET /api/**", "POST /api/checkout"]   # METHOD /path-pattern (Spring path patterns); * for any method
+      deny: ["DELETE /**", "* /api/admin/**"]         # always wins over allow
+      max-per-minute: 20
+  replay:
+    targets:
+      qa:
+        base-url: https://qa.example.internal
+        allow-mcp: true                               # agents may replay here too; off by default
+```
+
+- Without an `allow` list the agent may replay only `GET` and `HEAD`.
+- The check uses the request as it will be sent, after the agent's edits, so it can't edit its way into a blocked path.
+- Replays go to `local`, or to targets with `allow-mcp: true`.
+- Requests with side effects (`POST`, `PUT`, `PATCH`, `DELETE`) need the agent's explicit confirmation, and your MCP client asks you to approve the call.
+- The agent can't change headers. Original headers, credentials included, are resent as captured (see `send-original-credentials`), and the agent never sees them.
+- Paused replays, load runs, active probes and Explain query are not available to agents.
+- Every refusal names the setting that would allow the request, so the agent can tell you what to change.
+
+#### Troubleshooting
+
+| Symptom | Fix |
+| --- | --- |
+| `401` or "access token missing or wrong" | The header is missing, switched off, or has an old token. The generated token changes on every restart: set `causeline.access-token`. |
+| `403` "Origin not allowed" | The request came from a web page on another site. MCP clients don't send `Origin`; browser-based tools must run on `localhost`. |
+| The client can't connect at all | The app isn't running, runs on another port, or Causeline isn't enabled in the active profile. Open `http://localhost:8080/causeline/` to check. |
+| Claude Desktop doesn't list causeline | Check the JSON (a missing comma breaks the whole file), quit Claude Desktop completely and restart. **Settings → Developer** shows the server's log. If it refuses a plain `http://` URL, add `"--allow-http"` to `args`. |
+| A replay is refused | The message names the setting: `causeline.mcp.replay.allow`, `deny`, `hide`, a target's `allow-mcp`, or `max-per-minute`. |
+| Tools show as read-only | Expected: six of the seven tools only read. `replay_request` is the one that sends requests. If your client won't call it, make sure it isn't in a plan or read-only mode. |
+
+`causeline.mcp.enabled=false` removes the endpoint.
 
 ## Contributing
 

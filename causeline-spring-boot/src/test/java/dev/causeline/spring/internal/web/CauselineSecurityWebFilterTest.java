@@ -43,6 +43,17 @@ class CauselineSecurityWebFilterTest {
     }
 
     @Test
+    void mcpNeedsTheTokenAndALocalOrigin() {
+        String mcp = "http://localhost:8080/causeline/mcp";
+        assertThat(run(MockServerHttpRequest.post(mcp))).isEqualTo(401);
+        assertThat(run(MockServerHttpRequest.post(mcp).header("Authorization", "Bearer secret-token"))).isEqualTo(200);
+        assertThat(run(MockServerHttpRequest.post(mcp).header(CauselineGuard.TOKEN_HEADER, "secret-token")))
+                .isEqualTo(200);
+        assertThat(run(MockServerHttpRequest.post(mcp).header(CauselineGuard.TOKEN_HEADER, "secret-token")
+                .header("Origin", "https://evil.example"))).isEqualTo(403);
+    }
+
+    @Test
     void applicationRequestsPassUntouched() {
         assertThat(run(MockServerHttpRequest.get("http://attacker.example/api/orders"))).isEqualTo(200);
     }

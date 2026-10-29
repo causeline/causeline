@@ -75,7 +75,7 @@ public final class ReplayService {
 
     private static Map<String, Target> withLocal(Map<String, Target> configured) {
         Map<String, Target> all = new LinkedHashMap<>();
-        all.put(LOCAL_TARGET, new Target(SELF, new Auth(AuthType.NONE, null, null, null, null, null), null, true));
+        all.put(LOCAL_TARGET, new Target(SELF, new Auth(AuthType.NONE, null, null, null, null, null), null, true, true));
         all.putAll(configured);
         return Map.copyOf(all);
     }
@@ -106,6 +106,12 @@ public final class ReplayService {
     public boolean allowsLoad(String targetName) {
         Target target = targets.get(targetName);
         return target != null && (SELF.equals(target.baseUrl()) || target.allowLoad());
+    }
+
+    /** Whether the developer's coding agent may replay to this target over MCP: {@code local}, or {@code allow-mcp: true}. */
+    public boolean allowsMcp(String targetName) {
+        Target target = targets.get(targetName);
+        return target != null && (SELF.equals(target.baseUrl()) || target.allowMcp());
     }
 
     /** Forgets the replay material captured from a replay's own request. */

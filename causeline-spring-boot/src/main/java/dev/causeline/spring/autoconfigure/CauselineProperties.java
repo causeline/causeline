@@ -23,6 +23,7 @@ import org.springframework.boot.context.properties.bind.DefaultValue;
  * @param explain                      running EXPLAIN for a captured query, on request from the UI
  * @param contract                     checking a response against the application's OpenAPI document
  * @param load                         limits for load replay: one captured request or flow sent many times
+ * @param mcp                          the MCP endpoint that lets the developer's coding agent read traces and replay requests
  */
 @ConfigurationProperties("causeline")
 public record CauselineProperties(
@@ -37,7 +38,32 @@ public record CauselineProperties(
         @DefaultValue Export export,
         @DefaultValue Explain explain,
         @DefaultValue Contract contract,
-        @DefaultValue Load load) {
+        @DefaultValue Load load,
+        @DefaultValue Mcp mcp) {
+
+    /**
+     * {@code /causeline/mcp}: traces and replay for the developer's coding agent. Everything it
+     * returns is redacted like an export.
+     *
+     * @param enabled  serve the endpoint (only when Causeline itself is enabled)
+     * @param hide     path patterns (Spring {@code PathPattern}, e.g. {@code /api/admin/**}) whose
+     *                 requests no MCP tool shows or replays
+     * @param replay   which captured requests the agent may replay
+     */
+    public record Mcp(@DefaultValue("true") boolean enabled, @DefaultValue List<String> hide,
+            @DefaultValue McpReplay replay) {
+    }
+
+    /**
+     * @param allow         {@code "METHOD /path-pattern"} entries the agent may replay, e.g.
+     *                      {@code "POST /api/checkout"}; {@code *} matches any method. Empty: only
+     *                      {@code GET} and {@code HEAD}
+     * @param deny          entries the agent may never replay; they win over {@code allow}
+     * @param maxPerMinute  replays the agent may send per minute
+     */
+    public record McpReplay(@DefaultValue List<String> allow, @DefaultValue List<String> deny,
+            @DefaultValue("20") int maxPerMinute) {
+    }
 
     /**
      * Load replay sends a captured request (or flow) many times from this application, to see which
@@ -132,9 +158,12 @@ public record CauselineProperties(
      * @param causelineToken  the target's Causeline access token, to fetch the replay's trace for comparison
      * @param allowLoad       let load replay send many requests to this target. Off, so a shared
      *                        environment is never loaded by accident; {@code local} always allows it
+     * @param allowMcp        let the developer's coding agent replay to this target over MCP. Off, so
+     *                        an agent never reaches a shared environment by accident; {@code local}
+     *                        always allows it
      */
     public record Target(String baseUrl, @DefaultValue Auth auth, String causelineToken,
-            @DefaultValue("false") boolean allowLoad) {
+            @DefaultValue("false") boolean allowLoad, @DefaultValue("false") boolean allowMcp) {
     }
 
     /**
