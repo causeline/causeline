@@ -2,6 +2,7 @@
 import { useEffect, useRef, useState } from 'react';
 import { UnauthorizedError, fetchStatus, fetchTrace, fetchTraces, importTrace } from './api';
 import type { Status, TraceSummary, TraceView } from './api';
+import { AgentButton, AgentDialog } from './AgentPanel';
 import { EmptyState } from './EmptyState';
 import { DropWarning, StatusLine } from './StatusBar';
 import { useTheme } from './theme';
@@ -22,6 +23,7 @@ export function App() {
   const [problem, setProblem] = useState<Problem>();
   const [loaded, setLoaded] = useState(false);
   const [importMessage, setImportMessage] = useState<string>();
+  const [agentOpen, setAgentOpen] = useState(false);
   const [theme, toggleTheme] = useTheme();
   const fileInput = useRef<HTMLInputElement>(null);
   const autoSelected = useRef(false);
@@ -112,6 +114,7 @@ export function App() {
           </span>
         )}
         <div className="ml-auto flex items-center gap-2">
+          {problem === undefined && <AgentButton onboarding={status?.onboarding} onClick={() => setAgentOpen(true)} />}
           {problem === undefined && (
             <label className="btn">
               <svg aria-hidden width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
@@ -139,6 +142,15 @@ export function App() {
         </div>
       </header>
 
+      <AgentDialog
+        open={agentOpen}
+        onClose={() => setAgentOpen(false)}
+        token={token}
+        onboarding={status?.onboarding}
+        traces={traces}
+        onOpenTrace={setSelected}
+      />
+
       {importMessage && (
         <div role="alert" className="border-b border-error/40 bg-error/10 px-6 py-2 text-xs text-error">
           Import failed: {importMessage}
@@ -162,7 +174,7 @@ export function App() {
           <DropWarning status={status} />
           {loaded && traces.length === 0 ? (
             <main className="flex-1">
-              <EmptyState onboarding={status?.onboarding} />
+              <EmptyState onboarding={status?.onboarding} token={token} />
             </main>
           ) : (
             <div className="flex min-h-0 flex-1 flex-col md:flex-row">

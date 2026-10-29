@@ -177,6 +177,27 @@ class ReactiveCheckoutTest {
         assertThat(replay.body()).contains("\"httpStatus\":201");
     }
 
+    /** SC-17 on WebFlux: the same MCP controller answers, off the event loop, redacted like an export. */
+    @Test
+    void mcpListsTracesOnWebFlux() throws Exception {
+        String traceId = "e4f92f3577b34da6a3ce929d0e0e4736";
+        post("/api/orders", "{\"item\":\"book\",\"quantity\":1,\"password\":\"SECRET-PASSWORD\"}", traceparent(traceId));
+        await(traceId, s -> s.stream().anyMatch(span -> span.kind() == SpanKind.REQUEST));
+
+        assertThat(post("/causeline/mcp", "{\"jsonrpc\":\"2.0\",\"id\":1,\"method\":\"tools/list\"}", null).statusCode())
+                .isEqualTo(401);
+        HttpResponse<String> list = post("/causeline/mcp", """
+                {"jsonrpc":"2.0","id":1,"method":"tools/call","params":{"name":"list_traces","arguments":{"limit":100}}}""",
+                null, TOKEN);
+        assertThat(list.statusCode()).isEqualTo(200);
+        assertThat(list.body()).contains(traceId, "\"isError\":false");
+
+        HttpResponse<String> trace = post("/causeline/mcp", """
+                {"jsonrpc":"2.0","id":2,"method":"tools/call","params":{"name":"get_trace","arguments":{"traceId":"%s"}}}"""
+                .formatted(traceId), null, TOKEN);
+        assertThat(trace.body()).contains("POST /api/orders", "\\\"replayable\\\":true").doesNotContain("SECRET-PASSWORD");
+    }
+
     private List<Span> await(String traceId, Predicate<List<Span>> done) throws InterruptedException {
         long deadline = System.nanoTime() + Duration.ofSeconds(10).toNanos();
         List<Span> spans = List.of();

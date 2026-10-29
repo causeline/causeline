@@ -61,6 +61,7 @@ public class CauselineApiController {
     private Status.Upstream upstream = Status.Upstream.disabled();
     private final SpanRedactor redactor;
     private final Set<String> imported = ConcurrentHashMap.newKeySet();
+    private java.util.function.Predicate<String> byAgent = traceId -> false;
     /** Security rules the developer has dismissed for this session; the overview leaves them out. */
     private final Set<String> dismissedRules = ConcurrentHashMap.newKeySet();
     /**
@@ -93,7 +94,8 @@ public class CauselineApiController {
         List<TraceSummary> summaries = store.snapshot().stream()
                 .map(spans -> TraceAssembler.assemble(spans.getFirst().traceId(), spans).summary())
                 .map(summary -> summary.withReplayOf(replayOf.apply(summary.traceId()).orElse(null))
-                        .withImported(imported.contains(summary.traceId())))
+                        .withImported(imported.contains(summary.traceId()))
+                        .withByAgent(byAgent.test(summary.traceId())))
                 .toList();
         return Baselines.apply(summaries).stream()
                 .sorted(Comparator.comparingLong(TraceSummary::startTimeUnixNano).reversed())
@@ -406,6 +408,11 @@ public class CauselineApiController {
                 otlp.withCounts(stats), Status.Onboarding.from(appName, stats), upstream.withCounts(stats));
     }
 
+    /** Marks replays that a coding agent sent over MCP, so the trace list can label them. */
+    public void setByAgent(java.util.function.Predicate<String> byAgent) {
+        this.byAgent = byAgent;
+    }
+
     /** Reports the upstream Causeline in the status; host only, never the token. */
     public void setUpstream(String host) {
         this.upstream = new Status.Upstream(true, host, 0, 0, 0, 0);
@@ -451,14 +458,17 @@ public class CauselineApiController {
          *
          * @param lastServerSpanAt  epoch milliseconds, or null if no server span has been stored
          * @param lastBrowserSpanAt epoch milliseconds, or null if the React SDK has not sent anything
+         * @param agentCalls        MCP tool calls from coding agents
+         * @param lastAgentCallAt   epoch milliseconds, or null if no agent has called
          */
         public record Onboarding(String appName, long serverSpans, long browserSpans, long namedActions,
-                Long lastServerSpanAt, Long lastBrowserSpanAt) {
+                Long lastServerSpanAt, Long lastBrowserSpanAt, long agentCalls, Long lastAgentCallAt) {
 
             static Onboarding from(String appName, CauselineStats stats) {
                 return new Onboarding(appName, stats.serverSpansStored.get(), stats.browserSpansAccepted.get(),
                         stats.browserActionsSeen.get(), stats.lastServerSpanAt == 0 ? null : stats.lastServerSpanAt,
-                        stats.lastBrowserSpanAt == 0 ? null : stats.lastBrowserSpanAt);
+                        stats.lastBrowserSpanAt == 0 ? null : stats.lastBrowserSpanAt, stats.mcpToolCalls.get(),
+                        stats.lastMcpCallAt == 0 ? null : stats.lastMcpCallAt);
             }
         }
 

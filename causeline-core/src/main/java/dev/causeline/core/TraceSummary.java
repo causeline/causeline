@@ -9,6 +9,7 @@ package dev.causeline.core;
  * @param baselineNanos the usual duration of this action (median of other successful runs), or null
  *                      when there are too few runs to say; see {@link Baselines}
  * @param baselineRuns  how many runs the baseline is based on
+ * @param byAgent       a replay that the developer's coding agent sent over MCP
  */
 public record TraceSummary(
         String traceId,
@@ -20,25 +21,31 @@ public record TraceSummary(
         String replayOf,
         boolean imported,
         Long baselineNanos,
-        int baselineRuns) {
+        int baselineRuns,
+        boolean byAgent) {
 
     public TraceSummary(String traceId, String name, SpanStatus status, long startTimeUnixNano, long durationNanos,
             int spanCount, String replayOf, boolean imported) {
-        this(traceId, name, status, startTimeUnixNano, durationNanos, spanCount, replayOf, imported, null, 0);
+        this(traceId, name, status, startTimeUnixNano, durationNanos, spanCount, replayOf, imported, null, 0, false);
     }
 
     public TraceSummary withReplayOf(String originalTraceId) {
         return new TraceSummary(traceId, name, status, startTimeUnixNano, durationNanos, spanCount, originalTraceId,
-                imported, baselineNanos, baselineRuns);
+                imported, baselineNanos, baselineRuns, byAgent);
     }
 
     public TraceSummary withImported(boolean isImported) {
         return new TraceSummary(traceId, name, status, startTimeUnixNano, durationNanos, spanCount, replayOf,
-                isImported, baselineNanos, baselineRuns);
+                isImported, baselineNanos, baselineRuns, byAgent);
     }
 
     public TraceSummary withBaseline(Long usualNanos, int runs) {
         return new TraceSummary(traceId, name, status, startTimeUnixNano, durationNanos, spanCount, replayOf,
-                imported, usualNanos, runs);
+                imported, usualNanos, runs, byAgent);
+    }
+
+    public TraceSummary withByAgent(boolean sentByAgent) {
+        return new TraceSummary(traceId, name, status, startTimeUnixNano, durationNanos, spanCount, replayOf,
+                imported, baselineNanos, baselineRuns, sentByAgent);
     }
 }

@@ -43,6 +43,10 @@ public final class CauselineStats {
     public volatile long lastServerSpanAt;
     /** Epoch milliseconds of the last accepted browser span, or 0. */
     public volatile long lastBrowserSpanAt;
+    /** Tool calls from coding agents over MCP, so the UI can show that one is connected. */
+    public final AtomicLong mcpToolCalls = new AtomicLong();
+    /** Epoch milliseconds of the last MCP tool call; 0 if none. */
+    public volatile long lastMcpCallAt;
 
     public void serverSpansStored(int count) {
         if (count > 0) {

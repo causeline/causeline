@@ -35,7 +35,7 @@ public final class CauselineSecurityFilter extends OncePerRequestFilter {
             throws ServletException, IOException {
         CauselineGuard.Rejection rejection = guard.check(new CauselineGuard.Request(request.getServerName(),
                 request.getServerPort(), path(request), request.getHeader("Origin"), request.getContentLengthLong(),
-                request.getRemoteAddr(), request.getHeader(TOKEN_HEADER)));
+                request.getRemoteAddr(), CauselineGuard.tokenOf(request.getHeader(TOKEN_HEADER), request.getHeader("Authorization"))));
         if (rejection != null) {
             response.setStatus(rejection.status());
             response.setContentType("application/json");

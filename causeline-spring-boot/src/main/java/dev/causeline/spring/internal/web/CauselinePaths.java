@@ -7,6 +7,8 @@ public final class CauselinePaths {
     public static final String BASE_PATH = "/causeline";
     static final String API_PREFIX = BASE_PATH + "/api/";
     static final String INGEST_PATH = BASE_PATH + "/api/spans";
+    /** MCP for the developer's coding agent. */
+    static final String MCP_PATH = BASE_PATH + "/mcp";
     /** springdoc's default location for the OpenAPI document. */
     static final String API_DOCS_PATH = "/v3/api-docs";
 

@@ -24,6 +24,7 @@ describe('first-run checklist', () => {
       ['server', true],
       ['browser', false],
       ['actions', false],
+      ['agent', false],
     ]);
     const html = renderToString(<EmptyState onboarding={onboarding({ serverSpans: 12 })} />).replaceAll('<!-- -->', '');
     expect(html).toContain('Waiting for your');
@@ -41,6 +42,15 @@ describe('first-run checklist', () => {
     expect(html).toContain('3 of 3 connected');
     expect(html).toContain('All set: make a request');
     expect(html).toContain('optional');
+  });
+
+  it('offers to connect a coding agent, with the token filled in, until one has called', () => {
+    const open = steps(onboarding({}), 'tok123').find((s) => s.id === 'agent');
+    expect(open?.done).toBe(false);
+    expect(open?.optional).toBe(true);
+    expect(open?.code).toContain('/causeline/mcp --header "X-Causeline-Token: tok123"');
+
+    expect(steps(onboarding({ agentCalls: 2 })).find((s) => s.id === 'agent')?.done).toBe(true);
   });
 });
 

@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: Apache-2.0
 import { useState } from 'react';
 import type { ReactNode } from 'react';
+import { claudeCommand } from './AgentPanel';
 import type { Onboarding } from './api';
 
 interface Step {
@@ -18,7 +19,7 @@ function appOrigin(): string {
   return typeof window === 'undefined' ? 'http://localhost:8080' : window.location.origin;
 }
 
-export function steps(onboarding: Onboarding | undefined): Step[] {
+export function steps(onboarding: Onboarding | undefined, token?: string): Step[] {
   const app = onboarding?.appName ?? 'your app';
   return [
     {
@@ -54,12 +55,20 @@ export function steps(onboarding: Onboarding | undefined): Step[] {
       hint: 'Optional, but it turns "POST /api/orders" into "Checkout": the click, the request and the state update in one trace.',
       code: `const onCheckout = () =>\n  trace('Checkout', () => fetch('/api/orders', { method: 'POST' }));`,
     },
+    {
+      id: 'agent',
+      title: 'Your coding agent is connected (MCP)',
+      done: (onboarding?.agentCalls ?? 0) > 0,
+      optional: true,
+      hint: 'Optional: let Claude Code, Cursor or another MCP client read these traces and replay requests. It sees them with secrets redacted.',
+      code: claudeCommand(appOrigin(), '/causeline/mcp', token),
+    },
   ];
 }
 
 /** First-run screen: what is connected, what is missing, and how to fix it. */
-export function EmptyState({ onboarding }: { onboarding: Onboarding | undefined }) {
-  const list = steps(onboarding);
+export function EmptyState({ onboarding, token }: { onboarding: Onboarding | undefined; token?: string }) {
+  const list = steps(onboarding, token);
   const required = list.filter((s) => !s.optional);
   const done = required.filter((s) => s.done).length;
   const next = list.find((s) => !s.done);

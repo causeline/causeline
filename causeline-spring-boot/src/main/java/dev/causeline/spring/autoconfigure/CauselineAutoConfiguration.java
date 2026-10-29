@@ -25,6 +25,7 @@ import dev.causeline.spring.internal.tracing.LoggedExceptionAppender;
 import dev.causeline.spring.internal.tracing.LoggedExceptionCapture;
 import dev.causeline.spring.internal.tracing.RepositoryObservationAspect;
 import dev.causeline.spring.internal.tracing.SpanMapper;
+import dev.causeline.spring.internal.web.CauselineMcpConfiguration;
 import dev.causeline.spring.internal.web.CauselineReactiveWebConfiguration;
 import dev.causeline.spring.internal.web.CauselineReplayConfiguration;
 import dev.causeline.spring.internal.web.CauselineWebConfiguration;
@@ -62,7 +63,8 @@ import org.springframework.core.env.Environment;
         afterName = "org.springframework.boot.micrometer.observation.autoconfigure.ObservationAutoConfiguration")
 @Conditional(OnCauselineEnabledCondition.class)
 @EnableConfigurationProperties(CauselineProperties.class)
-@Import({CauselineWebConfiguration.class, CauselineReplayConfiguration.class, CauselineReactiveWebConfiguration.class})
+@Import({CauselineWebConfiguration.class, CauselineReplayConfiguration.class, CauselineReactiveWebConfiguration.class,
+        CauselineMcpConfiguration.class})
 public class CauselineAutoConfiguration {
 
     /** How often finished spans move from the batch queue into the store. */

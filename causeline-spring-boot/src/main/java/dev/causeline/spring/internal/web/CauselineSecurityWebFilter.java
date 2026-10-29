@@ -43,7 +43,8 @@ public final class CauselineSecurityWebFilter implements WebFilter, Ordered {
         CauselineGuard.Rejection rejection = guard.check(new CauselineGuard.Request(
                 request.getURI().getHost(), port(request), path, request.getHeaders().getOrigin(),
                 request.getHeaders().getContentLength(), remoteAddress(request),
-                request.getHeaders().getFirst(CauselineGuard.TOKEN_HEADER)));
+                CauselineGuard.tokenOf(request.getHeaders().getFirst(CauselineGuard.TOKEN_HEADER),
+                        request.getHeaders().getFirst("Authorization"))));
         if (rejection == null) {
             return chain.filter(exchange);
         }

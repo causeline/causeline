@@ -34,6 +34,8 @@ export interface TraceSummary {
   /** The usual duration of this action (median of other successful runs), or null without enough history. */
   baselineNanos?: number | null;
   baselineRuns?: number;
+  /** A replay the developer's coding agent sent over MCP. */
+  byAgent?: boolean;
 }
 
 export interface Status {
@@ -59,6 +61,36 @@ export interface Onboarding {
   /** Epoch milliseconds, or null when nothing has arrived yet. */
   lastServerSpanAt: number | null;
   lastBrowserSpanAt: number | null;
+  /** MCP tool calls from coding agents since the application started. */
+  agentCalls?: number;
+  lastAgentCallAt?: number | null;
+}
+
+/** What a coding agent may do over MCP (`causeline.mcp.*`); read-only, set in configuration. */
+export interface McpInfo {
+  /** Where MCP clients connect, relative to the application, e.g. /causeline/mcp. */
+  path: string;
+  hide: string[];
+  allow: string[];
+  deny: string[];
+  /** No allow list: the agent may replay only GET and HEAD. */
+  safeMethodsOnly: boolean;
+  maxReplaysPerMinute: number;
+  targets: { name: string; allowed: boolean }[];
+  replayAvailable: boolean;
+  tools: { name: string; description: string; readOnly: boolean }[];
+}
+
+/** The agent-access settings, or null when MCP is switched off (`causeline.mcp.enabled=false`). */
+export async function fetchMcpInfo(token: string | undefined): Promise<McpInfo | null> {
+  try {
+    return await getJson<McpInfo>('/mcp', token);
+  } catch (e) {
+    if (e instanceof Error && e.message.endsWith('HTTP 404')) {
+      return null;
+    }
+    throw e;
+  }
 }
 
 export interface SpanRow {

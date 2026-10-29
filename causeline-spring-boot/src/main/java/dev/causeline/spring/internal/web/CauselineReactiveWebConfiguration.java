@@ -57,17 +57,19 @@ public class CauselineReactiveWebConfiguration {
     }
 
     @Bean
-    ApplicationListener<WebServerInitializedEvent> causelineStartupLink(AccessToken token) {
-        return CauselineWebSupport.startupLink(token);
+    ApplicationListener<WebServerInitializedEvent> causelineStartupLink(AccessToken token,
+            CauselineProperties properties) {
+        return CauselineWebSupport.startupLink(token, properties);
     }
 
     @Bean
     CauselineApiController causelineApiController(TraceStore store, ObjectProvider<ReplayStore> replays,
             CauselineStats stats, @Qualifier("causelineForwarder") SpanForwarder causelineForwarder,
             ObjectProvider<UpstreamForwarder> upstream, CauselineProperties properties, Environment environment,
-            SpanRedactor redactor, ObjectProvider<javax.sql.DataSource> dataSources) {
+            SpanRedactor redactor, ObjectProvider<javax.sql.DataSource> dataSources,
+            ObjectProvider<dev.causeline.spring.internal.mcp.AgentReplays> agentReplays) {
         return CauselineWebSupport.apiController(store, replays, stats, causelineForwarder, upstream, properties,
-                environment, redactor, dataSources);
+                environment, redactor, dataSources, agentReplays);
     }
 
     @Bean

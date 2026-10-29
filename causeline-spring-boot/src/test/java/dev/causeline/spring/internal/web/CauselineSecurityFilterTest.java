@@ -91,6 +91,38 @@ class CauselineSecurityFilterTest {
     }
 
     @Test
+    void mcpNeedsTheTokenAsAHeaderOrBearer() throws Exception {
+        assertThat(run(mcp(null)).getStatus()).isEqualTo(401);
+
+        MockHttpServletRequest header = mcp(null);
+        header.addHeader(CauselineSecurityFilter.TOKEN_HEADER, "secret-token");
+        assertThat(run(header).getStatus()).isEqualTo(200);
+
+        MockHttpServletRequest bearer = mcp(null);
+        bearer.addHeader("Authorization", "Bearer secret-token");
+        assertThat(run(bearer).getStatus()).isEqualTo(200);
+
+        MockHttpServletRequest wrong = mcp(null);
+        wrong.addHeader("Authorization", "Bearer guess");
+        assertThat(run(wrong).getStatus()).isEqualTo(401);
+    }
+
+    @Test
+    void mcpRefusesPagesOnOtherSites() throws Exception {
+        MockHttpServletRequest site = mcp("https://evil.example");
+        site.addHeader(CauselineSecurityFilter.TOKEN_HEADER, "secret-token");
+        assertThat(run(site).getStatus()).isEqualTo(403);
+
+        MockHttpServletRequest local = mcp("http://localhost:6274");
+        local.addHeader(CauselineSecurityFilter.TOKEN_HEADER, "secret-token");
+        assertThat(run(local).getStatus()).isEqualTo(200);
+
+        MockHttpServletRequest allowedHost = mcp("http://devbox.internal");
+        allowedHost.addHeader(CauselineSecurityFilter.TOKEN_HEADER, "secret-token");
+        assertThat(run(allowedHost).getStatus()).isEqualTo(200);
+    }
+
+    @Test
     void leavesOtherPathsAlone() throws Exception {
         MockHttpServletRequest app = get("/api/orders");
         app.setServerName("attacker.example");
@@ -107,6 +139,16 @@ class CauselineSecurityFilterTest {
         MockHttpServletRequest request = new MockHttpServletRequest("GET", uri);
         request.setServerName("localhost");
         request.setServerPort(8080);
+        return request;
+    }
+
+    private static MockHttpServletRequest mcp(String origin) {
+        MockHttpServletRequest request = new MockHttpServletRequest("POST", "/causeline/mcp");
+        request.setServerName("localhost");
+        request.setServerPort(8080);
+        if (origin != null) {
+            request.addHeader("Origin", origin);
+        }
         return request;
     }
 
