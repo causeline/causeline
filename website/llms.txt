@@ -1,12 +1,12 @@
 # Causeline
 
-> Causeline is an open-source (Apache 2.0), local-first debugging tool for React and Spring Boot apps. It traces one user action from a React click, through Spring Boot controllers, services, repositories, SQL and outbound calls, and back to the React state update, and shows it as one timeline. It names the bottleneck, flags OWASP Top 10 security hints on captured traffic, replays and compares requests, and shows which span grows under load. It runs inside the developer's Spring Boot app at `/causeline`, for development and QA only, never in production.
+> Causeline is an open-source (Apache 2.0), local-first debugging tool for React and Spring Boot apps. It traces one user action from a React click, through Spring Boot controllers, services, repositories, SQL and outbound calls, and back to the React state update, and shows it as one timeline. It names the bottleneck, flags OWASP Top 10 security hints on captured traffic, replays and compares requests, and shows which span grows under load. Coding agents such as Claude Code, Cursor and GitHub Copilot can read the same traces and replay allowlisted requests over MCP (Model Context Protocol). It runs inside the developer's Spring Boot app at `/causeline`, for development and QA only, never in production.
 
 Current version: `0.1.0-alpha.4` (alpha, released 2026-10-30). Requirements: Java 21+, Spring Boot 4.1 on Spring MVC or WebFlux, React 18 or 19 (or Next.js on the Node.js runtime).
 
 Key facts:
 
-- No account, agent, collector or extra process. Traces live in memory inside the app (latest 1,000 traces, within 64 MB).
+- No account, APM agent, collector or extra process. Traces live in memory inside the app (latest 1,000 traces, within 64 MB).
 - Off by default (`causeline.enabled=false`) and refuses to start under a `prod*` or `production` profile.
 - Built on standards: W3C `traceparent`, Micrometer Observation and OpenTelemetry. Can export redacted spans over OTLP to Jaeger, Grafana Tempo or an OpenTelemetry Collector.
 - Captures headers, cookies, request and response bodies, SQL with bound values, method arguments and return values, and exceptions, and shows them in the local UI. Anything can be blocked with `causeline.capture.*`. Everything that leaves the app (OTLP, trace files, bug reports, forwarding, persistence) is redacted by default.
@@ -19,14 +19,15 @@ Install:
 - npm: `npm install @causeline/react@alpha`, wrap the app in `<CauselineProvider endpoint="/causeline/api/spans">`, and wrap a click handler in `trace('Checkout', async () => { ... })`.
 - Optional: `@causeline/next` for Next.js server spans, and `dev.causeline:causeline-test` (test scope) for JUnit 5 trace assertions.
 - With Spring Security, permit `/causeline/**`; Causeline protects those paths with its own access token.
+- MCP (optional): the app log prints a `Causeline MCP:` command. For Claude Code: `claude mcp add --transport http causeline http://localhost:8080/causeline/mcp --header "X-Causeline-Token: <token>"`. Cursor, VS Code and other clients use the same URL and header; Claude Desktop connects through `npx mcp-remote`.
 
 ## Docs
 
 - [Install](https://causeline.dev/install/): first trace in five minutes, Spring Boot starter, dev profile, React SDK, Next.js and tests
-- [How it works](https://causeline.dev/how-it-works/): from the click to the insight; traceparent, Micrometer spans, the in-memory store, self-time rules, replay, security and load checks
-- [FAQ](https://causeline.dev/faq/): production safety, versions, OpenTelemetry, data capture and redaction, N+1 and slow SQL, Zipkin/Jaeger/APM comparison, Kafka and microservices, security scanners, k6 and JMeter
+- [How it works](https://causeline.dev/how-it-works/): from the click to the insight; traceparent, Micrometer spans, the in-memory store, self-time rules, replay, security and load checks, and MCP for coding agents
+- [FAQ](https://causeline.dev/faq/): production safety, versions, OpenTelemetry, data capture and redaction, N+1 and slow SQL, Zipkin/Jaeger/APM comparison, Kafka and microservices, security scanners, k6 and JMeter, coding agents over MCP
 - [Quick start](https://raw.githubusercontent.com/causeline/causeline/main/docs/QUICKSTART.md): step-by-step setup in Markdown
-- [README](https://raw.githubusercontent.com/causeline/causeline/main/README.md): full usage, configuration reference, Next.js, test guard, replay, security checks, active probes and load replay
+- [README](https://raw.githubusercontent.com/causeline/causeline/main/README.md): full usage, configuration reference, Next.js, test guard, replay, security checks, active probes, load replay, and MCP setup for Claude Code, Claude Desktop, Cursor and VS Code
 
 ## Features
 

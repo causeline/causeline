@@ -1,4 +1,6 @@
+# Causeline: the whole site may be crawled and indexed, by search engines and AI crawlers alike.
 User-agent: *
 Allow: /
 
+# A plain-text summary for LLMs and AI search: https://causeline.dev/llms.txt
 Sitemap: https://causeline.dev/sitemap.xml

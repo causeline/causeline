@@ -153,7 +153,7 @@ button { font: inherit; color: inherit; }
 .section-lede { margin-top: 20px; font-size: var(--step-lead); color: var(--ink-2); max-width: 40ch; line-height: 1.4; }
 
 /* Features: one card at a time while the section is pinned; scrolling brings the next one in from the right.
-   Without script, with reduced motion, or after "See all six", every card is shown in a grid. */
+   Without script, with reduced motion, or after "See all", every card is shown in a grid. */
 .features { position: relative; padding-block: var(--section); overflow-x: clip; }
 .features .grid { align-items: start; row-gap: 40px; }
 .features-head { grid-column: 1 / span 5; }
@@ -515,19 +515,31 @@ body.menu-open { overflow: hidden; }
   .js .why-lead .fw.sharp { filter: none; opacity: 1; }
 }
 
-/* Features, "See all six" on desktop: a rail of slivers; the one under the pointer opens into a full card. */
+/* Features, "See all" on desktop: a rail of slivers; the one under the pointer opens into a full card. */
 @media (min-width: 1081px) and (prefers-reduced-motion: no-preference) {
   .js .features.is-all .features-head { grid-column: 1 / -1; }
   .js .features.is-all .features-head .section-title { max-width: none; }
   .js .features.is-all .feature-list { grid-column: 1 / -1; display: flex; gap: 10px; height: 440px; }
   .js .features.is-all .feature-row {
     flex: 1 1 0; min-width: 0; overflow: hidden; display: flex; flex-direction: column; justify-content: flex-end; cursor: pointer;
-    padding: 28px 26px; transition: flex-grow 650ms var(--ease-expo), border-color 400ms var(--ease-out);
+    padding: 28px 18px; transition: flex-grow 650ms var(--ease-expo), border-color 400ms var(--ease-out);
   }
-  .js .features.is-all .feature-row.is-open { flex-grow: 4.2; border-color: var(--accent); cursor: default; }
-  .js .features.is-all .feature-row h3 { font-size: clamp(1.375rem, 1rem + 0.8vw, 1.75rem); }
+  .js .features.is-all .feature-row.is-open { flex-grow: 4.2; padding-inline: 26px; border-color: var(--accent); cursor: default; }
+  /* Titles never outgrow a closed sliver: its text width is the rail's free space over (count + 3.2), and the
+     longest title word ("timeline,") is about 3.6em wide. */
+  .js .features.is-all .feature-row h3 {
+    font-size: min(clamp(1.375rem, 1rem + 0.8vw, 1.75rem), (100cqw - (var(--count) - 1) * 48px - 54px) / (var(--count) + 3.2) / 3.8);
+  }
   .js .features.is-all .feature-row.is-open h3 { color: var(--accent); }
-  /* The text is laid out once at the open width, so it never rewraps while the card grows. */
-  .js .features.is-all .feature-row p { width: 440px; max-width: none; opacity: 0; transition: opacity 250ms ease; }
+  /* The text is laid out once at the open card's final width, so it never rewraps while the card grows.
+     That width follows from the rail's width (cqw), the card count, the 10px gaps, the cards' padding and border
+     (38px closed, 54px open) and the open card's flex-grow of 4.2; a fixed width cut the text off once a seventh
+     card was added. */
+  /* The container is the wrap, not the rail: containment on the flex rail itself collapses its cards. */
+  .js .features.is-all .features-pin > .wrap { container-type: inline-size; }
+  .js .features.is-all .feature-row p {
+    width: min(440px, (100cqw - (var(--count) - 1) * 48px - 54px) * 4.2 / (var(--count) + 3.2));
+    max-width: none; opacity: 0; transition: opacity 250ms ease;
+  }
   .js .features.is-all .feature-row.is-open p { opacity: 1; transition: opacity 400ms ease 250ms; }
 }

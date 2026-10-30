@@ -4,9 +4,9 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
-<title>Causeline · Debugging tool for React and Spring Boot apps</title>
-<meta name="description" content="Open-source debugging tool for React and Spring Boot. Trace a click to the SQL, find what’s slow, check security hints and see what grows under load.">
-<meta name="keywords" content="Causeline debugging tool, Causeline, React Spring Boot tracing, Spring Boot tracing, Spring WebFlux tracing, Next.js tracing, full stack tracing, end-to-end tracing, distributed tracing, request tracing, OpenTelemetry, OpenTelemetry Spring Boot, W3C trace context, traceparent, Micrometer Tracing, Micrometer Observation, Spring Boot debugging, React debugging, Spring Boot performance, slow API, find bottleneck, Spring Boot slow request, JPA N+1 queries, Hibernate N+1, SQL query tracing, JDBC tracing, R2DBC, request replay, replay HTTP request, compare requests, Spring Boot developer tools, local-first developer tool, Zipkin alternative, Jaeger alternative, JUnit trace assertions, Spring Boot test, MockMvc, WebTestClient, EXPLAIN query, OpenAPI contract check, Kafka tracing, RabbitMQ tracing, open source, Java 21, Spring Boot 4, debugging, debugger, debugging tool, web debugging, API debugging, full stack debugging, Java debugging, Spring Boot debugger, React debugger, tracing, request tracing, application tracing, trace viewer, observability, APM, application performance monitoring, performance monitoring, performance profiling, profiler, latency, slow API, slow requests, slow SQL queries, SQL query analysis, database performance, Hibernate performance, JPA debugging, root cause analysis, error tracking, exception tracking, logging, log correlation, network requests, HTTP request inspector, microservices debugging, developer productivity, open source developer tools, free developer tools, local development tools, Postman alternative, Zipkin alternative, Jaeger alternative, React debugging tool, Spring Boot debugging tool, debug React and Spring Boot, debug Spring Boot API, debug slow API, pre-production debugger, OWASP Top 10, OWASP security checks, API security testing, Spring Boot security, IDOR testing, mass assignment, open redirect, broken access control, secret in logs, SSRF, security hints, load testing Spring Boot, load replay, k6, what grows under load, connection pool contention">
+<title>Causeline · Debug React to SQL through Spring Boot</title>
+<meta name="description" content="Open-source debugger for React and Spring Boot: trace a click to the SQL, see what’s slow or broken, check security, and let your coding agent read it via MCP.">
+<meta name="keywords" content="Causeline debugging tool, Causeline, React Spring Boot tracing, Spring Boot tracing, Spring WebFlux tracing, Next.js tracing, full stack tracing, end-to-end tracing, distributed tracing, request tracing, OpenTelemetry, OpenTelemetry Spring Boot, W3C trace context, traceparent, Micrometer Tracing, Micrometer Observation, Spring Boot debugging, React debugging, Spring Boot performance, slow API, find bottleneck, Spring Boot slow request, JPA N+1 queries, Hibernate N+1, SQL query tracing, JDBC tracing, R2DBC, request replay, replay HTTP request, compare requests, Spring Boot developer tools, local-first developer tool, Zipkin alternative, Jaeger alternative, JUnit trace assertions, Spring Boot test, MockMvc, WebTestClient, EXPLAIN query, OpenAPI contract check, Kafka tracing, RabbitMQ tracing, open source, Java 21, Spring Boot 4, debugging, debugger, debugging tool, web debugging, API debugging, full stack debugging, Java debugging, Spring Boot debugger, React debugger, tracing, application tracing, trace viewer, observability, APM, application performance monitoring, performance monitoring, performance profiling, profiler, latency, slow requests, slow SQL queries, SQL query analysis, database performance, Hibernate performance, JPA debugging, root cause analysis, error tracking, exception tracking, logging, log correlation, network requests, HTTP request inspector, microservices debugging, developer productivity, open source developer tools, free developer tools, local development tools, Postman alternative, React debugging tool, Spring Boot debugging tool, debug React and Spring Boot, debug Spring Boot API, debug slow API, pre-production debugger, OWASP Top 10, OWASP security checks, API security testing, Spring Boot security, IDOR testing, mass assignment, open redirect, broken access control, secret in logs, SSRF, security hints, load testing Spring Boot, load replay, k6, what grows under load, connection pool contention, debug React to SQL, React to SQL tracing, click to SQL, debug Spring Boot SQL, Spring Boot SQL debugging, Spring Data JPA debugging, debug slow SQL, Spring Boot observability, React performance debugging, MCP server, Model Context Protocol, Spring Boot MCP server, MCP debugging tool, MCP for Claude Code, Claude Code MCP server, Cursor MCP server, GitHub Copilot MCP, Claude Desktop MCP, AI coding agent, AI debugging tool, AI-assisted debugging, debug with AI, coding agent traces, LLM debugging tool">
 <meta name="author" content="Sudharma BG">
 <meta name="creator" content="Sudharma BG">
 <meta name="publisher" content="Causeline">
@@ -34,8 +34,8 @@
 <meta property="og:type" content="website">
 <meta property="og:site_name" content="Causeline">
 <meta property="og:url" content="https://causeline.dev/">
-<meta property="og:title" content="Causeline · Debugging tool for React and Spring Boot apps">
-<meta property="og:description" content="Debug a React and Spring Boot app on one timeline: why it’s slow, why it broke, whether it’s safe and what grows under load. Open source, runs inside your app.">
+<meta property="og:title" content="Causeline · Debug React to SQL through Spring Boot">
+<meta property="og:description" content="Debug a React and Spring Boot app on one timeline, from the click to the SQL: why it’s slow, why it broke, whether it’s safe and what grows under load. Your coding agent can read it over MCP. Open source, runs inside your app.">
 <meta property="og:image" content="https://causeline.dev/og.png">
 <meta property="og:image:secure_url" content="https://causeline.dev/og.png">
 <meta property="og:image:type" content="image/png">
@@ -43,21 +43,21 @@
 <meta property="og:image:height" content="630">
 <meta property="og:image:alt" content="A Causeline trace: a React click, a Spring Boot request and SQL queries on one timeline, with the slow payment call flagged">
 <meta property="og:locale" content="en_US">
-<meta property="og:updated_time" content="2026-10-23T00:00:00+05:30">
+<meta property="og:updated_time" content="2026-10-30T00:00:00+05:30">
 <meta name="twitter:card" content="summary_large_image">
 <meta name="twitter:url" content="https://causeline.dev/">
 <meta name="twitter:image:alt" content="A Causeline trace: a React click, a Spring Boot request and SQL queries on one timeline, with the slow payment call flagged">
 <meta name="twitter:label1" content="License">
 <meta name="twitter:data1" content="Apache 2.0, free">
 <meta name="twitter:label2" content="Works with">
-<meta name="twitter:data2" content="Spring Boot, React, Next.js">
-<meta name="twitter:title" content="Causeline · Debugging tool for React and Spring Boot apps">
-<meta name="twitter:description" content="Debug a React and Spring Boot app on one timeline: why it’s slow, why it broke, whether it’s safe and what grows under load. Open source, runs inside your app.">
+<meta name="twitter:data2" content="Spring Boot, React, Next.js, MCP">
+<meta name="twitter:title" content="Causeline · Debug React to SQL through Spring Boot">
+<meta name="twitter:description" content="Debug a React and Spring Boot app on one timeline, from the click to the SQL: why it’s slow, why it broke, whether it’s safe and what grows under load. Your coding agent can read it over MCP. Open source, runs inside your app.">
 <meta name="twitter:image" content="https://causeline.dev/og.png">
 
 <link rel="preload" href="/fonts/hanken-grotesk.woff2" as="font" type="font/woff2" crossorigin>
-<link rel="stylesheet" href="/styles.css?v=20261029a">
-<script src="/main.js?v=20261029a"></script>
+<link rel="stylesheet" href="/styles.css?v=20261030e">
+<script src="/main.js?v=20261030e"></script>
 
 <script type="application/ld+json">
 {
@@ -67,15 +67,22 @@
       "@type": "SoftwareApplication",
       "@id": "https://causeline.dev/#software",
       "name": "Causeline",
-      "description": "Open-source, local-first debugging tool for React and Spring Boot. It traces one click through Spring Boot and back on a single timeline, names the bottleneck, flags OWASP Top 10 security hints, replays and compares requests, and shows which span grows under load.",
+      "description": "Open-source, local-first debugging tool for React and Spring Boot. It traces one click from React through Spring Boot to the SQL and back on a single timeline, names the bottleneck, flags OWASP Top 10 security hints, replays and compares requests, shows which span grows under load, and serves the same traces to coding agents such as Claude Code, Cursor and Copilot over MCP.",
       "url": "https://causeline.dev/",
       "applicationCategory": "DeveloperApplication",
       "operatingSystem": "Windows, macOS, Linux",
       "softwareVersion": "0.1.0-alpha.4",
       "datePublished": "2026-10-02",
-      "dateModified": "2026-10-23",
+      "dateModified": "2026-10-30",
       "image": "https://causeline.dev/og.png",
-      "screenshot": "https://causeline.dev/og.png",
+      "screenshot": [
+        "https://causeline.dev/og.png",
+        "https://causeline.dev/img/trace-slow.jpg",
+        "https://causeline.dev/img/trace-failed.jpg",
+        "https://causeline.dev/img/compare-runs.jpg",
+        "https://causeline.dev/img/agent-replay.jpg",
+        "https://causeline.dev/img/agent-panel.jpg"
+      ],
       "applicationSubCategory": "Debugging, tracing, security and performance",
       "softwareRequirements": "Java 21+, Spring Boot 4.1 (Spring MVC or WebFlux); React 18+ or Next.js for the browser SDK",
       "featureList": [
@@ -87,6 +94,7 @@
         "Replay to local, dev or QA and compare runs span by span",
         "JUnit 5 trace assertions with causeline-test: query count, no N+1, no failures, no security findings",
         "Spring MVC and WebFlux, JDBC and R2DBC, Kafka and RabbitMQ, React and Next.js",
+        "MCP server for coding agents: Claude Code, Claude Desktop, Cursor and Copilot read traces and replay allowlisted requests, with secrets redacted",
         "Local-first: runs inside your app, redacts everything it exports"
       ],
       "license": "https://www.apache.org/licenses/LICENSE-2.0",
@@ -108,7 +116,7 @@
       "creator": {
         "@id": "https://causeline.dev/#sudharma"
       },
-      "keywords": "debugging, React, Next.js, Spring Boot, WebFlux, OpenTelemetry, tracing, OWASP, security testing, load testing, replay, JUnit",
+      "keywords": "debugging, React, Next.js, Spring Boot, SQL, WebFlux, OpenTelemetry, tracing, MCP, Model Context Protocol, AI coding agents, Claude Code, OWASP, security testing, load testing, replay, JUnit",
       "sameAs": [
         "https://github.com/causeline/causeline",
         "https://www.npmjs.com/package/@causeline/react",
@@ -170,7 +178,7 @@
       "@type": "WebPage",
       "@id": "https://causeline.dev/#webpage",
       "url": "https://causeline.dev/",
-      "name": "Causeline · Debugging tool for React and Spring Boot apps",
+      "name": "Causeline · Debug React to SQL through Spring Boot",
       "isPartOf": {
         "@id": "https://causeline.dev/#website"
       },
@@ -179,7 +187,7 @@
       },
       "primaryImageOfPage": "https://causeline.dev/og.png",
       "datePublished": "2026-10-02",
-      "dateModified": "2026-10-23",
+      "dateModified": "2026-10-30",
       "inLanguage": "en"
     },
     {
@@ -245,17 +253,17 @@
     <canvas class="hero-field" aria-hidden="true"></canvas>
     <div class="wrap grid">
       <h1 id="hero-title" class="lines">
-        <span class="line"><span data-line style="--i:0">Trace a click</span></span>
+        <span class="line"><span data-line style="--i:0">Debug React to&nbsp;SQL</span></span>
         <span class="line"><span data-line style="--i:1">through Spring&nbsp;Boot</span></span>
       </h1>
       <div class="hero-copy">
-        <p class="tagline rise" style="--i:0">Debug why it’s slow, why it broke and whether it’s safe, from the React click to the SQL, inside your own app.</p>
+        <p class="tagline rise" style="--i:0">See why it’s slow, why it broke and whether it’s safe, then hand the same trace to your coding agent over&nbsp;MCP.</p>
         <div class="hero-actions rise" style="--i:1">
           <a class="btn" href="/install/">Install in 5 minutes</a>
           <button class="chip-copy" type="button" data-copy="npm install @causeline/react" aria-label="Copy the npm install command"><code>npm i @causeline/react</code><span class="state">Copy</span></button>
         </div>
         <div class="hero-agent rise" style="--i:2">
-          <p>Let your coding agent read the traces too, over MCP.</p>
+          <p>Connect Claude Code, Cursor or Copilot:</p>
           <button class="chip-copy chip-copy-sm" type="button" data-copy="claude mcp add --transport http causeline http://localhost:8080/causeline/mcp --header &quot;X-Causeline-Token: &lt;token&gt;&quot;" aria-label="Copy the command that connects Claude Code to Causeline over MCP"><code>claude mcp add causeline …</code><span class="state">Copy</span></button>
         </div>
       </div>
