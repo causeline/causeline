@@ -4,7 +4,7 @@
 
 Causeline is an open-source, local-first developer tool. It follows one user action from a React click, through your Spring Boot controllers, services, repositories and outbound calls, and back to the React state update, and shows it all as one timeline. You can then replay a captured request against Local, Dev or QA and compare the two runs. Your coding agent (Claude Code, Cursor, Copilot) can read the same traces and replay requests over MCP.
 
-> **Status: alpha (`0.1.0-alpha.3`).** Milestones 0.1 (timeline), 0.2 (diagnosis) and 0.3 (replay) work locally, on Spring MVC and WebFlux, with React or Next.js in front: a React click and the Spring Boot work it causes appear as one trace, with bottleneck and exception insights, and any captured request can be replayed and compared with the original. To try it in your own app, start with the [quick start](docs/QUICKSTART.md).
+> **Status: alpha (`0.1.0-alpha.4`).** Milestones 0.1 (timeline), 0.2 (diagnosis) and 0.3 (replay) work locally, on Spring MVC and WebFlux, with React or Next.js in front: a React click and the Spring Boot work it causes appear as one trace, with bottleneck and exception insights, and any captured request can be replayed and compared with the original. To try it in your own app, start with the [quick start](docs/QUICKSTART.md).
 
 ## Why
 
@@ -79,7 +79,7 @@ In Windows Command Prompt, set the variable first with `set "CAUSELINE_MCP_REPLA
 <dependency>
   <groupId>dev.causeline</groupId>
   <artifactId>causeline-spring-boot</artifactId>
-  <version>0.1.0-alpha.3</version>
+  <version>0.1.0-alpha.4</version>
 </dependency>
 ```
 
@@ -274,7 +274,7 @@ What you saw in a trace can be kept as a JUnit 5 test, so it stays true after yo
 <dependency>
   <groupId>dev.causeline</groupId>
   <artifactId>causeline-test</artifactId>
-  <version>0.1.0-alpha.3</version>
+  <version>0.1.0-alpha.4</version>
   <scope>test</scope>
 </dependency>
 ```

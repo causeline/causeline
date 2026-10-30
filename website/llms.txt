@@ -2,7 +2,7 @@
 
 > Causeline is an open-source (Apache 2.0), local-first debugging tool for React and Spring Boot apps. It traces one user action from a React click, through Spring Boot controllers, services, repositories, SQL and outbound calls, and back to the React state update, and shows it as one timeline. It names the bottleneck, flags OWASP Top 10 security hints on captured traffic, replays and compares requests, and shows which span grows under load. It runs inside the developer's Spring Boot app at `/causeline`, for development and QA only, never in production.
 
-Current version: `0.1.0-alpha.3` (alpha, released 2026-10-23). Requirements: Java 21+, Spring Boot 4.1 on Spring MVC or WebFlux, React 18 or 19 (or Next.js on the Node.js runtime).
+Current version: `0.1.0-alpha.4` (alpha, released 2026-10-30). Requirements: Java 21+, Spring Boot 4.1 on Spring MVC or WebFlux, React 18 or 19 (or Next.js on the Node.js runtime).
 
 Key facts:
 
@@ -15,7 +15,7 @@ Key facts:
 
 Install:
 
-- Maven: `dev.causeline:causeline-spring-boot:0.1.0-alpha.3`, then `causeline.enabled: true` in a dev profile. The app log prints a `Causeline UI:` link with an access token.
+- Maven: `dev.causeline:causeline-spring-boot:0.1.0-alpha.4`, then `causeline.enabled: true` in a dev profile. The app log prints a `Causeline UI:` link with an access token.
 - npm: `npm install @causeline/react@alpha`, wrap the app in `<CauselineProvider endpoint="/causeline/api/spans">`, and wrap a click handler in `trace('Checkout', async () => { ... })`.
 - Optional: `@causeline/next` for Next.js server spans, and `dev.causeline:causeline-test` (test scope) for JUnit 5 trace assertions.
 - With Spring Security, permit `/causeline/**`; Causeline protects those paths with its own access token.
