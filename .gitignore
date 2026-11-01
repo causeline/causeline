@@ -36,3 +36,9 @@ SECURITY.md
 .next/
 next-env.d.ts
 .taste-skill/
+
+# Python
+__pycache__/
+.venv/
+.pytest_cache/
+*.egg-info/

@@ -1,0 +1,30 @@
+# SPDX-License-Identifier: Apache-2.0
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[project]
+name = "causeline"
+version = "0.1.0a0"
+description = "Causeline for Python: puts FastAPI requests and LangChain calls in the same trace as the React click and the Spring Boot request."
+readme = "README.md"
+requires-python = ">=3.10"
+license = "Apache-2.0"
+license-files = ["LICENSE"]
+authors = [{ name = "BGSudharma" }]
+keywords = ["fastapi", "langchain", "rag", "tracing", "traceparent", "debugging", "devtools"]
+dependencies = []
+
+[project.urls]
+Homepage = "https://github.com/causeline/causeline#readme"
+Repository = "https://github.com/causeline/causeline"
+Issues = "https://github.com/causeline/causeline/issues"
+
+[project.optional-dependencies]
+test = ["pytest", "fastapi", "httpx", "uvicorn"]
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/causeline"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
