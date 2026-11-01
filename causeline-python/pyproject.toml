@@ -21,7 +21,8 @@ Repository = "https://github.com/causeline/causeline"
 Issues = "https://github.com/causeline/causeline/issues"
 
 [project.optional-dependencies]
-test = ["pytest", "fastapi", "httpx", "uvicorn"]
+langchain = ["langchain-core>=1.0"]
+test = ["pytest", "fastapi", "httpx", "uvicorn", "langchain-core>=1.0", "langchain-openai>=1.0", "numpy"]
 
 [tool.hatch.build.targets.wheel]
 packages = ["src/causeline"]

@@ -44,6 +44,7 @@ class Outbound:
         self._send_ai_text = send_ai_text
         extra = "|".join(re.escape(key) for key in redact_keys if key.strip())
         self._sensitive = re.compile(f"{_BUILT_IN_KEYS}|{extra}" if extra else _BUILT_IN_KEYS, re.IGNORECASE)
+        self._user_keys = re.compile(extra, re.IGNORECASE) if extra else None
 
     def attributes(self, attributes: dict[str, str]) -> dict[str, str]:
         out = dict(attributes)
@@ -59,6 +60,11 @@ class Outbound:
                 out[key] = WITHHELD
         return out
 
+    def clean(self, text: str, max_chars: int) -> str:
+        """Caps captured AI text and applies redact_keys, which hide values even locally."""
+        capped = text[:max_chars]
+        return self._scrub(capped, self._user_keys) if self._user_keys else capped
+
     def redact_query(self, query: str) -> str:
         parts = []
         for pair in query.split("&"):
@@ -69,6 +75,10 @@ class Outbound:
 
     def scrub_text(self, text: str) -> str:
         """Hides sensitive key=value and "key": "value" pairs and bearer or basic credentials."""
+        return self._scrub(text, self._sensitive)
+
+    @staticmethod
+    def _scrub(text: str, keys: re.Pattern[str]) -> str:
         cleaned = _BEARER.sub(rf"\1 {REDACTED}", text)
         out = []
         copied = position = 0
@@ -76,7 +86,7 @@ class Outbound:
             match = _KEY_VALUE.search(cleaned, position)
             if match is None:
                 break
-            if self._sensitive.search(match.group(2)):
+            if keys.search(match.group(2)):
                 out.append(cleaned[copied:match.start(4)])
                 out.append(REDACTED)
                 copied = position = match.end(4)

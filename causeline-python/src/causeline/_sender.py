@@ -19,6 +19,9 @@ logger = logging.getLogger("causeline")
 _CAPACITY = 2_048
 # Spring accepts up to 2,000 spans per request; stay well below.
 _MAX_PER_REQUEST = 500
+# Each model call can hold 130 KB of text, so span counts alone would allow hundreds of megabytes.
+_MAX_QUEUED_CHARS = 64_000_000
+_MAX_CHARS_PER_REQUEST = 8_000_000
 _DELAY_SECONDS = 0.5
 _TIMEOUT_SECONDS = 5.0
 
@@ -26,10 +29,13 @@ Post = Callable[[bytes], None]
 
 
 class Sender:
-    def __init__(self, post: Post, outbound: Outbound, *, capacity: int = _CAPACITY, delay: float = _DELAY_SECONDS) -> None:
+    def __init__(self, post: Post, outbound: Outbound, *, capacity: int = _CAPACITY, delay: float = _DELAY_SECONDS,
+                 max_queued_chars: int = _MAX_QUEUED_CHARS) -> None:
         self._post = post
         self._outbound = outbound
         self._delay = delay
+        self._max_queued_chars = max_queued_chars
+        self._queued_chars = 0
         self._queue: queue.Queue[Span | None] = queue.Queue(capacity)
         self._hurry = threading.Event()
         self._lock = threading.Lock()
@@ -41,10 +47,17 @@ class Sender:
 
     def submit(self, span: Span) -> None:
         self._ensure_thread()
+        size = span.size()
+        with self._lock:
+            if self._queued_chars + size > self._max_queued_chars:
+                self.dropped += 1
+                return
+            self._queued_chars += size
         try:
             self._queue.put_nowait(span)
         except queue.Full:
             with self._lock:
+                self._queued_chars -= size
                 self.dropped += 1
 
     def flush(self, timeout: float = 2.0) -> bool:
@@ -88,6 +101,8 @@ class Sender:
                 if spans:
                     self._send(spans)
             finally:
+                with self._lock:
+                    self._queued_chars -= sum(span.size() for span in spans)
                 for _ in batch:
                     self._queue.task_done()
             if len(spans) < len(batch):
@@ -95,11 +110,14 @@ class Sender:
 
     def _collect(self, batch: list[Span | None]) -> None:
         deadline = time.monotonic() + self._delay
-        while len(batch) < _MAX_PER_REQUEST and batch[-1] is not None:
+        chars = batch[0].size()
+        while len(batch) < _MAX_PER_REQUEST and chars < _MAX_CHARS_PER_REQUEST and batch[-1] is not None:
             wait = 0.0 if self._hurry.is_set() else deadline - time.monotonic()
             try:
                 # Short waits, so a flush doesn't sit out the whole delay.
-                batch.append(self._queue.get(timeout=min(wait, 0.05)) if wait > 0 else self._queue.get_nowait())
+                span = self._queue.get(timeout=min(wait, 0.05)) if wait > 0 else self._queue.get_nowait()
+                batch.append(span)
+                chars += span.size() if span is not None else 0
             except queue.Empty:
                 if wait <= 0:
                     return

@@ -6,6 +6,7 @@ import sys
 import threading
 from pathlib import Path
 
+from causeline import _sender as sender_module
 from causeline._privacy import WITHHELD, Outbound
 from causeline._sender import Sender, http_post
 from causeline._spans import Span, new_span_id, new_trace_id
@@ -66,6 +67,39 @@ def test_a_full_queue_drops_and_counts_without_waiting():
         sender.submit(span())
     assert sender.dropped > 0
     release.set()
+    sender.stop()
+
+
+def test_large_spans_are_dropped_before_they_fill_memory():
+    release = threading.Event()
+    sender = Sender(lambda body: release.wait(5), LOCAL, delay=0, max_queued_chars=1_000)
+    for _ in range(5):
+        sender.submit(span(text="x" * 400))
+    assert sender.dropped >= 2
+    release.set()
+    sender.stop()
+
+
+def test_queued_size_is_given_back_once_sent():
+    post = Recording()
+    sender = Sender(post, LOCAL, max_queued_chars=1_000)
+    for _ in range(5):
+        sender.submit(span(text="x" * 400))
+        assert sender.flush()
+    assert sender.dropped == 0
+    assert len(post.spans) == 5
+    sender.stop()
+
+
+def test_large_spans_go_in_several_requests(monkeypatch):
+    monkeypatch.setattr(sender_module, "_MAX_CHARS_PER_REQUEST", 1_000)
+    post = Recording()
+    sender = Sender(post, LOCAL)
+    for _ in range(6):
+        sender.submit(span(text="x" * 400))
+    assert sender.flush(5)
+    assert len(post.spans) == 6
+    assert max(len(body) for body in post.bodies) <= 3
     sender.stop()
 
 

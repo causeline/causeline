@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import atexit
+import importlib.util
 import logging
 import os
 import re
@@ -30,12 +31,15 @@ class Settings:
     capture: frozenset[str]
     send_ai_text: bool
     redact_keys: tuple[str, ...]
+    low_score: float = 0.5
+    context_limit: int | None = None
 
 
 class Recorder:
-    def __init__(self, settings: Settings, sender: Sender) -> None:
+    def __init__(self, settings: Settings, sender: Sender, outbound: Outbound) -> None:
         self.settings = settings
         self.sender = sender
+        self.outbound = outbound
 
     def start(self, kind: str, name: str, *, trace_id: str | None = None, parent_span_id: str | None = None) -> Span:
         return Span(trace_id or new_trace_id(), new_span_id(), parent_span_id, kind, name, self.settings.service)
@@ -56,6 +60,8 @@ def resolve_settings(
     capture: Iterable[str] | None = None,
     send_ai_text: bool = False,
     redact_keys: Iterable[str] = (),
+    low_score: float = 0.5,
+    context_limit: int | None = None,
     environ: Mapping[str, str] | None = None,
 ) -> Settings | str:
     """Settings with defaults applied, or the reason Causeline stays off."""
@@ -88,6 +94,8 @@ def resolve_settings(
         capture=chosen,
         send_ai_text=send_ai_text,
         redact_keys=tuple(redact_keys),
+        low_score=low_score,
+        context_limit=context_limit,
     )
 
 
@@ -106,6 +114,8 @@ def init(
     capture: Iterable[str] | None = None,
     send_ai_text: bool = False,
     redact_keys: Iterable[str] = (),
+    low_score: float = 0.5,
+    context_limit: int | None = None,
 ) -> bool:
     """
     Starts sending spans to the Causeline in your Spring Boot app. Returns whether it did.
@@ -120,20 +130,35 @@ def init(
         Default: all of them.
     :param send_ai_text: also send AI text to an endpoint on another host. It is always sent to
         one on this machine.
-    :param redact_keys: more query parameters whose values are hidden.
+    :param redact_keys: more query parameters whose values are hidden, and keys whose values are
+        hidden in AI text, even locally.
+    :param low_score: the score the *Low relevance* hint compares with; 0 turns it off.
+    :param context_limit: your model's context size, for the *Context near limit* hint. Off unless set.
     """
     global _recorder
     shutdown()
     settings = resolve_settings(endpoint=endpoint, token=token, service=service, capture=capture,
-                                send_ai_text=send_ai_text, redact_keys=redact_keys)
+                                send_ai_text=send_ai_text, redact_keys=redact_keys, low_score=low_score,
+                                context_limit=context_limit)
     if isinstance(settings, str):
         logger.warning("Causeline is off: %s", settings)
         return False
     outbound = Outbound(local=settings.local, send_ai_text=settings.send_ai_text, redact_keys=settings.redact_keys)
     sender = Sender(http_post(settings.url, settings.token, local=settings.local), outbound)
-    _recorder = Recorder(settings, sender)
+    _recorder = Recorder(settings, sender, outbound)
     atexit.register(shutdown)
+    _install_langchain()
     return True
+
+
+def _install_langchain() -> None:
+    if importlib.util.find_spec("langchain_core") is None:
+        return
+    try:
+        from .langchain import install
+        install()
+    except Exception:  # An unsupported LangChain costs its spans, never the application's start.
+        logger.warning("Causeline could not attach to LangChain", exc_info=True)
 
 
 def flush(timeout: float = 2.0) -> bool:

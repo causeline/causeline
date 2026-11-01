@@ -54,6 +54,9 @@ class Span:
         if value is not None and value != "":
             self.attributes[key] = str(value)
 
+    def size(self) -> int:
+        return sum(len(key) + len(value) for key, value in self.attributes.items())
+
     def finish(self) -> None:
         self.duration_nanos = max(0, time.perf_counter_ns() - self.started)
 
