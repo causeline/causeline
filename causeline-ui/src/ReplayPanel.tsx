@@ -27,6 +27,10 @@ import type {
 import { LoadPanel } from './LoadPanel';
 import { responseDiffs } from './bodyDiff';
 import type { ResponseDiff } from './bodyDiff';
+import { callsModel } from './rag';
+import { ragDiffs } from './ragDiff';
+import type { RagRunDiff } from './ragDiff';
+import { RagChanges } from './RagPanel';
 import { formatDuration } from './format';
 import { PRESETS, SECURITY_RULES, SecurityGuide, SecurityGuideButton, isSecurityRule, replayVerdict as verdict } from './SecurityGuide';
 import type { TryId } from './SecurityGuide';
@@ -180,6 +184,7 @@ export function ReplayPanel({
           captured={draftFrom(spans.find((s) => s.spanId === request.spanId))}
           original={originalOf(spans.find((s) => s.spanId === request.spanId))}
           steps={pausableSteps(spans, request.spanId)}
+          modelCalls={callsModel(spans)}
           preset={preset}
           onShowGuide={() => setGuideOpen(true)}
           onOpenTrace={onOpenTrace}
@@ -288,6 +293,15 @@ export function pausableSteps(spans: SpanRow[], requestSpanId: string): SpanRow[
   return steps;
 }
 
+/** Causeline never caches or fakes a model's response, so a replay is a real call. */
+export function ModelCallWarning() {
+  return (
+    <p className="rounded-lg border border-warn/40 bg-warn/10 p-3 text-xs text-ink-2">
+      This request calls an AI model. A replay calls it again: that spends real tokens, and the answer may differ.
+    </p>
+  );
+}
+
 function ReplayForm({
   traceId,
   token,
@@ -297,6 +311,7 @@ function ReplayForm({
   captured,
   original,
   steps,
+  modelCalls,
   preset,
   onShowGuide,
   onOpenTrace,
@@ -310,6 +325,8 @@ function ReplayForm({
   /** What the original request answered, to compare a probe's replay with. */
   original: OriginalResponse;
   steps: SpanRow[];
+  /** The original run called an AI model, so a replay calls it again. */
+  modelCalls: boolean;
   /** A security case chosen in the guide, to fill into the form. */
   preset?: { id: TryId; count: number };
   onShowGuide: () => void;
@@ -668,6 +685,8 @@ function ReplayForm({
         </div>
       )}
 
+      {modelCalls && <ModelCallWarning />}
+
       {request.unsafe && (
         <label className="flex items-start gap-2 rounded-lg border border-warn/40 bg-warn/10 p-3 text-xs text-ink-2">
           <input type="checkbox" checked={confirmed} onChange={(e) => setConfirmed(e.target.checked)} />
@@ -1022,19 +1041,31 @@ export function ResponseChanges({
   right: string;
 }) {
   const [diffs, setDiffs] = useState<ResponseDiff[]>();
+  const [runs, setRuns] = useState<RagRunDiff[]>([]);
   const before = result.original.traceId;
   const after = result.replay.traceId;
   useEffect(() => {
     let cancelled = false;
     setDiffs(undefined);
+    setRuns([]);
     Promise.all([fetchTrace(before, token), fetchTrace(after, token)])
-      .then(([a, b]) => !cancelled && setDiffs(responseDiffs(a, b)))
+      .then(([a, b]) => {
+        if (!cancelled) {
+          setDiffs(responseDiffs(a, b));
+          setRuns(ragDiffs(a, b));
+        }
+      })
       .catch(() => undefined);
     return () => {
       cancelled = true;
     };
   }, [before, after, token]);
-  return diffs && diffs.length > 0 ? <ResponseDiffList diffs={diffs} left={left} right={right} /> : null;
+  return (
+    <>
+      {diffs && diffs.length > 0 && <ResponseDiffList diffs={diffs} left={left} right={right} />}
+      {runs.length > 0 && <RagChanges runs={runs} left={left} right={right} />}
+    </>
+  );
 }
 
 export function ResponseDiffList({ diffs, left, right }: { diffs: ResponseDiff[]; left: string; right: string }) {

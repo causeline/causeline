@@ -28,6 +28,7 @@ const info = (partial: Partial<McpInfo> = {}): McpInfo => ({
   allow: [],
   deny: [],
   safeMethodsOnly: true,
+  allowAi: false,
   maxReplaysPerMinute: 20,
   targets: [
     { name: 'local', allowed: true },
@@ -88,6 +89,7 @@ describe('replay rules in plain words', () => {
     expect(replayRules(info())).toEqual([
       'Only GET and HEAD requests. List anything else in causeline.mcp.replay.allow.',
       'To: local. Other targets need allow-mcp: true.',
+      'No requests that call an AI model. Set causeline.mcp.replay.allow-ai to allow them.',
       'At most 20 replays a minute. Requests with side effects need its confirmation.',
     ]);
   });
@@ -96,6 +98,11 @@ describe('replay rules in plain words', () => {
     const rules = replayRules(info({ safeMethodsOnly: false, allow: ['POST /api/orders'], deny: ['DELETE /**'] }));
     expect(rules[0]).toBe('Only: POST /api/orders');
     expect(rules[1]).toBe('Never: DELETE /**');
+  });
+
+  it('say whether requests that call a model can be replayed', () => {
+    expect(replayRules(info({}))).toContain('No requests that call an AI model. Set causeline.mcp.replay.allow-ai to allow them.');
+    expect(replayRules(info({ allowAi: true }))).toContain('Requests that call an AI model too: each replay spends real tokens.');
   });
 
   it('say when replay is unavailable', () => {

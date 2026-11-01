@@ -18,7 +18,9 @@ export type SpanKind =
   | 'MESSAGE'
   | 'LOG'
   | 'TRANSACTION'
-  | 'CACHE';
+  | 'CACHE'
+  | 'AI_MODEL'
+  | 'AI_RETRIEVAL';
 
 export interface TraceSummary {
   traceId: string;
@@ -36,6 +38,8 @@ export interface TraceSummary {
   baselineRuns?: number;
   /** A replay the developer's coding agent sent over MCP. */
   byAgent?: boolean;
+  /** Has a model call in it. */
+  ai?: boolean;
 }
 
 export interface Status {
@@ -78,6 +82,8 @@ export interface McpInfo {
   maxReplaysPerMinute: number;
   targets: { name: string; allowed: boolean }[];
   replayAvailable: boolean;
+  /** The agent may replay requests that call an AI model. */
+  allowAi: boolean;
   tools: { name: string; description: string; readOnly: boolean }[];
 }
 
@@ -119,6 +125,13 @@ export type InsightRule =
   | 'TRANSACTION_ACROSS_CALL'
   | 'REQUEST_WATERFALL'
   | 'RENDER_STORM'
+  | 'EMPTY_RETRIEVAL'
+  | 'LOW_RELEVANCE'
+  | 'DUPLICATE_CHUNKS'
+  | 'CHUNK_NOT_IN_PROMPT'
+  | 'ANSWER_CUT_OFF'
+  | 'CONTEXT_NEAR_LIMIT'
+  | 'REPEATED_EMBEDDING'
   | 'STATE_UPDATE_AFTER_UNMOUNT'
   | 'REQUEST_VALUE_IN_SQL'
   | 'MISSING_SECURITY_HEADERS'
@@ -492,6 +505,8 @@ export interface LoadLimits {
   maxConcurrency: number;
   maxDurationSeconds: number;
   baselineHits: number;
+  /** Runs may send requests that call an AI model. */
+  allowAi: boolean;
 }
 
 export interface LoadSettings extends RequestEdits {

@@ -2,6 +2,10 @@
 package dev.causeline.examples.reactive;
 
 import io.micrometer.observation.ObservationPredicate;
+import io.micrometer.observation.ObservationRegistry;
+import org.springframework.ai.embedding.EmbeddingModel;
+import org.springframework.ai.vectorstore.SimpleVectorStore;
+import org.springframework.ai.vectorstore.VectorStore;
 import org.springframework.boot.SpringApplication;
 import org.springframework.boot.autoconfigure.SpringBootApplication;
 import org.springframework.context.annotation.Bean;
@@ -16,6 +20,12 @@ public class ReactiveCheckoutApplication {
 
     public static void main(String[] args) {
         SpringApplication.run(ReactiveCheckoutApplication.class, args);
+    }
+
+    /** The assistant's documents, in memory. */
+    @Bean
+    VectorStore assistantDocuments(EmbeddingModel embeddings, ObservationRegistry registry) {
+        return SimpleVectorStore.builder(embeddings).observationRegistry(registry).build();
     }
 
     /** The fake payment provider stands in for a third-party service, so it is not traced itself. */

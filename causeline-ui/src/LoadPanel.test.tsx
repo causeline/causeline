@@ -3,7 +3,7 @@ import type { ReactElement } from 'react';
 import { renderToString } from 'react-dom/server';
 import { describe, expect, it } from 'vitest';
 import type { LoadRun, Replayable, SpanRow } from './api';
-import { LoadResult, confirmationText, flowSteps, formProblem, iterations, plannedRequests } from './LoadPanel';
+import { LoadResult, confirmationText, flowSteps, formProblem, iterations, modelCallNote, plannedRequests } from './LoadPanel';
 import type { LoadForm } from './LoadPanel';
 
 const text = (node: ReactElement) => renderToString(node).replaceAll('<!-- -->', '');
@@ -46,7 +46,7 @@ const form = (change: Partial<LoadForm> = {}): LoadForm => ({
   ...change,
 });
 
-const limits = { maxRequests: 1000, maxConcurrency: 20, maxDurationSeconds: 60, baselineHits: 5 };
+const limits = { maxRequests: 1000, maxConcurrency: 20, maxDurationSeconds: 60, baselineHits: 5, allowAi: false };
 
 describe('flowSteps', () => {
   it('orders the replayable server requests by start, with the pause after the previous response', () => {
@@ -188,5 +188,13 @@ describe('usage hints', () => {
     expect(html).toContain('Start load');
     expect(html).toContain('What grew');
     expect(html).toContain('Copy as k6');
+  });
+});
+
+describe('a load run on a request that calls a model', () => {
+  it('names the setting while it is refused, and warns once it is allowed', () => {
+    expect(modelCallNote(true, false)).toContain('causeline.load.allow-ai=true');
+    expect(modelCallNote(true, true)).toContain('every hit spends real tokens');
+    expect(modelCallNote(false, false)).toBeUndefined();
   });
 });

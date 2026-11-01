@@ -2,6 +2,7 @@
 package dev.causeline.spring.internal.capture;
 
 import dev.causeline.core.Span;
+import dev.causeline.spring.internal.ai.AiAttributes;
 import dev.causeline.spring.internal.replay.BodyRedactor;
 import dev.causeline.spring.internal.tracing.SpanMapper;
 import java.net.URLDecoder;
@@ -15,8 +16,8 @@ import java.util.StringJoiner;
  * local UI shows spans as captured; this is the boundary where credentials stop.
  *
  * <p>Redacted: credential headers, sensitive query values and body fields (built-in list plus
- * {@code causeline.capture.redact-keys}), values of state keys that look sensitive, and every
- * literal in SQL text.
+ * {@code causeline.capture.redact-keys}), values of state keys that look sensitive, every literal
+ * in SQL text, and the whole text of AI prompts, answers and documents, which can hold anything.
  */
 public class SpanRedactor {
 
@@ -45,6 +46,9 @@ public class SpanRedactor {
     }
 
     private String redactAttribute(String key, String value, Map<String, String> all) {
+        if (AiAttributes.TEXT.contains(key)) {
+            return AiAttributes.WITHHELD;
+        }
         if (key.startsWith(HEADER_PREFIX)) {
             return SensitiveData.isCredentialHeader(key.substring(HEADER_PREFIX.length())) ? SensitiveData.REDACTED : value;
         }

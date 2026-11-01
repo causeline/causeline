@@ -3,7 +3,7 @@ import type { ReactElement } from 'react';
 import { renderToString } from 'react-dom/server';
 import { describe, expect, it } from 'vitest';
 import type { Comparison, ReplayOutcome, SpanRow } from './api';
-import { ReplayResult, credentialsNote, draftFrom, parseHeaders, requestEdits } from './ReplayPanel';
+import { ModelCallWarning, ReplayResult, credentialsNote, draftFrom, parseHeaders, requestEdits } from './ReplayPanel';
 
 /** Server-rendered HTML without React's `<!-- -->` text separators. */
 const text = (node: ReactElement) => renderToString(node).replaceAll('<!-- -->', '');
@@ -142,5 +142,11 @@ describe('editing a request before replaying it', () => {
 
     expect(draft.path).toBeUndefined();
     expect(requestEdits(draft, draft)).toEqual({ edits: {}, changed: [] });
+  });
+});
+
+describe('replaying a request that calls a model', () => {
+  it('warns before sending', () => {
+    expect(renderToString(<ModelCallWarning />)).toContain('spends real tokens');
   });
 });

@@ -37,6 +37,20 @@ public record Insight(Rule rule, String spanId, String label, int sharePercent) 
         RENDER_STORM,
         /** State was set after its component had unmounted: a request or timer outlived it. */
         STATE_UPDATE_AFTER_UNMOUNT,
+        /** A vector search returned no documents. */
+        EMPTY_RETRIEVAL,
+        /** The best score in a search is below {@code causeline.ai.low-score}. */
+        LOW_RELEVANCE,
+        /** One search returned a document twice, or one chunk reached a prompt twice. */
+        DUPLICATE_CHUNKS,
+        /** A returned document's text isn't in the chat call that follows the search. */
+        CHUNK_NOT_IN_PROMPT,
+        /** The model stopped at its output token limit. */
+        ANSWER_CUT_OFF,
+        /** Input tokens exceed 90% of {@code causeline.ai.context-limit}. */
+        CONTEXT_NEAR_LIMIT,
+        /** The same input was embedded more than once in a trace. */
+        REPEATED_EMBEDDING,
         // Security rules (PRD section 7), named after their OWASP Top 10:2025 category in the label.
         /** A05 Injection: a request value appears as a literal in the prepared SQL of the same request. */
         REQUEST_VALUE_IN_SQL,

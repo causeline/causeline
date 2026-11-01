@@ -230,6 +230,25 @@ class McpToolsTest {
     }
 
     @Test
+    void aRequestThatCallsAModelNeedsAllowAi() {
+        store.add(new Span(LOOKUP_TRACE, "10f067aa0ba902b9", LOOKUP_SPAN, SpanKind.AI_MODEL, "chat gpt", "shop",
+                1_790_000_000_000_000_002L, 1_000_000, SpanStatus.OK, Map.of()));
+        String args = "{\"traceId\":\"" + LOOKUP_TRACE + "\"}";
+
+        McpServer refused = server(Map.of("mcp.replay.max-per-minute", "1"));
+        assertThat(error(refused, "replay_request", args)).contains("calls an AI model", "causeline.mcp.replay.allow-ai=true");
+        assertThat(received).isEmpty();
+        // A refusal doesn't use up the rate limit.
+        assertThat(call(refused, "replay_request", "{\"traceId\":\"" + PAYROLL_TRACE + "\"}").get("httpStatus").asInt())
+                .isEqualTo(200);
+        received.clear();
+
+        assertThat(call(server(Map.of("mcp.replay.allow-ai", "true")), "replay_request", args).get("httpStatus").asInt())
+                .isEqualTo(200);
+        assertThat(received).hasSize(1);
+    }
+
+    @Test
     void replaysAreRateLimited() {
         McpServer server = server(Map.of("mcp.replay.max-per-minute", "2"));
         String args = "{\"traceId\":\"" + LOOKUP_TRACE + "\"}";

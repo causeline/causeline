@@ -39,7 +39,20 @@ public record CauselineProperties(
         @DefaultValue Explain explain,
         @DefaultValue Contract contract,
         @DefaultValue Load load,
-        @DefaultValue Mcp mcp) {
+        @DefaultValue Mcp mcp,
+        @DefaultValue AiHints ai) {
+
+    /**
+     * Limits for the hints on Spring AI calls. They are written onto each span as it is recorded, so a
+     * change applies to new traces only.
+     *
+     * @param lowScore     a search whose best score is below this gets a hint; 0 turns it off. Scores
+     *                     aren't comparable across every store and metric, so tune it for yours
+     * @param contextLimit the model's context size in tokens. A chat call above 90% of it gets a hint;
+     *                     off unless set, because Causeline keeps no list of model limits
+     */
+    public record AiHints(@DefaultValue("0.5") double lowScore, Integer contextLimit) {
+    }
 
     /**
      * {@code /causeline/mcp}: traces and replay for the developer's coding agent. Everything it
@@ -60,9 +73,10 @@ public record CauselineProperties(
      *                      {@code GET} and {@code HEAD}
      * @param deny          entries the agent may never replay; they win over {@code allow}
      * @param maxPerMinute  replays the agent may send per minute
+     * @param allowAi       let the agent replay requests that call an AI model, which spends real tokens
      */
     public record McpReplay(@DefaultValue List<String> allow, @DefaultValue List<String> deny,
-            @DefaultValue("20") int maxPerMinute) {
+            @DefaultValue("20") int maxPerMinute, @DefaultValue("false") boolean allowAi) {
     }
 
     /**
@@ -74,10 +88,11 @@ public record CauselineProperties(
      * @param maxDuration     a run still going after this is cancelled
      * @param keepSlowest     full traces kept per request: the slowest hits
      * @param keepFailed      full traces kept per run: failed hits
+     * @param allowAi         let a run send requests that call an AI model, which spends real tokens on every hit
      */
     public record Load(@DefaultValue("1000") int maxRequests, @DefaultValue("20") int maxConcurrency,
             @DefaultValue("60s") Duration maxDuration, @DefaultValue("5") int keepSlowest,
-            @DefaultValue("20") int keepFailed) {
+            @DefaultValue("20") int keepFailed, @DefaultValue("false") boolean allowAi) {
     }
 
     /**
@@ -207,6 +222,7 @@ public record CauselineProperties(
      * @param logs              log lines written during a traced request, at this level and above
      * @param transactions      a span per transaction, from begin to commit or rollback
      * @param caches            a span per Spring Cache lookup, write and eviction
+     * @param ai                what text to record from Spring AI calls
      */
     public record Capture(
             @DefaultValue("full") RequestBodyCapture requestBody,
@@ -220,7 +236,21 @@ public record CauselineProperties(
             @DefaultValue("true") boolean arguments,
             @DefaultValue("info") LogCapture logs,
             @DefaultValue("true") boolean transactions,
-            @DefaultValue("true") boolean caches) {
+            @DefaultValue("true") boolean caches,
+            @DefaultValue Ai ai) {
+    }
+
+    /**
+     * Text from the application's Spring AI calls. Models, tokens, document IDs, ranks and scores are
+     * always recorded. Exports withhold all of this text unless {@code causeline.export.redact-secrets=false}.
+     *
+     * @param prompts     prompt messages sent to chat models
+     * @param completions the models' answers
+     * @param documents   vector search queries and filters, and the text of the documents returned.
+     *                    Embedding input needs this and {@code prompts}: it is a question or a document
+     */
+    public record Ai(@DefaultValue("true") boolean prompts, @DefaultValue("true") boolean completions,
+            @DefaultValue("true") boolean documents) {
     }
 
     /** Which log lines written during a traced request appear on its timeline. */

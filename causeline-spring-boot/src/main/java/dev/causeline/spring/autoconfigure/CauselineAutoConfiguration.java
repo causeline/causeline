@@ -2,6 +2,8 @@
 package dev.causeline.spring.autoconfigure;
 
 import dev.causeline.core.TraceStore;
+import dev.causeline.spring.internal.ai.ModelCaptureFilter;
+import dev.causeline.spring.internal.ai.VectorSearchCaptureFilter;
 import dev.causeline.spring.internal.capture.RequestCaptureFilter;
 import dev.causeline.spring.internal.capture.SensitiveData;
 import dev.causeline.spring.internal.capture.SpanRedactor;
@@ -245,6 +247,29 @@ public class CauselineAutoConfiguration {
         RepositoryObservationAspect causelineRepositoryObservationAspect(ObservationRegistry registry,
                 MethodValues values) {
             return new RepositoryObservationAspect(registry, values);
+        }
+    }
+
+    /** Chat and embedding calls. Vector search is separate: it lives in an artifact of its own. */
+    @Configuration(proxyBeanMethods = false)
+    @ConditionalOnClass(name = "org.springframework.ai.chat.observation.ChatModelObservationContext")
+    static class AiModelTracing {
+
+        @Bean
+        ModelCaptureFilter causelineModelCaptureFilter(CauselineProperties properties) {
+            return new ModelCaptureFilter(properties.capture().ai(), properties.ai(),
+                    SensitiveData.userBlocked(properties.capture().redactKeys()));
+        }
+    }
+
+    @Configuration(proxyBeanMethods = false)
+    @ConditionalOnClass(name = "org.springframework.ai.vectorstore.observation.VectorStoreObservationContext")
+    static class AiRetrievalTracing {
+
+        @Bean
+        VectorSearchCaptureFilter causelineVectorSearchCaptureFilter(CauselineProperties properties) {
+            return new VectorSearchCaptureFilter(properties.capture().ai(), properties.ai(),
+                    SensitiveData.userBlocked(properties.capture().redactKeys()));
         }
     }
 

@@ -153,6 +153,10 @@ public final class LoadRunService {
             throw new ReplayException(403, "Load replay is off for '" + settings.target() + "'. Set causeline.replay.targets."
                     + settings.target() + ".allow-load=true if this environment may be loaded.");
         }
+        if (!limits.allowAi() && traces.containsKind(settings.traceId(), SpanKind.AI_MODEL)) {
+            throw new ReplayException(403, "This request calls an AI model, so a load run would spend real tokens on "
+                    + "every hit. Set causeline.load.allow-ai=true to allow it.");
+        }
         Plan plan = plan(settings);
         List<Step> steps = steps(settings, plan.skipped());
         long requests = (long) (BASELINE_HITS + plan.iterations()) * steps.size();

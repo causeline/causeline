@@ -176,6 +176,10 @@ causeline:
     exception-details: true            # exception messages and stack traces
     arguments: true                    # arguments and return values of controller, service and repository methods
     logs: info                         # log lines written during a request: off, error, warn, info, debug
+    ai:                                # text from Spring AI calls; models, tokens, IDs and scores are always kept
+      prompts: true
+      completions: true
+      documents: true                  # search queries and retrieved document text
     redact-keys: []                    # e.g. [password]: hidden everywhere, even locally
   store:
     max-traces: 1000
@@ -229,6 +233,11 @@ OTLP export sends Causeline's stored spans, never Spring's raw spans, with secre
 - **Logs:** what the application logs during a request (INFO and above by default) is listed under the span that wrote it, and in a Logs panel for the whole trace.
 - **Browser errors:** uncaught errors and unhandled promise rejections in the page appear as exceptions, under the action they happened in. `console.error` calls made during an action appear as log lines.
 - **Transactions and caches:** each transaction appears from begin to commit or rollback, with the queries that ran in it. Each Spring Cache lookup is marked hit or miss, and writes and evictions are shown too.
+- **Spring AI:** with Spring AI 2.0 in your app, model calls and vector searches join the timeline, streaming included, with no setup. Each chat call shows its model, tokens, finish reason, prompt and answer; each search shows its query and every document returned, with rank and score. Exports and coding agents get the metadata, never the text.
+- **RAG panel:** click a search or chat span to follow one question through: the query, ranked chunks with score bars, the final prompt with each chunk highlighted where it landed, the answer and its tokens. A chunk that was retrieved but never reached the model is marked **Not in prompt**. Traces with a model call get an **AI** mark in the list.
+- **RAG hints:** plain rules, no model, flag an empty retrieval, low relevance, duplicate chunks, a chunk that missed the prompt, an answer cut off by its token limit, context near the model's limit, and the same text embedded twice. Set `causeline.ai.low-score` for your store (default `0.5`, `0` turns it off) and `causeline.ai.context-limit` to your model's context size (off unless set).
+- **Replaying RAG requests:** a replay calls the real model again, and Causeline never caches or fakes its response. A manual replay warns first. Load runs and coding agents are refused until you set `causeline.load.allow-ai=true` or `causeline.mcp.replay.allow-ai=true`.
+- **Comparing RAG runs:** compare two traces to see chunks added, removed and moved, score changes and token changes, with the answers side by side. Differing answer text doesn't count as a change.
 - **N+1 queries:** repeated SELECTs are named with the query whose rows they load, plus how to fetch them together.
 - **Transaction problems:** three more insights, each naming the spans involved and the fix.
   - *Writes not in one transaction:* one request wrote to the database in separate transactions, so a failure halfway leaves the earlier writes behind.

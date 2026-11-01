@@ -36,7 +36,7 @@ public class LoadApiController {
     public Limits limits() {
         CauselineProperties.Load limits = runs.limits();
         return new Limits(limits.maxRequests(), limits.maxConcurrency(), limits.maxDuration().toSeconds(),
-                LoadRunService.BASELINE_HITS);
+                LoadRunService.BASELINE_HITS, limits.allowAi());
     }
 
     @GetMapping
@@ -67,7 +67,8 @@ public class LoadApiController {
         return ResponseEntity.status(e.status()).body(Map.of("error", e.getMessage()));
     }
 
-    public record Limits(int maxRequests, int maxConcurrency, long maxDurationSeconds, int baselineHits) {
+    public record Limits(int maxRequests, int maxConcurrency, long maxDurationSeconds, int baselineHits,
+            boolean allowAi) {
     }
 
     /**

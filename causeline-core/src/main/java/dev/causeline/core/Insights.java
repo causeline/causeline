@@ -44,6 +44,7 @@ public final class Insights {
         requestWaterfalls(rows, insights);
         renderStorms(rows, insights);
         stateUpdatesAfterUnmount(rows, insights);
+        AiChecks.analyze(rows, insights);
         SecurityChecks.analyze(rows, insights);
         return insights;
     }

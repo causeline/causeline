@@ -29,12 +29,14 @@ public final class McpRules {
     private final List<PathPattern> hide;
     private final List<Entry> allow;
     private final List<Entry> deny;
+    private final boolean allowAi;
 
     /** @throws IllegalArgumentException naming the setting when a pattern can't be parsed, so startup fails clearly */
     public McpRules(CauselineProperties.Mcp config) {
         this.hide = config.hide().stream().map(p -> path(p, "causeline.mcp.hide")).toList();
         this.allow = config.replay().allow().stream().map(e -> entry(e, "causeline.mcp.replay.allow")).toList();
         this.deny = config.replay().deny().stream().map(e -> entry(e, "causeline.mcp.replay.deny")).toList();
+        this.allowAi = config.replay().allowAi();
     }
 
     /** Whether no MCP tool may show or replay a request to this path. */
@@ -72,6 +74,12 @@ public final class McpRules {
         }
         return upper + " " + path + " is not in causeline.mcp.replay.allow. The developer can add \"" + upper + " "
                 + path + "\" there.";
+    }
+
+    /** Null when the agent may replay a request that calls an AI model; otherwise why not. */
+    public String modelCallRefusal() {
+        return allowAi ? null : "This request calls an AI model, so a replay would spend real tokens. The developer "
+                + "can set causeline.mcp.replay.allow-ai=true.";
     }
 
     private static Entry entry(String text, String setting) {

@@ -97,6 +97,17 @@
             <artifactId>spring-data-commons</artifactId>
             <optional>true</optional>
         </dependency>
+        <!-- Spring AI: read only when the application uses it (PRD section 7). -->
+        <dependency>
+            <groupId>org.springframework.ai</groupId>
+            <artifactId>spring-ai-model</artifactId>
+            <optional>true</optional>
+        </dependency>
+        <dependency>
+            <groupId>org.springframework.ai</groupId>
+            <artifactId>spring-ai-vector-store</artifactId>
+            <optional>true</optional>
+        </dependency>
         <!-- Transaction spans; present whenever the application uses transactions -->
         <dependency>
             <groupId>org.springframework</groupId>

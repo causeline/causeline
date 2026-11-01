@@ -20,5 +20,9 @@ public enum SpanKind {
     /** A database transaction, from begin to commit or rollback. */
     TRANSACTION,
     /** A cache lookup, write or eviction (Spring Cache). */
-    CACHE
+    CACHE,
+    /** A call to a chat or embedding model. */
+    AI_MODEL,
+    /** A vector store search. Not a {@link #DATABASE} span: it doesn't count as a query. */
+    AI_RETRIEVAL
 }

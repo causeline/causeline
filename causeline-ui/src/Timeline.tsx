@@ -16,6 +16,8 @@ import type {
 import { EDITORS, openInEditor, useEditor } from './editor';
 import type { Editor } from './editor';
 import { formatClock, formatDuration, percent } from './format';
+import { AI_PANEL_ATTRIBUTES, embeddingInput, ragView } from './rag';
+import { RagPanel, TokenBar } from './RagPanel';
 import { ComparisonTable, ReplayPanel, ResponseChanges } from './ReplayPanel';
 import { SecurityGuide, SecurityGuideButton, isSecurityRule } from './SecurityGuide';
 import { capturedRequest, toCurl, toFetch, toHttpie, toMockMvcTest, toWebTestClientTest, traceGuard } from './snippets';
@@ -36,6 +38,8 @@ const KIND_LABEL: Record<SpanKind, string> = {
   LOG: 'Log',
   TRANSACTION: 'Transaction',
   CACHE: 'Cache',
+  AI_MODEL: 'AI model',
+  AI_RETRIEVAL: 'Retrieval',
 };
 
 const SECURITY_HINT = 'A rule-based hint from the captured traffic, not a security scan';
@@ -52,6 +56,13 @@ const INSIGHT_STYLE: Record<Insight['rule'], { accent: string; tag: string; secu
   REQUEST_WATERFALL: { accent: 'bg-browser', tag: 'Waterfall' },
   RENDER_STORM: { accent: 'bg-browser', tag: 'Re-renders' },
   STATE_UPDATE_AFTER_UNMOUNT: { accent: 'bg-browser', tag: 'After unmount' },
+  EMPTY_RETRIEVAL: { accent: 'bg-warn', tag: 'Empty retrieval' },
+  LOW_RELEVANCE: { accent: 'bg-warn', tag: 'Low relevance' },
+  DUPLICATE_CHUNKS: { accent: 'bg-warn', tag: 'Duplicate chunks' },
+  CHUNK_NOT_IN_PROMPT: { accent: 'bg-warn', tag: 'Not in prompt' },
+  ANSWER_CUT_OFF: { accent: 'bg-warn', tag: 'Cut off' },
+  CONTEXT_NEAR_LIMIT: { accent: 'bg-warn', tag: 'Near limit' },
+  REPEATED_EMBEDDING: { accent: 'bg-muted', tag: 'Repeated embedding' },
   // Tagged with the OWASP Top 10:2025 category the label names.
   REQUEST_VALUE_IN_SQL: { accent: 'bg-error', tag: 'Security · A05', security: true },
   MISSING_SECURITY_HEADERS: { accent: 'bg-error', tag: 'Security · A02', security: true },
@@ -541,7 +552,9 @@ export function SpanDetail({
   trace?: TraceView;
 }) {
   const narrow = placement === 'side';
-  const entries = Object.entries(span.attributes).filter(([key]) => !BLOCK_ATTRIBUTES.has(key));
+  const entries = Object.entries(span.attributes).filter(([key]) => !BLOCK_ATTRIBUTES.has(key) && !AI_PANEL_ATTRIBUTES.has(key));
+  const rag = trace ? ragView(trace.spans, span) : undefined;
+  const embedded = embeddingInput(span);
   const body = span.attributes['http.request.body'];
   const responseBody = span.attributes['http.response.body'];
   const sql = span.attributes['db.query.text'];
@@ -611,6 +624,9 @@ export function SpanDetail({
         <Stat label="Duration" value={formatDuration(span.durationNanos)} />
         <Stat label="Self" value={formatDuration(span.selfNanos)} />
       </div>
+      {span.kind === 'AI_MODEL' && <TokenBar span={span} />}
+      {rag && <RagPanel key={span.spanId} view={rag} narrow={narrow} />}
+      {embedded && <Block title="Embedded text" value={embedded} />}
       {entries.length > 0 && (
         <dl
           className={`mt-4 grid gap-x-4 gap-y-1.5 border-t border-line-soft pt-4 text-xs ${

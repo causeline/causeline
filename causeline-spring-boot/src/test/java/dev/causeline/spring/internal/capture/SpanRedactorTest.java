@@ -122,4 +122,23 @@ class SpanRedactorTest {
         return new Span("0af7651916cd43dd8448eb211c80319c", "00f067aa0ba902b7", null, SpanKind.REQUEST, "POST /api/orders",
                 "app", 0, 1, SpanStatus.OK, attributes);
     }
+
+    @Test
+    void aiTextIsWithheldWholeButItsShapeStays() {
+        Map<String, String> attributes = new java.util.HashMap<>();
+        dev.causeline.spring.internal.ai.AiAttributes.TEXT.forEach(key -> attributes.put(key, "harmless-looking SECRET-TEXT"));
+        attributes.put("gen_ai.request.model", "fake-chat");
+        attributes.put("gen_ai.usage.input_tokens", "120");
+        attributes.put("causeline.ai.documents", "[{\"id\":\"doc-1\",\"rank\":1,\"chars\":6,\"score\":0.9}]");
+        attributes.put("causeline.ai.input.chars", "200");
+
+        Map<String, String> out = redactor.redact(span(attributes)).attributes();
+
+        assertThat(out.values()).noneMatch(v -> v.contains("SECRET-TEXT"));
+        assertThat(out).containsEntry("gen_ai.input.messages", "[withheld on export]")
+                .containsEntry("gen_ai.request.model", "fake-chat")
+                .containsEntry("gen_ai.usage.input_tokens", "120")
+                .containsEntry("causeline.ai.documents", attributes.get("causeline.ai.documents"))
+                .containsEntry("causeline.ai.input.chars", "200");
+    }
 }

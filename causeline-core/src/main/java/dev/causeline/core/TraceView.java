@@ -39,6 +39,7 @@ public record TraceView(
     }
 
     public TraceSummary summary() {
-        return new TraceSummary(traceId, name, status, startTimeUnixNano, durationNanos, spans.size(), null, false);
+        return new TraceSummary(traceId, name, status, startTimeUnixNano, durationNanos, spans.size(), null, false)
+                .withAi(spans.stream().anyMatch(span -> span.kind() == SpanKind.AI_MODEL));
     }
 }

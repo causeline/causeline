@@ -5,6 +5,7 @@ import dev.causeline.core.Span;
 import dev.causeline.core.SpanKind;
 import dev.causeline.core.SpanStatus;
 import dev.causeline.spring.autoconfigure.CauselineProperties.SqlCapture;
+import dev.causeline.spring.internal.ai.AiAttributes;
 import dev.causeline.spring.internal.capture.RequestCaptureFilter;
 import io.opentelemetry.api.trace.StatusCode;
 import io.opentelemetry.sdk.trace.data.SpanData;
@@ -38,6 +39,17 @@ public final class SpanMapper {
     private static final Pattern SQL_STRING_LITERAL = Pattern.compile("'(?:[^']|'')*'");
     private static final Pattern SQL_NUMBER_LITERAL = Pattern.compile("(?<![\\w.])\\d+(?:\\.\\d+)?\\b");
     private static final int MAX_SQL_CHARS = 2_000;
+
+    private static final List<String> AI_MODEL_ATTRIBUTES = List.of("gen_ai.operation.name", "gen_ai.system",
+            "gen_ai.request.model", "gen_ai.response.model", "gen_ai.request.temperature", "gen_ai.request.top_p",
+            "gen_ai.request.max_tokens", "gen_ai.request.stream", "gen_ai.request.embedding.dimensions",
+            "gen_ai.response.finish_reasons", "gen_ai.usage.input_tokens", "gen_ai.usage.output_tokens",
+            "gen_ai.usage.total_tokens", "gen_ai.usage.cache_read.input_tokens",
+            "gen_ai.usage.cache_creation.input_tokens");
+    // Not db.vector.query.content or .filter: Spring AI sets those itself, whatever the capture settings say.
+    private static final List<String> AI_RETRIEVAL_ATTRIBUTES = List.of("db.system", "db.operation.name",
+            "db.collection.name", "db.namespace", "db.search.similarity_metric", "db.vector.dimension_count",
+            "db.vector.query.top_k", "db.vector.query.similarity_threshold");
 
     private final String source;
     private final SqlCapture sql;
@@ -172,13 +184,24 @@ public final class SpanMapper {
             }
             case HTTP_CLIENT -> {
                 copy(raw, "method", attributes, "http.request.method");
-                copy(raw, "client.name", attributes, "server.address");
+                // The OpenAI client reports target.* instead, with no URI template.
+                String host = raw.getOrDefault("client.name", raw.get("target.host"));
+                String uri = "none".equals(raw.get("uri")) ? null : raw.get("uri");
+                copy(raw, raw.containsKey("client.name") ? "client.name" : "target.host", attributes, "server.address");
                 copy(raw, "uri", attributes, "url.template");
                 copy(raw, "status", attributes, "http.response.status_code");
-                String target = raw.containsKey("client.name") && raw.containsKey("uri")
-                        ? raw.get("client.name") + raw.get("uri")
-                        : raw.get("uri");
+                String target = host != null && uri != null ? host + uri : uri != null ? uri : host;
                 yield join(raw.get("method"), target, data.getName());
+            }
+            case AI_MODEL -> {
+                AI_MODEL_ATTRIBUTES.forEach(key -> copy(raw, key, attributes, key));
+                AiAttributes.RENAMED.forEach((captured, renamed) -> copy(raw, captured, attributes, renamed));
+                yield data.getName();
+            }
+            case AI_RETRIEVAL -> {
+                AI_RETRIEVAL_ATTRIBUTES.forEach(key -> copy(raw, key, attributes, key));
+                AiAttributes.RENAMED.forEach((captured, renamed) -> copy(raw, captured, attributes, renamed));
+                yield data.getName();
             }
             case DATABASE -> {
                 String dbName = databaseName(raw, attributes, data.getName());
@@ -215,6 +238,16 @@ public final class SpanMapper {
                 for (String key : List.of("causeline.replay.edited", "db.transaction.outcome", "db.transaction.read_only", "cache.name",
                         "cache.operation", "cache.key", "cache.hit")) {
                     copy(raw, key, attributes, key);
+                }
+                // Spring AI's chat client and advisors: their span names read "tool _calling ".
+                for (String key : List.of("spring.ai.kind", "spring.ai.chat.client.stream")) {
+                    copy(raw, key, attributes, key);
+                }
+                if (raw.containsKey("spring.ai.advisor.name")) {
+                    yield raw.get("spring.ai.advisor.name");
+                }
+                if ("chat_client".equals(raw.get("spring.ai.kind"))) {
+                    yield "ChatClient";
                 }
                 yield raw.containsKey("class") && raw.containsKey("method")
                         ? simpleName(raw.get("class")) + "." + raw.get("method")

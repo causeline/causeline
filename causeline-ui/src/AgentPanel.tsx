@@ -40,6 +40,11 @@ export function replayRules(info: McpInfo): string[] {
   }
   const targets = info.targets.filter((t) => t.allowed).map((t) => t.name);
   rules.push(`To: ${targets.join(', ')}. Other targets need allow-mcp: true.`);
+  rules.push(
+    info.allowAi
+      ? 'Requests that call an AI model too: each replay spends real tokens.'
+      : 'No requests that call an AI model. Set causeline.mcp.replay.allow-ai to allow them.',
+  );
   rules.push(`At most ${info.maxReplaysPerMinute} replays a minute. Requests with side effects need its confirmation.`);
   return rules;
 }

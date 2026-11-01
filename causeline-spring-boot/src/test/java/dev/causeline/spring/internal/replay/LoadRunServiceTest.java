@@ -204,6 +204,20 @@ class LoadRunServiceTest {
     }
 
     @Test
+    void aRequestThatCallsAModelNeedsAllowAi() {
+        traces.add(new Span(TRACE, "00f067aa0ba902c1", ORDER, SpanKind.AI_MODEL, "chat gpt", "app", 1_001 * MS, MS,
+                SpanStatus.OK, Map.of()));
+
+        assertRefused(() -> service(Map.of()).start(request(Mode.REQUEST, 3, 1, true)), 403,
+                "causeline.load.allow-ai=true");
+        assertRefused(() -> service(Map.of()).start(request(Mode.FLOW, 3, 1, true)), 403, "causeline.load.allow-ai=true");
+        assertThat(received).isEmpty();
+
+        LoadRunService runs = service(Map.of("load.allow-ai", "true"));
+        assertThat(await(runs, runs.start(request(Mode.REQUEST, 3, 1, true))).state()).isEqualTo(State.DONE);
+    }
+
+    @Test
     void oneRunAtATimeAndACancelledRunStopsStartingHits() throws Exception {
         contended = false;
         delayMillis = 50;

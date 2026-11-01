@@ -70,6 +70,11 @@ public final class TraceStore {
         return spans == null ? Optional.empty() : Optional.of(List.copyOf(spans));
     }
 
+    /** Whether the trace has a span of this kind, e.g. a model call that a replay would repeat. */
+    public synchronized boolean containsKind(String traceId, SpanKind kind) {
+        return get(traceId).stream().flatMap(List::stream).anyMatch(span -> span.kind() == kind);
+    }
+
     public synchronized boolean contains(String traceId) {
         return traces.containsKey(traceId);
     }

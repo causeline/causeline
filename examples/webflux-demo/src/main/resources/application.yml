@@ -6,6 +6,17 @@ spring:
   sql:
     init:
       mode: always
+  # The real Spring AI client, talking to the fake model below.
+  ai:
+    openai:
+      base-url: http://localhost:${demo.model.port}/v1
+      api-key: demo-model-key
+      chat:
+        options:
+          model: fake-chat
+      embedding:
+        options:
+          model: fake-embed
 
 server:
   port: 8080
@@ -13,3 +24,5 @@ server:
 demo:
   payment:
     delay-ms: 600
+  model:
+    port: 8090

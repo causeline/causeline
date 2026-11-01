@@ -14,9 +14,11 @@ import java.util.List;
  * @param safeMethodsOnly  no allow list: the agent may replay only GET and HEAD
  * @param targets          replay targets and whether the agent may replay to each
  * @param replayAvailable  false when the application can't replay at all
+ * @param allowAi          the agent may replay requests that call an AI model
  */
 public record McpInfo(String path, List<String> hide, List<String> allow, List<String> deny, boolean safeMethodsOnly,
-        int maxReplaysPerMinute, List<TargetAccess> targets, boolean replayAvailable, List<ToolInfo> tools) {
+        int maxReplaysPerMinute, List<TargetAccess> targets, boolean replayAvailable, boolean allowAi,
+        List<ToolInfo> tools) {
 
     public record TargetAccess(String name, boolean allowed) {
     }
@@ -31,7 +33,7 @@ public record McpInfo(String path, List<String> hide, List<String> allow, List<S
                         .map(name -> new TargetAccess(name, replays.allowsMcp(name)))
                         .toList();
         return new McpInfo(path, config.hide(), config.replay().allow(), config.replay().deny(),
-                config.replay().allow().isEmpty(), config.replay().maxPerMinute(), targets, replays != null,
+                config.replay().allow().isEmpty(), config.replay().maxPerMinute(), targets, replays != null, config.replay().allowAi(),
                 tools.tools().stream().map(t -> new ToolInfo(t.name(), t.description(), t.readOnly())).toList());
     }
 }

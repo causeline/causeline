@@ -44,6 +44,20 @@ class CauselineAutoConfigurationTest {
     }
 
     @Test
+    void readsSpringAiOnlyWhenTheApplicationHasIt() {
+        runner.withPropertyValues("causeline.enabled=true").run(context -> assertThat(context)
+                .hasSingleBean(dev.causeline.spring.internal.ai.ModelCaptureFilter.class)
+                .hasSingleBean(dev.causeline.spring.internal.ai.VectorSearchCaptureFilter.class));
+
+        runner.withPropertyValues("causeline.enabled=true")
+                .withClassLoader(new org.springframework.boot.test.context.FilteredClassLoader("org.springframework.ai"))
+                .run(context -> assertThat(context).hasNotFailed()
+                        .hasSingleBean(SpanProcessor.class)
+                        .doesNotHaveBean(dev.causeline.spring.internal.ai.ModelCaptureFilter.class)
+                        .doesNotHaveBean(dev.causeline.spring.internal.ai.VectorSearchCaptureFilter.class));
+    }
+
+    @Test
     void savesTracesAcrossRestartsOnlyWhenAskedTo(@org.junit.jupiter.api.io.TempDir java.nio.file.Path dir) {
         runner.withPropertyValues("causeline.enabled=true", "causeline.store.persist=true",
                 "causeline.store.directory=" + dir.toString().replace('\\', '/')).run(context -> {

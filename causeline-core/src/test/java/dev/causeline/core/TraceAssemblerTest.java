@@ -38,6 +38,16 @@ class TraceAssemblerTest {
     }
 
     @Test
+    void summaryMarksTracesWithAModelCall() {
+        Span server = span(SERVER, null, SpanKind.REQUEST, "checkout", 1_000, 100);
+        Span model = span(SERVICE, SERVER, SpanKind.AI_MODEL, "checkout", 1_010, 50);
+
+        assertThat(TraceAssembler.assemble(TRACE, List.of(server, model)).summary().ai()).isTrue();
+        assertThat(TraceAssembler.assemble(TRACE, List.of(server)).summary().ai()).isFalse();
+        assertThat(TraceAssembler.assemble(TRACE, List.of(server, model)).summary().withByAgent(true).ai()).isTrue();
+    }
+
+    @Test
     void flagsServerSpanLongerThanItsClientSpan() {
         Span fetch = span(FETCH, null, SpanKind.REQUEST, "browser", 1_000, 100);
         Span server = span(SERVER, FETCH, SpanKind.REQUEST, "checkout", 99_000, 300);

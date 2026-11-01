@@ -8,6 +8,17 @@ spring:
       maximum-pool-size: 25
   jpa:
     open-in-view: false
+  # The real Spring AI client, talking to the fake model below.
+  ai:
+    openai:
+      base-url: http://localhost:${demo.model.port}/v1
+      api-key: demo-model-key
+      chat:
+        options:
+          model: fake-chat
+      embedding:
+        options:
+          model: fake-embed
 
 server:
   port: 8080
@@ -16,3 +27,5 @@ demo:
   payment:
     delay-ms: 800
     port: 8089   # the fake payment provider runs on its own port, like a real third party
+  model:
+    port: 8090   # so does the fake model

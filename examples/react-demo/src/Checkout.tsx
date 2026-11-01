@@ -111,6 +111,7 @@ export function Checkout() {
         Then open the <code>Causeline UI:</code> link from the backend log to see the trace.
       </p>
 
+      <Assistant />
       <SecurityScenarios />
     </main>
   );
@@ -184,6 +185,73 @@ const PROBE_TARGETS: { label: string; probe: string; run: () => Promise<Response
     run: () => fetch('/api/scenarios/tenant-data', { headers: { 'X-Tenant-Id': 'acme' } }),
   },
 ];
+
+interface AskScenario {
+  id: string;
+  label: string;
+  question: string;
+  mode?: string;
+}
+
+const GOOD_MATCH: AskScenario = { id: 'good', label: 'Good match', question: 'When are refunds issued?' };
+
+const ASK_SCENARIOS: AskScenario[] = [
+  GOOD_MATCH,
+  { id: 'off-topic', label: 'Low relevance (nothing in the documents answers this)', question: 'Can I pay with crypto?' },
+  { id: 'cut-off', label: 'Answer cut off (a tight output token limit)', question: 'When are refunds issued?', mode: 'cut-off' },
+  { id: 'reranked', label: 'Chunks miss the prompt (a reranker keeps only the best one)', question: 'When are refunds issued?', mode: 'reranked' },
+];
+
+/** A question for the shop's RAG assistant: the trace shows the search, the prompt and the answer. */
+function Assistant() {
+  const [scenario, setScenario] = useState(GOOD_MATCH);
+  const [question, setQuestion] = useState(GOOD_MATCH.question);
+  const [answer, setAnswer] = useState<string>();
+
+  const ask = () =>
+    trace('Ask assistant', async () => {
+      const response = await fetch('/api/ask', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ question, mode: scenario.mode }),
+      });
+      setAnswer(response.ok ? ((await response.json()) as { answer: string }).answer : `HTTP ${response.status}`);
+    });
+
+  return (
+    <fieldset style={{ marginTop: 24 }}>
+      <legend>Assistant (RAG)</legend>
+      <p style={{ color: '#666', fontSize: 14, marginTop: 0 }}>
+        Spring AI searches the shop&apos;s documents and asks a fake local model. Open the trace and click the{' '}
+        <strong>Retrieval</strong> or <strong>AI model</strong> span.
+      </p>
+      {ASK_SCENARIOS.map((option) => (
+        <label key={option.id} style={{ display: 'block' }}>
+          <input
+            type="radio"
+            name="ask-scenario"
+            checked={option.id === scenario.id}
+            onChange={() => {
+              setScenario(option);
+              setQuestion(option.question);
+            }}
+          />{' '}
+          {option.label}
+        </label>
+      ))}
+      <input
+        aria-label="Question"
+        value={question}
+        onChange={(e) => setQuestion(e.target.value)}
+        style={{ width: '100%', padding: 6, marginTop: 8, boxSizing: 'border-box' }}
+      />
+      <button onClick={() => void ask()} style={{ marginTop: 8 }}>
+        Ask
+      </button>
+      {answer && <p style={{ fontSize: 14 }}>{answer}</p>}
+    </fieldset>
+  );
+}
 
 function SecurityScenarios() {
   const [ran, setRan] = useState<string>();

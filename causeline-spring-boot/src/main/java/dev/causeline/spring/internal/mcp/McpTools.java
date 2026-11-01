@@ -137,7 +137,8 @@ public final class McpTools {
                         true, this::sourceLocation),
                 new Tool("replay_request", "Sends a captured request again, e.g. to check a fix, and returns the new "
                         + "HTTP status and trace ID; for the local target, also the comparison with the original. "
-                        + "Only requests the developer allowed can be replayed (causeline.mcp.replay.*). Requests "
+                        + "Only requests the developer allowed can be replayed (causeline.mcp.replay.*), and requests "
+                        + "that call an AI model only with causeline.mcp.replay.allow-ai. Requests "
                         + "with side effects (POST, PUT, PATCH, DELETE) repeat them and need confirm: true. Headers, "
                         + "including credentials, are resent as captured and can't be changed.",
                         schema(Map.of(
@@ -314,6 +315,9 @@ public final class McpTools {
         }
         String path = stringArg(args, "path");
         String refusal = rules.replayRefusal(record.method(), path != null ? path : record.path());
+        if (refusal == null && store.containsKind(traceId, SpanKind.AI_MODEL)) {
+            refusal = rules.modelCallRefusal();
+        }
         if (refusal != null) {
             throw new ToolError(refusal);
         }

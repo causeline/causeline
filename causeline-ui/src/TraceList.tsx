@@ -181,6 +181,11 @@ export function TraceList({ traces, selected, onSelect, token }: Props) {
                       Agent
                     </span>
                   )}
+                  {trace.ai && (
+                    <span className="chip border-server/40 text-server" title="Calls an AI model">
+                      AI
+                    </span>
+                  )}
                   {trace.imported && (
                     <span className="chip text-muted" title="Loaded from an exported file; kept until the application restarts">
                       Imported

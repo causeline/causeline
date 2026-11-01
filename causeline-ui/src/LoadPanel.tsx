@@ -3,6 +3,7 @@ import { useEffect, useState } from 'react';
 import { cancelLoadRun, fetchLoadLimits, fetchLoadRun, startLoadRun } from './api';
 import type { LoadLimits, LoadMode, LoadRun, LoadShape, LoadStats, LoadStep, Replayable, ReplayTarget, SpanRow } from './api';
 import { formatDuration } from './format';
+import { callsModel } from './rag';
 import type { RequestDraft } from './ReplayPanel';
 import { requestEdits } from './ReplayPanel';
 import { capturedRequest, rampLevels, toK6 } from './snippets';
@@ -95,7 +96,23 @@ export function confirmationText(method: string, route: string, times: number, t
   return `This will run ${method} ${route} ${times} times on ${target}. Side effects such as orders and payments will repeat ${times} times.`;
 }
 
-const DEFAULT_LIMITS: LoadLimits = { maxRequests: 1000, maxConcurrency: 20, maxDurationSeconds: 60, baselineHits: 5 };
+/** What a load run on a request that calls a model would do, or nothing when it calls none. */
+export function modelCallNote(calls: boolean, allowed: boolean): string | undefined {
+  if (!calls) {
+    return undefined;
+  }
+  return allowed
+    ? 'This request calls an AI model, so every hit spends real tokens.'
+    : 'This request calls an AI model, so a load run would spend real tokens on every hit. Set causeline.load.allow-ai=true to allow it.';
+}
+
+const DEFAULT_LIMITS: LoadLimits = {
+  maxRequests: 1000,
+  maxConcurrency: 20,
+  maxDurationSeconds: 60,
+  baselineHits: 5,
+  allowAi: false,
+};
 
 /** The Load tab: send the request, or the flow, many times and see which span grows (PRD section 8). */
 export function LoadPanel({
@@ -174,8 +191,15 @@ export function LoadPanel({
   const editError = 'error' in edited ? edited.error : undefined;
   const sendBody = request.bodyMissing || (editing && body !== (capturedBody ?? ''));
   const running = run?.state === 'RUNNING';
+  const modelCalls = callsModel(spans);
   const blocked =
-    busy || running || problem !== undefined || editError !== undefined || (unsafe !== undefined && !confirmed) || !loadable.length;
+    busy ||
+    running ||
+    problem !== undefined ||
+    editError !== undefined ||
+    (unsafe !== undefined && !confirmed) ||
+    !loadable.length ||
+    (modelCalls && !limits.allowAi);
 
   const start = async () => {
     setBusy(true);
@@ -366,6 +390,9 @@ export function LoadPanel({
       )}
       {problem && <p className="text-xs text-error">{problem}</p>}
       {!loadable.length && <p className="text-xs text-error">No target allows load replay.</p>}
+      {modelCalls && (
+        <p className="rounded-lg border border-warn/40 bg-warn/5 p-2 text-xs text-ink-2">{modelCallNote(true, limits.allowAi)}</p>
+      )}
 
       <div className="flex flex-wrap items-center gap-2">
         <button type="button" onClick={() => void start()} disabled={blocked} className="btn btn-primary disabled:cursor-not-allowed disabled:opacity-40">
