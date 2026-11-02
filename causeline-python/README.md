@@ -4,6 +4,12 @@ Puts a FastAPI service in the same trace as the React click and the Spring Boot 
 
 Development and QA only. It does nothing until you call `init`, and it stays off in a production environment.
 
+You need a Spring Boot app running Causeline `0.1.0-alpha.5` or later, which this service gets called by. There is no standalone mode yet. Python 3.10+, FastAPI (or any ASGI app) and `langchain-core` 1.x.
+
+```bash
+pip install "causeline[langchain]"
+```
+
 ```python
 import causeline
 from fastapi import FastAPI
@@ -16,6 +22,8 @@ causeline.instrument(app)
 `token` is your Spring app's `causeline.access-token`. `endpoint` and `token` can also come from `CAUSELINE_ENDPOINT` and `CAUSELINE_TOKEN`, and `service` from `CAUSELINE_SERVICE_NAME`.
 
 For any other ASGI app, wrap it: `app = causeline.CauselineMiddleware(app)`.
+
+On the Spring side, call this service with a client built from Spring Boot's `RestClient.Builder` or `WebClient.Builder`, so the request carries `traceparent`. If this service runs on another machine, add the Spring app's host name to `causeline.allowed-hosts` there, and see [What leaves your service](#what-leaves-your-service).
 
 ## LangChain
 
@@ -41,3 +49,11 @@ A document's score is also read from `metadata["score"]` or `metadata["relevance
 - `capture={"prompts", "completions", "documents"}` chooses which AI text is captured at all. `redact_keys=["internal_id"]` hides more query values, and values of those keys in AI text, even locally.
 
 Spans are sent from a background thread and dropped if the queue fills. `causeline.stats()` reports what was sent, dropped and failed.
+
+## Not supported yet
+
+The OpenAI SDK used directly, LlamaIndex, LangGraph, Django and Flask. A process that runs alone, with no Spring app to send spans to.
+
+## Try it
+
+[`examples/python-demo`](https://github.com/causeline/causeline/tree/main/examples/python-demo) runs React, Spring and FastAPI against a fake model, with no API key.

@@ -161,6 +161,25 @@ export async function register() {
 
 Start Next.js with `CAUSELINE_TOKEN` set to the Spring app's `causeline.access-token`. Set `CAUSELINE_ENDPOINT` too if the Spring app isn't on `http://localhost:8080`. To get browser spans through Next.js, add a rewrite from `/causeline/:path*` to the Spring app.
 
+## FastAPI behind Spring?
+
+To see a Python service your Spring app calls, including LangChain calls in the RAG panel, in the same trace:
+
+```bash
+pip install "causeline[langchain]"
+```
+
+```python
+import causeline
+from fastapi import FastAPI
+
+causeline.init(service="ai-service")
+app = FastAPI()
+causeline.instrument(app)
+```
+
+Start the service with `CAUSELINE_ENDPOINT=http://localhost:8080` and `CAUSELINE_TOKEN` set to the Spring app's `causeline.access-token`. Without them it runs untraced, with a warning in the log. Call it from Spring with a client built from Spring Boot's `RestClient.Builder` or `WebClient.Builder`, so the request carries `traceparent`. This needs Causeline `0.1.0-alpha.5` or later.
+
 ## Troubleshooting
 
 | Symptom | Fix |

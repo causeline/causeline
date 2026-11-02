@@ -156,6 +156,31 @@ How it works:
 - **Browser spans.** To get them through Next.js, proxy `/causeline/*` to the Spring app with a rewrite (see `examples/next-demo/next.config.ts`).
 - **If you already set up OpenTelemetry** (for example with `@vercel/otel`), pass `createCauselineSpanProcessor()` to it instead of calling `registerCauseline`.
 
+### Python
+
+If your Spring Boot app calls a FastAPI service, `causeline` puts that service in the same trace. LangChain chat calls and retriever runs appear in the RAG panel with the same hints as Spring AI, with no changes to your chains:
+
+```bash
+pip install "causeline[langchain]"
+```
+
+```python
+import causeline
+from fastapi import FastAPI
+
+causeline.init(endpoint="http://localhost:8080", service="ai-service")  # token: CAUSELINE_TOKEN
+app = FastAPI()
+causeline.instrument(app)
+```
+
+How it works:
+
+- **Where spans go.** Python spans are sent to the Causeline in your Spring Boot app. They need that app's `causeline.access-token`, and Causeline `0.1.0-alpha.5` or later. There is no standalone mode yet.
+- **Context from Spring.** Call the service with a client built from Spring Boot's `RestClient.Builder` or `WebClient.Builder`, so the request carries `traceparent`.
+- **What leaves the service.** Method, path, status, query with sensitive values hidden, and exceptions. Headers and bodies are not captured. Prompts, answers and documents go only to a Causeline on the same machine, unless you pass `send_ai_text=True`.
+- **Off by default.** It does nothing without `init`, an endpoint and a token, and stays off when `ENV`, `ENVIRONMENT`, `APP_ENV` or `PYTHON_ENV` starts with `prod`.
+- **Scores and embeddings.** LangChain's callbacks give neither, so two optional helpers add them. See [the library's README](causeline-python/README.md).
+
 ### Configuration reference
 
 Causeline captures everything by default, secrets included, and shows it in the local UI. The defaults below are what you get without any configuration; change any line to block that data:
