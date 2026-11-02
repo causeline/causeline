@@ -206,11 +206,12 @@ const ASK_SCENARIOS: AskScenario[] = [
 function Assistant() {
   const [scenario, setScenario] = useState(GOOD_MATCH);
   const [question, setQuestion] = useState(GOOD_MATCH.question);
+  const [python, setPython] = useState(false);
   const [answer, setAnswer] = useState<string>();
 
   const ask = () =>
     trace('Ask assistant', async () => {
-      const response = await fetch('/api/ask', {
+      const response = await fetch(python ? '/api/ask/python' : '/api/ask', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ question, mode: scenario.mode }),
@@ -239,6 +240,10 @@ function Assistant() {
           {option.label}
         </label>
       ))}
+      <label style={{ display: 'block', marginTop: 8 }}>
+        <input type="checkbox" checked={python} onChange={(e) => setPython(e.target.checked)} /> Ask the Python service
+        (FastAPI and LangChain). Start <code>examples/python-demo</code> first.
+      </label>
       <input
         aria-label="Question"
         value={question}

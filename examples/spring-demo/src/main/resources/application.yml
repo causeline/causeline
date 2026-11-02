@@ -29,3 +29,5 @@ demo:
     port: 8089   # the fake payment provider runs on its own port, like a real third party
   model:
     port: 8090   # so does the fake model
+  python:
+    url: http://localhost:8091   # examples/python-demo, for POST /api/ask/python

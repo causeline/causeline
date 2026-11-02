@@ -392,11 +392,14 @@ export function Timeline({
                         <span className={`w-[72px] shrink-0 font-mono text-[10px] tracking-wide uppercase ${kindColor(span)}`}>
                           {KIND_LABEL[span.kind]}
                         </span>
-                        <span className={`truncate ${span.status === 'ERROR' ? 'text-error' : 'text-ink'}`} title={span.name}>
+                        <span className={`min-w-24 truncate ${span.status === 'ERROR' ? 'text-error' : 'text-ink'}`} title={span.name}>
                           {span.name}
                         </span>
                         {span.source !== 'browser' && home && span.source !== home && (
-                          <span className="chip shrink-0 border-server/40 px-1.5 text-[10px] text-server" title="Recorded by another service">
+                          <span
+                            className="chip block max-w-28 min-w-0 truncate border-server/40 px-1.5 text-[10px] text-server"
+                            title={`Recorded by another service: ${span.source}`}
+                          >
                             {span.source}
                           </span>
                         )}

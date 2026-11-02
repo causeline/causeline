@@ -29,6 +29,7 @@ Debugging "Checkout is slow and sometimes fails" means switching between the bro
 | `examples/webflux-demo` | The same checkout on WebFlux, R2DBC and WebClient |
 | `examples/react-demo` | Checkout page using the SDK |
 | `examples/next-demo` | Next.js page and route handler in front of the Spring demo |
+| `examples/python-demo` | FastAPI and LangChain assistant that the Spring demo calls |
 
 ## Building from source
 
