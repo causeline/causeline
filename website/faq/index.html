@@ -4,9 +4,9 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
-<title>FAQ · Causeline: debugging React and Spring Boot</title>
-<meta name="description" content="Causeline FAQ: tracing requests through Spring Boot, slow SQL and N+1 queries, data and security, coding agents over MCP, and Zipkin, Jaeger and APM compared.">
-<meta name="keywords" content="Causeline, Causeline FAQ, Spring Boot tracing FAQ, how to trace a request in Spring Boot, find slow SQL queries, N+1 queries Spring Boot, Zipkin vs Jaeger vs Causeline, APM for development, Spring Security tracing, Kafka tracing, RabbitMQ tracing, microservices tracing, OpenTelemetry questions, debugging, tracing, observability, performance monitoring, is Causeline a security scanner, OWASP Top 10, ZAP alternative, Burp alternative, k6, JMeter alternative, load testing Spring Boot, debugging tool FAQ, MCP server, Model Context Protocol, Spring Boot MCP server, MCP debugging tool, MCP for Claude Code, Claude Code MCP server, Cursor MCP server, GitHub Copilot MCP, Claude Desktop MCP, AI coding agent, AI debugging tool, AI-assisted debugging, debug with AI, coding agent traces, LLM debugging tool">
+<title>FAQ · Causeline: debugging React, Spring Boot and RAG</title>
+<meta name="description" content="Causeline FAQ: tracing requests through Spring Boot, slow SQL and N+1 queries, data and security, Spring AI and RAG, coding agents over MCP, and Zipkin, Jaeger and APM compared.">
+<meta name="keywords" content="Causeline, Causeline FAQ, RAG debugging FAQ, Spring AI tracing, vector search debugging, LangChain tracing, Spring Boot tracing FAQ, how to trace a request in Spring Boot, find slow SQL queries, N+1 queries Spring Boot, Zipkin vs Jaeger vs Causeline, APM for development, Spring Security tracing, Kafka tracing, RabbitMQ tracing, microservices tracing, OpenTelemetry questions, debugging, tracing, observability, performance monitoring, is Causeline a security scanner, OWASP Top 10, ZAP alternative, Burp alternative, k6, JMeter alternative, load testing Spring Boot, debugging tool FAQ, MCP server, Model Context Protocol, Spring Boot MCP server, MCP debugging tool, MCP for Claude Code, Claude Code MCP server, Cursor MCP server, GitHub Copilot MCP, Claude Desktop MCP, AI coding agent, AI debugging tool, AI-assisted debugging, debug with AI, coding agent traces, LLM debugging tool">
 <meta name="author" content="Sudharma BG">
 <meta name="robots" content="index, follow, max-snippet:-1, max-image-preview:large">
 <link rel="canonical" href="https://causeline.dev/faq/">
@@ -18,18 +18,18 @@
 <meta property="og:type" content="website">
 <meta property="og:site_name" content="Causeline">
 <meta property="og:url" content="https://causeline.dev/faq/">
-<meta property="og:title" content="FAQ · Causeline: debugging React and Spring Boot">
-<meta property="og:description" content="Answers about Causeline: tracing a request through Spring Boot, finding slow SQL and N+1 queries, performance, data and security, coding agents over MCP, and how it compares with Zipkin, Jaeger and APM tools.">
+<meta property="og:title" content="FAQ · Causeline: debugging React, Spring Boot and RAG">
+<meta property="og:description" content="Answers about Causeline: tracing a request through Spring Boot, finding slow SQL and N+1 queries, performance, data and security, Spring AI, RAG and Python, coding agents over MCP, and how it compares with Zipkin, Jaeger and APM tools.">
 <meta property="og:image" content="https://causeline.dev/og.png">
 <meta property="og:image:width" content="1200">
 <meta property="og:image:height" content="630">
 <meta name="twitter:card" content="summary_large_image">
-<meta name="twitter:title" content="FAQ · Causeline: debugging React and Spring Boot">
-<meta name="twitter:description" content="Answers about Causeline: tracing a request through Spring Boot, finding slow SQL and N+1 queries, performance, data and security, coding agents over MCP, and how it compares with Zipkin, Jaeger and APM tools.">
+<meta name="twitter:title" content="FAQ · Causeline: debugging React, Spring Boot and RAG">
+<meta name="twitter:description" content="Answers about Causeline: tracing a request through Spring Boot, finding slow SQL and N+1 queries, performance, data and security, Spring AI, RAG and Python, coding agents over MCP, and how it compares with Zipkin, Jaeger and APM tools.">
 <meta name="twitter:image" content="https://causeline.dev/og.png">
 <link rel="preload" href="/fonts/hanken-grotesk.woff2" as="font" type="font/woff2" crossorigin>
-<link rel="stylesheet" href="/styles.css?v=20261030e">
-<script src="/main.js?v=20261030e"></script>
+<link rel="stylesheet" href="/styles.css?v=20261103b">
+<script src="/main.js?v=20261103b"></script>
 <script type="application/ld+json">
 {
   "@context": "https://schema.org",
@@ -200,6 +200,14 @@
         },
         {
           "@type": "Question",
+          "name": "Does it work with Spring AI, RAG and Python?",
+          "acceptedAnswer": {
+            "@type": "Answer",
+            "text": "Yes. With Spring AI 2.0 in your app, model calls and vector searches join the trace, streaming included. A RAG panel shows the query, the ranked chunks with their scores, the final prompt with each chunk marked In prompt or Not in prompt, the answer and its tokens, and plain rules flag low relevance, a chunk that missed the prompt, a cut-off answer and a context near its limit. A FastAPI service using LangChain joins the same trace with the causeline package from PyPI. Prompts, answers and chunks stay in the local UI; exports and coding agents get the metadata only."
+          }
+        },
+        {
+          "@type": "Question",
           "name": "Is Causeline free?",
           "acceptedAnswer": {
             "@type": "Answer",
@@ -227,6 +235,7 @@
       <a class="opt" href="/how-it-works/">How it works</a>
       <a class="opt" href="/install/">Install</a>
       <a class="opt" href="/faq/" aria-current="page">FAQ</a>
+      <a class="opt" href="/blog/">Blog</a>
       <a class="opt" href="/#developer">Developer</a>
       <button class="menu-btn" type="button" aria-expanded="false" aria-controls="site-menu">Menu</button>
       <a class="btn nav-gh" href="https://github.com/causeline/causeline" rel="noopener">GitHub</a>
@@ -247,7 +256,8 @@
     <a href="/how-it-works/" style="--i:1">How it works</a>
     <a href="/install/" style="--i:2">Install</a>
     <a href="/faq/" style="--i:3">FAQ</a>
-    <a href="/#developer" style="--i:4">Developer</a>
+    <a href="/blog/" style="--i:4">Blog</a>
+    <a href="/#developer" style="--i:5">Developer</a>
   </nav>
   <div class="site-menu-foot">
     <a class="btn" href="/install/">Install in 5 minutes</a>
@@ -342,6 +352,10 @@
           <div class="answer"><div><p>It sees traces the way an export shows them: credentials, sensitive values and SQL literals are redacted, because an agent’s context usually goes to a model provider, and <code>causeline.mcp.hide</code> keeps chosen paths away from it.</p><p>It may replay only <code>GET</code> and <code>HEAD</code>, or what you list in <code>causeline.mcp.replay.allow</code> (<code>deny</code> wins), only to local or targets marked <code>allow-mcp</code>, at most 20 a minute. Requests with side effects need its confirmation, it can’t change headers, and it can’t run probes or load. Its replays are tagged <b>Agent</b> in the UI.</p></div></div>
         </details>
         <details>
+          <summary>Does it work with Spring AI, RAG and Python?<span class="pm" aria-hidden="true"></span></summary>
+          <div class="answer"><div><p>Yes. With Spring AI 2.0 in your app, model calls and vector searches join the trace, streaming included. The <b>RAG panel</b> shows the query, the ranked chunks with their scores, the final prompt with each chunk marked <b>In prompt</b> or <b>Not in prompt</b>, the answer and its tokens. Plain rules, with no model, flag low relevance, a chunk that missed the prompt, an answer cut off by its token limit and a context near its limit.</p><p>If Spring calls a FastAPI service, <code>pip install "causeline[langchain]"</code> puts that service and its LangChain calls in the same trace. Prompts, answers and chunks stay in the local UI: exports and coding agents get the metadata only, and a replay, load run or agent replay that would call a model again is refused until you allow it. Causeline never runs a model itself.</p></div></div>
+        </details>
+        <details>
           <summary>Is it free?<span class="pm" aria-hidden="true"></span></summary>
           <div class="answer"><div><p>Yes. Causeline is open source under the Apache License 2.0. The code, issues and roadmap are on <a class="link" href="https://github.com/causeline/causeline">GitHub</a>.</p></div></div>
         </details>
@@ -368,6 +382,7 @@
         <a href="/how-it-works/">How it works</a>
         <a href="/install/">Install</a>
         <a href="/faq/">FAQ</a>
+        <a href="/blog/">Blog</a>
         <a href="https://www.linkedin.com/in/sudharmabg/" rel="noopener">LinkedIn</a>
       </nav>
     </div>

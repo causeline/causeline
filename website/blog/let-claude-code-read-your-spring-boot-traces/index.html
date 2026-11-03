@@ -1,0 +1,177 @@
+<!doctype html>
+<!-- SPDX-License-Identifier: Apache-2.0 -->
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Let Claude Code read your Spring Boot traces over MCP · Causeline</title>
+<meta name="description" content="Connect Claude Code, Cursor or Copilot to your running Spring Boot app over MCP so they read real traces, fix the code, and replay the request to prove it, with secrets redacted.">
+<meta name="keywords" content="MCP server Spring Boot, Model Context Protocol, Claude Code MCP, Cursor MCP, GitHub Copilot MCP, AI coding agent debugging, debug with AI, coding agent traces, Spring Boot AI debugging, Causeline">
+<meta name="author" content="Sudharma BG">
+<meta name="robots" content="index, follow, max-snippet:-1, max-image-preview:large">
+<link rel="canonical" href="https://causeline.dev/blog/let-claude-code-read-your-spring-boot-traces/">
+<meta name="theme-color" content="#000000">
+<meta name="color-scheme" content="dark">
+<link rel="icon" href="/favicon.svg" type="image/svg+xml">
+<link rel="apple-touch-icon" sizes="180x180" href="/apple-touch-icon.png">
+<link rel="manifest" href="/site.webmanifest">
+<meta property="og:type" content="article">
+<meta property="og:site_name" content="Causeline">
+<meta property="og:url" content="https://causeline.dev/blog/let-claude-code-read-your-spring-boot-traces/">
+<meta property="og:title" content="Let Claude Code read your Spring Boot traces over MCP · Causeline">
+<meta property="og:description" content="Connect Claude Code, Cursor or Copilot to your running Spring Boot app over MCP so they read real traces, fix the code, and replay the request to prove it, with secrets redacted.">
+<meta property="og:image" content="https://causeline.dev/og.png">
+<meta property="og:image:width" content="1200">
+<meta property="og:image:height" content="630">
+<meta name="twitter:card" content="summary_large_image">
+<meta name="twitter:title" content="Let Claude Code read your Spring Boot traces over MCP · Causeline">
+<meta name="twitter:description" content="Connect Claude Code, Cursor or Copilot to your running Spring Boot app over MCP so they read real traces, fix the code, and replay the request to prove it, with secrets redacted.">
+<meta name="twitter:image" content="https://causeline.dev/og.png">
+<link rel="preload" href="/fonts/hanken-grotesk.woff2" as="font" type="font/woff2" crossorigin>
+<link rel="stylesheet" href="/styles.css?v=20261103b">
+<script src="/main.js?v=20261103b"></script>
+<script type="application/ld+json">
+{
+  "@context": "https://schema.org",
+  "@graph": [
+    {
+      "@type": "BreadcrumbList",
+      "itemListElement": [
+        { "@type": "ListItem", "position": 1, "name": "Causeline", "item": "https://causeline.dev/" },
+        { "@type": "ListItem", "position": 2, "name": "Blog", "item": "https://causeline.dev/blog/" },
+        { "@type": "ListItem", "position": 3, "name": "Let Claude Code read your Spring Boot traces over MCP", "item": "https://causeline.dev/blog/let-claude-code-read-your-spring-boot-traces/" }
+      ]
+    },
+    {
+      "@type": "BlogPosting",
+      "headline": "Let Claude Code read your Spring Boot traces over MCP",
+      "description": "Connect Claude Code, Cursor or Copilot to your running Spring Boot app over MCP so they read real traces, fix the code, and replay the request to prove it, with secrets redacted.",
+      "url": "https://causeline.dev/blog/let-claude-code-read-your-spring-boot-traces/",
+      "mainEntityOfPage": "https://causeline.dev/blog/let-claude-code-read-your-spring-boot-traces/",
+      "image": "https://causeline.dev/og.png",
+      "datePublished": "2026-11-03",
+      "dateModified": "2026-11-03",
+      "inLanguage": "en",
+      "author": { "@type": "Person", "name": "Sudharma BG", "url": "https://sudharmabg.vercel.app/" },
+      "publisher": { "@id": "https://causeline.dev/#sudharma" },
+      "about": { "@type": "SoftwareApplication", "name": "Causeline", "url": "https://causeline.dev/" }
+    }
+  ]
+}
+</script>
+</head>
+<body>
+<a class="skip" href="#main">Skip to content</a>
+
+<header class="nav">
+  <div class="wrap">
+    <a class="brand" href="/" aria-label="Causeline home">
+      <svg width="26" height="26" viewBox="0 0 32 32" aria-hidden="true"><rect x="3" y="7" width="16" height="5" rx="2" fill="#5b86ff"/><rect x="9" y="14" width="20" height="5" rx="2" fill="#9b7bff"/><rect x="3" y="21" width="12" height="5" rx="2" fill="#5b86ff"/></svg>
+      Causeline
+    </a>
+    <nav class="nav-links" aria-label="Main">
+      <a class="opt" href="/#features">Features</a>
+      <a class="opt" href="/how-it-works/">How it works</a>
+      <a class="opt" href="/install/">Install</a>
+      <a class="opt" href="/faq/">FAQ</a>
+      <a class="opt" href="/blog/" aria-current="page">Blog</a>
+      <a class="opt" href="/#developer">Developer</a>
+      <button class="menu-btn" type="button" aria-expanded="false" aria-controls="site-menu">Menu</button>
+      <a class="btn nav-gh" href="https://github.com/causeline/causeline" rel="noopener">GitHub</a>
+    </nav>
+  </div>
+</header>
+
+<div class="site-menu" id="site-menu" role="dialog" aria-modal="true" aria-label="Menu" hidden>
+  <div class="site-menu-top">
+    <a class="brand" href="/" aria-label="Causeline home">
+      <svg width="26" height="26" viewBox="0 0 32 32" aria-hidden="true"><rect x="3" y="7" width="16" height="5" rx="2" fill="#5b86ff"/><rect x="9" y="14" width="20" height="5" rx="2" fill="#9b7bff"/><rect x="3" y="21" width="12" height="5" rx="2" fill="#5b86ff"/></svg>
+      Causeline
+    </a>
+    <button class="menu-btn menu-close" type="button" data-menu-close>Close</button>
+  </div>
+  <nav class="site-menu-links" aria-label="Menu">
+    <a href="/#features" style="--i:0">Features</a>
+    <a href="/how-it-works/" style="--i:1">How it works</a>
+    <a href="/install/" style="--i:2">Install</a>
+    <a href="/faq/" style="--i:3">FAQ</a>
+    <a href="/blog/" style="--i:4">Blog</a>
+    <a href="/#developer" style="--i:5">Developer</a>
+  </nav>
+  <div class="site-menu-foot">
+    <a class="btn" href="/install/">Install in 5 minutes</a>
+    <a class="btn btn-ghost" href="https://github.com/causeline/causeline" rel="noopener">GitHub</a>
+  </div>
+</div>
+
+<main id="main">
+  <article class="post">
+    <header class="post-head">
+      <div class="wrap">
+        <p class="post-crumb"><a class="link" href="/blog/">Blog</a></p>
+        <h1 class="post-title">Let Claude Code read your Spring Boot traces over MCP</h1>
+        <p class="post-lede">Coding agents are good at reading code and bad at knowing what your app actually did. A trace closes that gap.</p>
+        <p class="post-meta">By <a class="link" href="https://sudharmabg.vercel.app/" rel="noopener">Sudharma BG</a> · <time datetime="2026-11-03">3 November 2026</time></p>
+      </div>
+    </header>
+    <div class="wrap">
+      <div class="prose">
+        <h2>What the agent is missing</h2>
+        <p>Ask an agent to fix a failing checkout and it reads the code and guesses. It cannot see the request that failed, the SQL that ran, or where the exception was thrown. You end up pasting stack traces and log lines into the chat.</p>
+
+        <h2>Give it the trace over MCP</h2>
+        <p>Causeline serves its traces over the Model Context Protocol at <code>/causeline/mcp</code>. Connected, Claude Code, Cursor, Copilot or Claude Desktop can list traces, read one with its insights and security hints, compare two runs, find the source file for a class, and replay a request after a fix.</p>
+        <p>Start your app with Causeline on, copy the command from the <b>Connect agent</b> panel (the app log prints it too), and run it. For Claude Code:</p>
+        <div class="code"><div class="code-head"><span>Terminal</span><button class="copy" type="button">Copy</button></div>
+<pre>claude mcp add --transport http causeline http://localhost:8080/causeline/mcp --header "X-Causeline-Token: &lt;token&gt;"</pre></div>
+        <p>Cursor, VS Code and other clients use the same URL and header. Claude Desktop connects through <code>npx mcp-remote</code>.</p>
+
+        <h2>A loop that closes</h2>
+        <p>With the connection in place, the request you give the agent can be short: &ldquo;the checkout fails, find out why and fix it.&rdquo; It finds the failed request, reads the exception and the file and line that threw it, changes the code, then replays the same request and compares the two runs. You see <i>500 became 201</i> instead of taking its word for it.</p>
+
+        <h2>What the agent can see</h2>
+        <p>An agent&rsquo;s context usually goes to a model provider, so it sees traces the way an export shows them: credentials, sensitive values and SQL literals are redacted. Prompts, answers and documents from AI calls are withheld too. You can also hide whole paths from it.</p>
+        <div class="code"><div class="code-head"><span>application-dev.yml</span></div>
+<pre>causeline:
+  mcp:
+    hide: ["/api/admin/**"]
+    replay:
+      allow: ["POST /api/orders"]</pre></div>
+
+        <h2>What it may do</h2>
+        <p>Replay is the only action, and you set the limits. By default an agent may replay only <code>GET</code> and <code>HEAD</code> requests; anything else must match <code>causeline.mcp.replay.allow</code>, and <code>deny</code> always wins. Replays go only to local or targets you have marked, at most 20 a minute, and the agent cannot change headers, run security probes or start load runs. Its replays are tagged <b>Agent</b> in the UI, so you can see what it did.</p>
+
+        <h2>Causeline runs no AI</h2>
+        <p>Causeline doesn&rsquo;t call a model. It answers the agent you already use. It is for development and QA, off by default, and refuses to start under a production profile. The <a class="link" href="/faq/">FAQ</a> covers what is captured and how to block it.</p>
+      </div>
+    </div>
+  </article>
+
+  <section class="next-page" aria-label="Next post">
+    <div class="wrap">
+      <a href="/blog/find-n-plus-one-queries-spring-boot/"><div><span>Next post</span><strong>How to find N+1 queries in Spring Boot and fix them</strong></div><svg width="48" height="48" viewBox="0 0 48 48" fill="none" stroke="currentColor" stroke-width="3" aria-hidden="true"><path d="M8 24h32M28 12l12 12-12 12"/></svg></a>
+    </div>
+  </section>
+</main>
+
+<footer>
+  <div class="wrap">
+    <div class="foot">
+      <span>© 2026 Causeline · Built by <a href="https://sudharmabg.vercel.app/" rel="noopener">Sudharma BG</a> · Apache License 2.0 · For development and QA, never production.</span>
+      <nav aria-label="Footer">
+        <a href="https://github.com/causeline/causeline">GitHub</a>
+        <a href="https://www.npmjs.com/package/@causeline/react">npm</a>
+        <a href="https://www.npmjs.com/package/@causeline/next">Next.js</a>
+        <a href="https://central.sonatype.com/artifact/dev.causeline/causeline-spring-boot">Maven Central</a>
+        <a href="/how-it-works/">How it works</a>
+        <a href="/install/">Install</a>
+        <a href="/faq/">FAQ</a>
+        <a href="/blog/">Blog</a>
+        <a href="https://www.linkedin.com/in/sudharmabg/" rel="noopener">LinkedIn</a>
+      </nav>
+    </div>
+    <p class="wordmark" aria-hidden="true">causeline</p>
+  </div>
+</footer>
+</body>
+</html>

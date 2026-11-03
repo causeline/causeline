@@ -1,0 +1,179 @@
+<!doctype html>
+<!-- SPDX-License-Identifier: Apache-2.0 -->
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Trace a React click all the way to the SQL query · Causeline</title>
+<meta name="description" content="How to follow one React click through fetch, Spring Boot controllers, services and SQL on a single timeline using W3C traceparent, Micrometer and OpenTelemetry, with no collector.">
+<meta name="keywords" content="trace React click to SQL, React Spring Boot tracing, full stack tracing, traceparent header, W3C trace context, Micrometer Observation, OpenTelemetry Spring Boot, debug React and Spring Boot, end-to-end tracing, Causeline">
+<meta name="author" content="Sudharma BG">
+<meta name="robots" content="index, follow, max-snippet:-1, max-image-preview:large">
+<link rel="canonical" href="https://causeline.dev/blog/trace-react-click-to-sql-spring-boot/">
+<meta name="theme-color" content="#000000">
+<meta name="color-scheme" content="dark">
+<link rel="icon" href="/favicon.svg" type="image/svg+xml">
+<link rel="apple-touch-icon" sizes="180x180" href="/apple-touch-icon.png">
+<link rel="manifest" href="/site.webmanifest">
+<meta property="og:type" content="article">
+<meta property="og:site_name" content="Causeline">
+<meta property="og:url" content="https://causeline.dev/blog/trace-react-click-to-sql-spring-boot/">
+<meta property="og:title" content="Trace a React click all the way to the SQL query · Causeline">
+<meta property="og:description" content="How to follow one React click through fetch, Spring Boot controllers, services and SQL on a single timeline using W3C traceparent, Micrometer and OpenTelemetry, with no collector.">
+<meta property="og:image" content="https://causeline.dev/og.png">
+<meta property="og:image:width" content="1200">
+<meta property="og:image:height" content="630">
+<meta name="twitter:card" content="summary_large_image">
+<meta name="twitter:title" content="Trace a React click all the way to the SQL query · Causeline">
+<meta name="twitter:description" content="How to follow one React click through fetch, Spring Boot controllers, services and SQL on a single timeline using W3C traceparent, Micrometer and OpenTelemetry, with no collector.">
+<meta name="twitter:image" content="https://causeline.dev/og.png">
+<link rel="preload" href="/fonts/hanken-grotesk.woff2" as="font" type="font/woff2" crossorigin>
+<link rel="stylesheet" href="/styles.css?v=20261103b">
+<script src="/main.js?v=20261103b"></script>
+<script type="application/ld+json">
+{
+  "@context": "https://schema.org",
+  "@graph": [
+    {
+      "@type": "BreadcrumbList",
+      "itemListElement": [
+        { "@type": "ListItem", "position": 1, "name": "Causeline", "item": "https://causeline.dev/" },
+        { "@type": "ListItem", "position": 2, "name": "Blog", "item": "https://causeline.dev/blog/" },
+        { "@type": "ListItem", "position": 3, "name": "Trace a React click all the way to the SQL query", "item": "https://causeline.dev/blog/trace-react-click-to-sql-spring-boot/" }
+      ]
+    },
+    {
+      "@type": "BlogPosting",
+      "headline": "Trace a React click all the way to the SQL query",
+      "description": "How to follow one React click through fetch, Spring Boot controllers, services and SQL on a single timeline using W3C traceparent, Micrometer and OpenTelemetry, with no collector.",
+      "url": "https://causeline.dev/blog/trace-react-click-to-sql-spring-boot/",
+      "mainEntityOfPage": "https://causeline.dev/blog/trace-react-click-to-sql-spring-boot/",
+      "image": "https://causeline.dev/og.png",
+      "datePublished": "2026-11-03",
+      "dateModified": "2026-11-03",
+      "inLanguage": "en",
+      "author": { "@type": "Person", "name": "Sudharma BG", "url": "https://sudharmabg.vercel.app/" },
+      "publisher": { "@id": "https://causeline.dev/#sudharma" },
+      "about": { "@type": "SoftwareApplication", "name": "Causeline", "url": "https://causeline.dev/" }
+    }
+  ]
+}
+</script>
+</head>
+<body>
+<a class="skip" href="#main">Skip to content</a>
+
+<header class="nav">
+  <div class="wrap">
+    <a class="brand" href="/" aria-label="Causeline home">
+      <svg width="26" height="26" viewBox="0 0 32 32" aria-hidden="true"><rect x="3" y="7" width="16" height="5" rx="2" fill="#5b86ff"/><rect x="9" y="14" width="20" height="5" rx="2" fill="#9b7bff"/><rect x="3" y="21" width="12" height="5" rx="2" fill="#5b86ff"/></svg>
+      Causeline
+    </a>
+    <nav class="nav-links" aria-label="Main">
+      <a class="opt" href="/#features">Features</a>
+      <a class="opt" href="/how-it-works/">How it works</a>
+      <a class="opt" href="/install/">Install</a>
+      <a class="opt" href="/faq/">FAQ</a>
+      <a class="opt" href="/blog/" aria-current="page">Blog</a>
+      <a class="opt" href="/#developer">Developer</a>
+      <button class="menu-btn" type="button" aria-expanded="false" aria-controls="site-menu">Menu</button>
+      <a class="btn nav-gh" href="https://github.com/causeline/causeline" rel="noopener">GitHub</a>
+    </nav>
+  </div>
+</header>
+
+<div class="site-menu" id="site-menu" role="dialog" aria-modal="true" aria-label="Menu" hidden>
+  <div class="site-menu-top">
+    <a class="brand" href="/" aria-label="Causeline home">
+      <svg width="26" height="26" viewBox="0 0 32 32" aria-hidden="true"><rect x="3" y="7" width="16" height="5" rx="2" fill="#5b86ff"/><rect x="9" y="14" width="20" height="5" rx="2" fill="#9b7bff"/><rect x="3" y="21" width="12" height="5" rx="2" fill="#5b86ff"/></svg>
+      Causeline
+    </a>
+    <button class="menu-btn menu-close" type="button" data-menu-close>Close</button>
+  </div>
+  <nav class="site-menu-links" aria-label="Menu">
+    <a href="/#features" style="--i:0">Features</a>
+    <a href="/how-it-works/" style="--i:1">How it works</a>
+    <a href="/install/" style="--i:2">Install</a>
+    <a href="/faq/" style="--i:3">FAQ</a>
+    <a href="/blog/" style="--i:4">Blog</a>
+    <a href="/#developer" style="--i:5">Developer</a>
+  </nav>
+  <div class="site-menu-foot">
+    <a class="btn" href="/install/">Install in 5 minutes</a>
+    <a class="btn btn-ghost" href="https://github.com/causeline/causeline" rel="noopener">GitHub</a>
+  </div>
+</div>
+
+<main id="main">
+  <article class="post">
+    <header class="post-head">
+      <div class="wrap">
+        <p class="post-crumb"><a class="link" href="/blog/">Blog</a></p>
+        <h1 class="post-title">Trace a React click all the way to the SQL query</h1>
+        <p class="post-lede">The Network tab says the request took a second. The Spring logs say something else. Here is how to get both on one timeline.</p>
+        <p class="post-meta">By <a class="link" href="https://sudharmabg.vercel.app/" rel="noopener">Sudharma BG</a> · <time datetime="2026-11-03">3 November 2026</time></p>
+      </div>
+    </header>
+    <div class="wrap">
+      <div class="prose">
+        <h2>The gap between the browser and the server</h2>
+        <p>A click in the browser and the SQL it triggers are usually debugged in separate tools. The Network tab knows when the request left and returned. The server knows what it did in between. Nothing joins them, so you line up timestamps by hand and hope the clocks agree.</p>
+
+        <h2>One header joins them</h2>
+        <p>Distributed tracing solves this with a single standard header, W3C <code>traceparent</code>. It carries a trace ID and the ID of the span that sent the request. If the browser sends it and the server reads it, both sides write their spans into the same trace.</p>
+        <div class="code"><div class="code-head"><span>POST /api/orders</span></div>
+<pre>traceparent: 00-8969ad7e690b50a8721f9fd8e0e5c925-00f067aa0ba902b7-01</pre></div>
+        <p>Causeline uses only this standard header. There is nothing proprietary on the wire, so it also works with any OpenTelemetry setup you already have.</p>
+
+        <h2>Name the click</h2>
+        <p>On the React side, <code>@causeline/react</code> wraps <code>fetch</code> and XHR and adds the header to calls to your own API. Wrap a handler in <code>trace()</code> and the click becomes the root of the trace, with every request and state update inside it.</p>
+        <div class="code"><div class="code-head"><span>Checkout.tsx</span></div>
+<pre>const onCheckout = () =&gt;
+  trace('Checkout', async () =&gt; {
+    const res = await fetch('/api/orders', { method: 'POST', body });
+    setStatus(res.ok ? 'paid' : 'failed');
+  });</pre></div>
+        <p>The SDK does nothing in production builds, so it is safe to leave in.</p>
+
+        <h2>Spring Boot builds on Micrometer</h2>
+        <p>The Spring Boot starter reads the header and builds on Micrometer Observation. Controllers, <code>@Observed</code> services, repositories, transactions, JDBC or R2DBC queries, outbound HTTP calls and messages all become spans in the same trace. Add <code>causeline.enabled: true</code> in a dev profile and open <code>/causeline</code>.</p>
+
+        <h2>Order by the tree, not by clocks</h2>
+        <p>The browser and the server have different clocks. Causeline orders spans by the parent-child tree rather than by timestamps across sources, and places the server&rsquo;s spans inside the browser&rsquo;s request span. That is why the timeline reads correctly even when the two clocks are a few hundred milliseconds apart.</p>
+
+        <h2>Then it names the culprit</h2>
+        <p>With everything on one tree, the slow part is a calculation, not a guess. Causeline ranks spans by <b>self time</b>, a span&rsquo;s duration minus the time its children ran, so a slow parent never hides the real culprit. In the demo checkout, one outbound payment call takes 844 ms of a 960 ms request.</p>
+        <p class="insight-box"><b>Bottleneck</b>POST /fake-payment/charge, 844 ms, 88% of the checkout.</p>
+        <p>The <a class="link" href="/how-it-works/">how it works</a> page walks through each step, and the <a class="link" href="/install/">install page</a> gets the first trace on screen in about five minutes.</p>
+      </div>
+    </div>
+  </article>
+
+  <section class="next-page" aria-label="Next post">
+    <div class="wrap">
+      <a href="/blog/debug-rag-spring-ai-retrieval/"><div><span>Next post</span><strong>Debug a RAG pipeline in Spring AI: what was retrieved and what the model saw</strong></div><svg width="48" height="48" viewBox="0 0 48 48" fill="none" stroke="currentColor" stroke-width="3" aria-hidden="true"><path d="M8 24h32M28 12l12 12-12 12"/></svg></a>
+    </div>
+  </section>
+</main>
+
+<footer>
+  <div class="wrap">
+    <div class="foot">
+      <span>© 2026 Causeline · Built by <a href="https://sudharmabg.vercel.app/" rel="noopener">Sudharma BG</a> · Apache License 2.0 · For development and QA, never production.</span>
+      <nav aria-label="Footer">
+        <a href="https://github.com/causeline/causeline">GitHub</a>
+        <a href="https://www.npmjs.com/package/@causeline/react">npm</a>
+        <a href="https://www.npmjs.com/package/@causeline/next">Next.js</a>
+        <a href="https://central.sonatype.com/artifact/dev.causeline/causeline-spring-boot">Maven Central</a>
+        <a href="/how-it-works/">How it works</a>
+        <a href="/install/">Install</a>
+        <a href="/faq/">FAQ</a>
+        <a href="/blog/">Blog</a>
+        <a href="https://www.linkedin.com/in/sudharmabg/" rel="noopener">LinkedIn</a>
+      </nav>
+    </div>
+    <p class="wordmark" aria-hidden="true">causeline</p>
+  </div>
+</footer>
+</body>
+</html>

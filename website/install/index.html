@@ -4,9 +4,9 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
-<title>Install · Causeline for Spring Boot and React</title>
-<meta name="description" content="Add Causeline to a Spring Boot 4.1 and React app in five minutes: one Maven dependency, one setting in a dev profile, and the @causeline/react provider.">
-<meta name="keywords" content="Causeline, install Causeline, Spring Boot tracing setup, Spring Boot debugging setup, React tracing setup, Maven dependency, Gradle dependency, npm @causeline/react, @causeline/next, Next.js tracing, JUnit trace assertions, quick start, debugging, debugger, debugging tool, web debugging, API debugging, full stack debugging, Java debugging, Spring Boot debugger, React debugger, tracing, request tracing, application tracing, trace viewer, observability, APM, application performance monitoring, performance monitoring, performance profiling, profiler, latency, slow API, slow requests, slow SQL queries, SQL query analysis, database performance, Hibernate performance, JPA debugging, root cause analysis, error tracking, exception tracking, logging, log correlation, network requests, HTTP request inspector, microservices debugging, developer productivity, open source developer tools, free developer tools, local development tools, Postman alternative, Zipkin alternative, Jaeger alternative">
+<title>Install · Causeline for Spring Boot, React and Python</title>
+<meta name="description" content="Add Causeline to a Spring Boot 4.1 and React app in five minutes: one Maven dependency, one setting in a dev profile, the @causeline/react provider, and optional Python and Spring AI tracing.">
+<meta name="keywords" content="Causeline, install Causeline, pip install causeline, Python FastAPI tracing, LangChain tracing, Spring AI tracing, Spring Boot tracing setup, Spring Boot debugging setup, React tracing setup, Maven dependency, Gradle dependency, npm @causeline/react, @causeline/next, Next.js tracing, JUnit trace assertions, quick start, debugging, debugger, debugging tool, web debugging, API debugging, full stack debugging, Java debugging, Spring Boot debugger, React debugger, tracing, request tracing, application tracing, trace viewer, observability, APM, application performance monitoring, performance monitoring, performance profiling, profiler, latency, slow API, slow requests, slow SQL queries, SQL query analysis, database performance, Hibernate performance, JPA debugging, root cause analysis, error tracking, exception tracking, logging, log correlation, network requests, HTTP request inspector, microservices debugging, developer productivity, open source developer tools, free developer tools, local development tools, Postman alternative, Zipkin alternative, Jaeger alternative">
 <meta name="author" content="Sudharma BG">
 <meta name="robots" content="index, follow, max-snippet:-1, max-image-preview:large">
 <link rel="canonical" href="https://causeline.dev/install/">
@@ -18,18 +18,18 @@
 <meta property="og:type" content="website">
 <meta property="og:site_name" content="Causeline">
 <meta property="og:url" content="https://causeline.dev/install/">
-<meta property="og:title" content="Install · Causeline for Spring Boot and React">
-<meta property="og:description" content="Add Causeline to a Spring Boot 4.1 and React app in five minutes: one Maven dependency, one setting in a dev profile, and the @causeline/react provider.">
+<meta property="og:title" content="Install · Causeline for Spring Boot, React and Python">
+<meta property="og:description" content="Add Causeline to a Spring Boot 4.1 and React app in five minutes: one Maven dependency, one setting in a dev profile, the @causeline/react provider, and optional Python and Spring AI tracing.">
 <meta property="og:image" content="https://causeline.dev/og.png">
 <meta property="og:image:width" content="1200">
 <meta property="og:image:height" content="630">
 <meta name="twitter:card" content="summary_large_image">
-<meta name="twitter:title" content="Install · Causeline for Spring Boot and React">
-<meta name="twitter:description" content="Add Causeline to a Spring Boot 4.1 and React app in five minutes: one Maven dependency, one setting in a dev profile, and the @causeline/react provider.">
+<meta name="twitter:title" content="Install · Causeline for Spring Boot, React and Python">
+<meta name="twitter:description" content="Add Causeline to a Spring Boot 4.1 and React app in five minutes: one Maven dependency, one setting in a dev profile, the @causeline/react provider, and optional Python and Spring AI tracing.">
 <meta name="twitter:image" content="https://causeline.dev/og.png">
 <link rel="preload" href="/fonts/hanken-grotesk.woff2" as="font" type="font/woff2" crossorigin>
-<link rel="stylesheet" href="/styles.css?v=20261030e">
-<script src="/main.js?v=20261030e"></script>
+<link rel="stylesheet" href="/styles.css?v=20261103b">
+<script src="/main.js?v=20261103b"></script>
 <script type="application/ld+json">
 {
   "@context": "https://schema.org",
@@ -127,6 +127,7 @@
       <a class="opt" href="/how-it-works/">How it works</a>
       <a class="opt" href="/install/" aria-current="page">Install</a>
       <a class="opt" href="/faq/">FAQ</a>
+      <a class="opt" href="/blog/">Blog</a>
       <a class="opt" href="/#developer">Developer</a>
       <button class="menu-btn" type="button" aria-expanded="false" aria-controls="site-menu">Menu</button>
       <a class="btn nav-gh" href="https://github.com/causeline/causeline" rel="noopener">GitHub</a>
@@ -147,7 +148,8 @@
     <a href="/how-it-works/" style="--i:1">How it works</a>
     <a href="/install/" style="--i:2">Install</a>
     <a href="/faq/" style="--i:3">FAQ</a>
-    <a href="/#developer" style="--i:4">Developer</a>
+    <a href="/blog/" style="--i:4">Blog</a>
+    <a href="/#developer" style="--i:5">Developer</a>
   </nav>
   <div class="site-menu-foot">
     <a class="btn" href="/install/">Install in 5 minutes</a>
@@ -168,13 +170,14 @@
 
   <section class="stepper" data-stepper data-interval="8000" aria-label="Install Causeline, step by step">
     <div class="wrap grid">
-      <div class="step-nav" role="tablist" aria-label="Steps" style="--steps:6">
+      <div class="step-nav" role="tablist" aria-label="Steps" style="--steps:7">
         <button role="tab" id="i1-tab" aria-controls="i1" aria-selected="true"><small>Step 1</small>Add the starter<span class="bar"><i></i></span></button>
         <button role="tab" id="i2-tab" aria-controls="i2" aria-selected="false" tabindex="-1"><small>Step 2</small>Switch it on in dev<span class="bar"><i></i></span></button>
         <button role="tab" id="i3-tab" aria-controls="i3" aria-selected="false" tabindex="-1"><small>Step 3</small>Start and open the UI<span class="bar"><i></i></span></button>
         <button role="tab" id="i4-tab" aria-controls="i4" aria-selected="false" tabindex="-1"><small>Step 4</small>Add the React SDK<span class="bar"><i></i></span></button>
         <button role="tab" id="i5-tab" aria-controls="i5" aria-selected="false" tabindex="-1"><small>Step 5</small>Name the click<span class="bar"><i></i></span></button>
         <button role="tab" id="i6-tab" aria-controls="i6" aria-selected="false" tabindex="-1"><small>Optional</small>Next.js and tests<span class="bar"><i></i></span></button>
+        <button role="tab" id="i7-tab" aria-controls="i7" aria-selected="false" tabindex="-1"><small>Optional</small>Python and AI<span class="bar"><i></i></span></button>
       </div>
 
       <div class="step-view">
@@ -271,6 +274,22 @@
   <span class="k">&lt;scope&gt;</span>test<span class="k">&lt;/scope&gt;</span>
 <span class="k">&lt;/dependency&gt;</span></pre></div>
           </article>
+
+          <article class="step-panel" role="tabpanel" id="i7" aria-labelledby="i7-tab">
+            <span class="tag">Optional</span>
+            <h2>Python and AI</h2>
+            <p>With Spring AI 2.0 in your app, model calls and vector searches join the timeline with no setup. If your Spring Boot app calls a FastAPI service, add the Python library to put that service in the same trace. LangChain chat calls and retriever runs appear in the RAG panel.</p>
+            <div class="code"><div class="code-head"><span>Terminal</span><button class="copy" type="button">Copy</button></div>
+<pre>pip install "causeline[langchain]"</pre></div>
+            <div class="code"><div class="code-head"><span>app.py</span><button class="copy" type="button">Copy</button></div>
+<pre><span class="k">import</span> causeline
+<span class="k">from</span> fastapi <span class="k">import</span> FastAPI
+
+causeline.<span class="f">init</span>(endpoint=<span class="s">"http://localhost:8080"</span>, service=<span class="s">"ai-service"</span>)  <span class="c"># token: CAUSELINE_TOKEN</span>
+app = <span class="f">FastAPI</span>()
+causeline.<span class="f">instrument</span>(app)</pre></div>
+            <p>Python spans go to the Causeline in your Spring Boot app, so you need its access token and Causeline <code>0.1.0-alpha.5</code> or later. Call the service with a client built from Spring’s <code>RestClient.Builder</code> or <code>WebClient.Builder</code> so the request carries <code>traceparent</code>. The library is off by default and stays off in production.</p>
+          </article>
         </div>
         <div class="step-arrows">
           <button type="button" data-step="prev" aria-label="Previous step"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="M15 5l-7 7 7 7"/></svg></button>
@@ -299,6 +318,7 @@
         <a href="/how-it-works/">How it works</a>
         <a href="/install/">Install</a>
         <a href="/faq/">FAQ</a>
+        <a href="/blog/">Blog</a>
         <a href="https://www.linkedin.com/in/sudharmabg/" rel="noopener">LinkedIn</a>
       </nav>
     </div>

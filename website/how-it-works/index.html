@@ -4,9 +4,9 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
-<title>How it works · Causeline: React to SQL tracing</title>
-<meta name="description" content="How Causeline traces a React click through Spring Boot to the SQL: traceparent, Micrometer and OpenTelemetry spans, insights, and MCP for coding agents.">
-<meta name="keywords" content="Causeline, how distributed tracing works, how request tracing works, traceparent header, W3C trace context, OpenTelemetry Spring Boot, Micrometer Observation, Micrometer Tracing, span, self time, trace waterfall, debugging, debugger, debugging tool, web debugging, API debugging, full stack debugging, Java debugging, Spring Boot debugger, React debugger, tracing, request tracing, application tracing, trace viewer, observability, APM, application performance monitoring, performance monitoring, performance profiling, profiler, latency, slow API, slow requests, slow SQL queries, SQL query analysis, database performance, Hibernate performance, JPA debugging, root cause analysis, error tracking, exception tracking, logging, log correlation, network requests, HTTP request inspector, microservices debugging, developer productivity, open source developer tools, free developer tools, local development tools, Postman alternative, Zipkin alternative, Jaeger alternative, MCP server, Model Context Protocol, Spring Boot MCP server, MCP debugging tool, MCP for Claude Code, Claude Code MCP server, Cursor MCP server, GitHub Copilot MCP, Claude Desktop MCP, AI coding agent, AI debugging tool, AI-assisted debugging, debug with AI, coding agent traces, LLM debugging tool">
+<title>How it works · Causeline: trace React, SQL and RAG calls</title>
+<meta name="description" content="How Causeline traces a React click through Spring Boot to the SQL: traceparent, Micrometer and OpenTelemetry spans, insights, RAG and model calls, and MCP for coding agents.">
+<meta name="keywords" content="Causeline, how RAG tracing works, Spring AI tracing, vector search debugging, how distributed tracing works, how request tracing works, traceparent header, W3C trace context, OpenTelemetry Spring Boot, Micrometer Observation, Micrometer Tracing, span, self time, trace waterfall, debugging, debugger, debugging tool, web debugging, API debugging, full stack debugging, Java debugging, Spring Boot debugger, React debugger, tracing, request tracing, application tracing, trace viewer, observability, APM, application performance monitoring, performance monitoring, performance profiling, profiler, latency, slow API, slow requests, slow SQL queries, SQL query analysis, database performance, Hibernate performance, JPA debugging, root cause analysis, error tracking, exception tracking, logging, log correlation, network requests, HTTP request inspector, microservices debugging, developer productivity, open source developer tools, free developer tools, local development tools, Postman alternative, Zipkin alternative, Jaeger alternative, MCP server, Model Context Protocol, Spring Boot MCP server, MCP debugging tool, MCP for Claude Code, Claude Code MCP server, Cursor MCP server, GitHub Copilot MCP, Claude Desktop MCP, AI coding agent, AI debugging tool, AI-assisted debugging, debug with AI, coding agent traces, LLM debugging tool">
 <meta name="author" content="Sudharma BG">
 <meta name="robots" content="index, follow, max-snippet:-1, max-image-preview:large">
 <link rel="canonical" href="https://causeline.dev/how-it-works/">
@@ -18,18 +18,18 @@
 <meta property="og:type" content="website">
 <meta property="og:site_name" content="Causeline">
 <meta property="og:url" content="https://causeline.dev/how-it-works/">
-<meta property="og:title" content="How it works · Causeline: React to SQL tracing">
-<meta property="og:description" content="How Causeline follows a React click through Spring Boot: the traceparent header, Micrometer and OpenTelemetry spans, the in-memory store at /causeline, and the insights that name the slow call.">
+<meta property="og:title" content="How it works · Causeline: trace React, SQL and RAG calls">
+<meta property="og:description" content="How Causeline follows a React click through Spring Boot: the traceparent header, Micrometer and OpenTelemetry spans, the in-memory store at /causeline, the insights that name the slow call, and how Spring AI and Python RAG calls join the trace.">
 <meta property="og:image" content="https://causeline.dev/og.png">
 <meta property="og:image:width" content="1200">
 <meta property="og:image:height" content="630">
 <meta name="twitter:card" content="summary_large_image">
-<meta name="twitter:title" content="How it works · Causeline: React to SQL tracing">
-<meta name="twitter:description" content="How Causeline follows a React click through Spring Boot: the traceparent header, Micrometer and OpenTelemetry spans, the in-memory store at /causeline, and the insights that name the slow call.">
+<meta name="twitter:title" content="How it works · Causeline: trace React, SQL and RAG calls">
+<meta name="twitter:description" content="How Causeline follows a React click through Spring Boot: the traceparent header, Micrometer and OpenTelemetry spans, the in-memory store at /causeline, the insights that name the slow call, and how Spring AI and Python RAG calls join the trace.">
 <meta name="twitter:image" content="https://causeline.dev/og.png">
 <link rel="preload" href="/fonts/hanken-grotesk.woff2" as="font" type="font/woff2" crossorigin>
-<link rel="stylesheet" href="/styles.css?v=20261030e">
-<script src="/main.js?v=20261030e"></script>
+<link rel="stylesheet" href="/styles.css?v=20261103b">
+<script src="/main.js?v=20261103b"></script>
 <script type="application/ld+json">
 {
   "@context": "https://schema.org",
@@ -61,7 +61,7 @@
       "author": {
         "@id": "https://causeline.dev/#sudharma"
       },
-      "dateModified": "2026-10-30",
+      "dateModified": "2026-11-03",
       "inLanguage": "en"
     }
   ]
@@ -82,6 +82,7 @@
       <a class="opt" href="/how-it-works/" aria-current="page">How it works</a>
       <a class="opt" href="/install/">Install</a>
       <a class="opt" href="/faq/">FAQ</a>
+      <a class="opt" href="/blog/">Blog</a>
       <a class="opt" href="/#developer">Developer</a>
       <button class="menu-btn" type="button" aria-expanded="false" aria-controls="site-menu">Menu</button>
       <a class="btn nav-gh" href="https://github.com/causeline/causeline" rel="noopener">GitHub</a>
@@ -102,7 +103,8 @@
     <a href="/how-it-works/" style="--i:1">How it works</a>
     <a href="/install/" style="--i:2">Install</a>
     <a href="/faq/" style="--i:3">FAQ</a>
-    <a href="/#developer" style="--i:4">Developer</a>
+    <a href="/blog/" style="--i:4">Blog</a>
+    <a href="/#developer" style="--i:5">Developer</a>
   </nav>
   <div class="site-menu-foot">
     <a class="btn" href="/install/">Install in 5 minutes</a>
@@ -117,13 +119,13 @@
         <span class="line"><span data-line style="--i:0">How a click</span></span>
         <span class="line"><span data-line style="--i:1">becomes a trace</span></span>
       </h1>
-      <p class="rise" style="--i:0">Eight steps, from the button your user presses to the insight that names the slow call, the security and load checks before you ship, and your coding agent reading the same trace. Standard headers, Micrometer and OpenTelemetry, nothing proprietary.</p>
+      <p class="rise" style="--i:0">Nine steps, from the button your user presses to the insight that names the slow call, the security and load checks before you ship, the model and RAG calls in a trace, and your coding agent reading the same trace. Standard headers, Micrometer and OpenTelemetry, nothing proprietary.</p>
     </div>
   </section>
 
   <section class="stepper" data-stepper data-interval="7000" aria-label="How Causeline works, step by step">
     <div class="wrap grid">
-      <div class="step-nav" role="tablist" aria-label="Steps" style="--steps:8">
+      <div class="step-nav" role="tablist" aria-label="Steps" style="--steps:9">
         <button role="tab" id="s1-tab" aria-controls="s1" aria-selected="true"><small>Step 1</small>The click gets a name<span class="bar"><i></i></span></button>
         <button role="tab" id="s2-tab" aria-controls="s2" aria-selected="false" tabindex="-1"><small>Step 2</small>The header carries it<span class="bar"><i></i></span></button>
         <button role="tab" id="s3-tab" aria-controls="s3" aria-selected="false" tabindex="-1"><small>Step 3</small>Spring Boot joins in<span class="bar"><i></i></span></button>
@@ -132,6 +134,7 @@
         <button role="tab" id="s6-tab" aria-controls="s6" aria-selected="false" tabindex="-1"><small>Step 6</small>Replay, compare, keep<span class="bar"><i></i></span></button>
         <button role="tab" id="s7-tab" aria-controls="s7" aria-selected="false" tabindex="-1"><small>Step 7</small>Before you ship<span class="bar"><i></i></span></button>
         <button role="tab" id="s8-tab" aria-controls="s8" aria-selected="false" tabindex="-1"><small>Step 8</small>Your agent reads it too<span class="bar"><i></i></span></button>
+        <button role="tab" id="s9-tab" aria-controls="s9" aria-selected="false" tabindex="-1"><small>Step 9</small>Models and RAG<span class="bar"><i></i></span></button>
       </div>
 
       <div class="step-view">
@@ -219,6 +222,21 @@
       <span class="k">allow</span>: [<span class="s">"POST /api/orders"</span>]</pre></div>
             <p class="insight-box"><b>Agent</b>Replayed POST /api/orders after the fix: 500 became 201, PaymentTimeoutException gone.</p>
           </article>
+          <article class="step-panel" role="tabpanel" id="s9" aria-labelledby="s9-tab">
+            <span class="tag">Spring AI and Python</span>
+            <h2>Models and RAG</h2>
+            <p>With Spring AI 2.0 in your app, chat calls and vector searches become spans in the same trace, streaming included. Click a search or a chat call and the RAG panel follows the question: the query, the ranked chunks with their scores, the final prompt with each chunk marked <b>In prompt</b> or <b>Not in prompt</b>, the answer and its tokens.</p>
+            <p>If Spring calls a FastAPI service, <code>causeline</code> for Python puts that service in the same trace. LangChain chat calls and retriever runs show up in the same panel, with no changes to your chains.</p>
+            <div class="code"><div class="code-head"><span>app.py</span></div>
+<pre><span class="k">import</span> causeline
+<span class="k">from</span> fastapi <span class="k">import</span> FastAPI
+
+causeline.<span class="f">init</span>(endpoint=<span class="s">"http://localhost:8080"</span>, service=<span class="s">"ai-service"</span>)
+app = <span class="f">FastAPI</span>()
+causeline.<span class="f">instrument</span>(app)</pre></div>
+            <p class="insight-box"><b>Low relevance</b>The best chunk scored 0.31, below the 0.5 you set for this store. The rules use no model, and they name spans and numbers, never your prompts.</p>
+            <p>Prompts, answers and chunks stay in the local UI. Exports and coding agents get the metadata only, and a replay or load run that would call a model again is refused until you allow it.</p>
+          </article>
         </div>
         <div class="step-arrows">
           <button type="button" data-step="prev" aria-label="Previous step"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="M15 5l-7 7 7 7"/></svg></button>
@@ -247,6 +265,7 @@
         <a href="/how-it-works/">How it works</a>
         <a href="/install/">Install</a>
         <a href="/faq/">FAQ</a>
+        <a href="/blog/">Blog</a>
         <a href="https://www.linkedin.com/in/sudharmabg/" rel="noopener">LinkedIn</a>
       </nav>
     </div>
