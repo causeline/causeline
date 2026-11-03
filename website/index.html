@@ -56,8 +56,8 @@
 <meta name="twitter:image" content="https://causeline.dev/og.png">
 
 <link rel="preload" href="/fonts/hanken-grotesk.woff2" as="font" type="font/woff2" crossorigin>
-<link rel="stylesheet" href="/styles.css?v=20261103b">
-<script src="/main.js?v=20261103b"></script>
+<link rel="stylesheet" href="/styles.css?v=20261103c">
+<script src="/main.js?v=20261103c"></script>
 
 <script type="application/ld+json">
 {
@@ -271,6 +271,10 @@
         <div class="hero-agent rise" style="--i:2">
           <p>Connect Claude Code, Cursor or Copilot:</p>
           <button class="chip-copy chip-copy-sm" type="button" data-copy="claude mcp add --transport http causeline http://localhost:8080/causeline/mcp --header &quot;X-Causeline-Token: &lt;token&gt;&quot;" aria-label="Copy the command that connects Claude Code to Causeline over MCP"><code>claude mcp add causeline …</code><span class="state">Copy</span></button>
+        </div>
+        <div class="hero-agent rise" style="--i:3">
+          <p>Python service with LangChain:</p>
+          <button class="chip-copy chip-copy-sm" type="button" data-copy="pip install &quot;causeline[langchain]&quot;" aria-label="Copy the pip install command for the Python library"><code>pip install "causeline[langchain]"</code><span class="state">Copy</span></button>
         </div>
       </div>
 
